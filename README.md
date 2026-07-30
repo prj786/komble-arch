@@ -6,9 +6,10 @@ A compact app store for **Arch Linux** — your repositories, the **AUR**, and
 Built with **Tauri v2** (Rust) + **Svelte 5 + Tailwind 4**, so it ships as a
 small native binary rather than a browser in a trenchcoat.
 
-> Sibling project to [komble](https://github.com/prj786/komble) (Ubuntu/Debian).
-> The AppImage half is shared; everything that touches packaging is rewritten,
-> because Arch is not Debian-with-different-command-names — see below.
+> This is the Arch build. It shares its AppImage half with an earlier
+> Debian-targeted version, but everything that touches packaging is rewritten —
+> Arch is not Debian with different command names, and the differences are
+> structural rather than cosmetic. See below.
 
 ## Status
 
