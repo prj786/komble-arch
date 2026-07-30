@@ -29,7 +29,7 @@ optdepends=(
 makedepends=('rust' 'cargo' 'nodejs' 'npm')
 
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('8bbf8d551060cab8958e611fa0effd87865f851be15213fd52e7d0df15800ac1')
 
 build() {
   cd "$srcdir/$pkgname-$pkgver"
