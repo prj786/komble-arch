@@ -1,0 +1,73 @@
+#!/bin/bash
+# komble-helper — the ONLY privileged surface of Komble.
+#
+# polkit authorises this PATH (see the .policy file), not individual verbs, so
+# the case statement below is the entire definition of what Komble may do as
+# root. Keep it small, keep every branch `exec`, and keep `--` before user data
+# so a package named "-Qi" can never become a flag.
+#
+# Deliberately ABSENT: any verb that runs `pacman -Sy`. Syncing the database
+# without upgrading leaves the system in a partial-upgrade state, which is the
+# most common way to break an Arch install. Komble reads its update list from
+# checkupdates, which uses a private database copy instead.
+#
+# Also absent: an "upgrade these specific packages" verb. On a rolling release
+# that IS a partial upgrade. The only upgrade offered is a full -Syu.
+
+set -euo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+die() { echo "komble-helper: $*" >&2; exit 1; }
+
+[ "$(id -u)" -eq 0 ] || die "must run as root"
+[ $# -ge 1 ] || die "no action given"
+
+action="$1"; shift
+
+# Arch package names: alphanumerics plus @ . _ + -, may contain uppercase, and
+# may not begin with a hyphen or a dot. (Debian's lowercase-only rule would
+# reject valid Arch packages.)
+valid_pkg() { [[ "$1" =~ ^[a-zA-Z0-9@_+][a-zA-Z0-9@._+-]*$ ]]; }
+
+# Built or downloaded package files only. Rejects any path containing "..",
+# requires an absolute path, and requires the file to exist.
+valid_pkg_file() {
+    case "$1" in
+        /*) ;;                       *) return 1 ;;
+    esac
+    case "$1" in
+        *..*) return 1 ;;
+    esac
+    case "$1" in
+        *.pkg.tar.zst|*.pkg.tar.xz|*.pkg.tar.gz|*.pkg.tar) ;;
+        *) return 1 ;;
+    esac
+    [ -f "$1" ]
+}
+
+case "$action" in
+    install-repo)
+        [ $# -ge 1 ] || die "install-repo needs at least one package"
+        for p in "$@"; do valid_pkg "$p" || die "invalid package name: $p"; done
+        exec pacman -S --noconfirm --needed -- "$@"
+        ;;
+    install-file)
+        [ $# -ge 1 ] || die "install-file needs at least one package file"
+        for p in "$@"; do valid_pkg_file "$p" || die "invalid package file: $p"; done
+        exec pacman -U --noconfirm -- "$@"
+        ;;
+    remove)
+        [ $# -ge 1 ] || die "remove needs at least one package"
+        for p in "$@"; do valid_pkg "$p" || die "invalid package name: $p"; done
+        # -Rs also removes dependencies nothing else needs, which is what a user
+        # removing an application means. It never removes something still in use.
+        exec pacman -Rs --noconfirm -- "$@"
+        ;;
+    sysupgrade)
+        [ $# -eq 0 ] || die "sysupgrade takes no arguments"
+        exec pacman -Syu --noconfirm
+        ;;
+    *)
+        die "unknown action: $action"
+        ;;
+esac

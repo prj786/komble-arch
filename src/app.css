@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+/* Tailwind 4 keeps theme tokens in CSS rather than tailwind.config.js. */
+@theme {
+  --color-accent: var(--accent);
+  --font-sans: Cantarell, Inter, Ubuntu, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* v4 opts into class-based dark mode explicitly. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --accent: #3584e4;
+  color-scheme: light;
+}
+.dark {
+  --accent: #62a0ea;
+  color-scheme: dark;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  @apply bg-zinc-100 text-zinc-900 antialiased dark:bg-zinc-900 dark:text-zinc-100;
+  font-family: var(--font-sans);
+  overscroll-behavior: none;
+  user-select: none;
+}
+input,
+textarea {
+  user-select: text;
+}
+
+@utility btn {
+  @apply inline-flex select-none items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn text-white;
+  background: var(--accent);
+  &:hover {
+    filter: brightness(1.08);
+  }
+}
+@utility btn-ghost {
+  @apply btn bg-zinc-200/70 hover:bg-zinc-300/70 dark:bg-zinc-700/60 dark:hover:bg-zinc-600/60;
+}
+@utility btn-danger {
+  @apply btn bg-red-600/90 text-white hover:bg-red-600;
+}
+@utility input {
+  @apply w-full rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none dark:border-zinc-600 dark:bg-zinc-800;
+  &:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+}
+@utility card {
+  @apply rounded-xl border border-zinc-200 bg-white dark:border-zinc-700/60 dark:bg-zinc-800/60;
+}
+@utility section-title {
+  @apply mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-zinc-500 first:mt-0 dark:text-zinc-400;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-zinc-400/50 dark:bg-zinc-600/60;
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

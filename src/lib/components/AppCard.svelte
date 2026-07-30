@@ -1,0 +1,132 @@
+<script>
+  import {
+    installedIds,
+    progress,
+    selectedApp,
+    settings,
+    trackedPkgs,
+    toast
+  } from "../stores";
+  import { installFromItem, installPackage } from "../api";
+  import { refreshPkgs } from "../actions";
+
+  export let item;
+  let iconError = false;
+  let pkgBusy = false;
+
+  $: isPkg = item.kind === "pkg";
+  $: prog = !isPkg && $progress[item.id];
+  $: isInstalled = isPkg
+    ? item.installed || $trackedPkgs.some((d) => d.package === item.pkg)
+    : $installedIds.has(item.id);
+  $: pct = prog && prog.total > 0 ? Math.min(100, Math.round((prog.downloaded / prog.total) * 100)) : null;
+
+  async function install(e) {
+    e.stopPropagation();
+    if (prog || isInstalled || pkgBusy) return;
+    if (isPkg) {
+      pkgBusy = true;
+      try {
+        toast(`Installing ${item.pkg} — authentication may be required…`, "info");
+        await installPackage(item.pkg);
+        toast(`${item.pkg} installed`, "success");
+        item.installed = true;
+        refreshPkgs();
+      } catch (err) {
+        toast(err, "error");
+      }
+      pkgBusy = false;
+      return;
+    }
+    try {
+      await installFromItem(item, $settings);
+      toast(`${item.name} installed`, "success");
+    } catch (err) {
+      toast(err, "error");
+    }
+  }
+</script>
+
+<div
+  role="button"
+  tabindex="0"
+  class="card relative flex h-full w-full cursor-pointer flex-col overflow-hidden p-4 text-left transition-shadow hover:shadow-md dark:hover:border-zinc-600"
+  on:click={() => selectedApp.set(item)}
+  on:keydown={(e) => e.key === "Enter" && selectedApp.set(item)}
+>
+  <div class="flex items-start gap-3">
+    {#if isPkg}
+      <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-zinc-200 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-300">
+        <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 7l-8-4-8 4v10l8 4 8-4V7zM4 7l8 4m0 0l8-4m-8 4v10" />
+        </svg>
+      </div>
+    {:else if item.icon && !iconError}
+      <img
+        src={item.icon}
+        alt=""
+        loading="lazy"
+        class="h-11 w-11 shrink-0 rounded-lg object-contain"
+        on:error={() => (iconError = true)}
+      />
+    {:else}
+      <div
+        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-lg font-bold text-white"
+        style="background: var(--accent)"
+      >
+        {item.name.slice(0, 1).toUpperCase()}
+      </div>
+    {/if}
+    <div class="min-w-0">
+      <div class="truncate font-semibold">{item.name}</div>
+      {#if isPkg}
+        <div class="truncate text-xs text-zinc-400 dark:text-zinc-500">
+          {item.section || "Debian package"}{item.version ? ` · ${item.version}` : ""}
+        </div>
+      {:else if item.authors?.[0]?.name}
+        <div class="truncate text-xs text-zinc-400 dark:text-zinc-500">
+          {item.authors[0].name}
+        </div>
+      {/if}
+    </div>
+  </div>
+
+  <p class="mt-2 line-clamp-2 flex-1 text-[13px] leading-snug text-zinc-500 dark:text-zinc-400">
+    {item.plainDesc || "No description."}
+  </p>
+
+  <div class="mt-2 flex items-center gap-1.5">
+    {#if isPkg}
+      <span class="rounded-full bg-orange-500/15 px-2 py-0.5 text-[11px] font-medium text-orange-600 dark:text-orange-400">
+        apt
+      </span>
+    {:else}
+      {#each (item.categories || []).slice(0, 2) as cat}
+        <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-500 dark:bg-zinc-700/70 dark:text-zinc-300">
+          {cat}
+        </span>
+      {/each}
+    {/if}
+    <span class="flex-1"></span>
+    {#if isInstalled}
+      <span class="text-xs font-medium text-green-600 dark:text-green-400">✓ Installed</span>
+    {:else if pkgBusy}
+      <span class="text-xs text-zinc-400">Installing…</span>
+    {:else if prog}
+      <span class="text-xs tabular-nums text-zinc-400">
+        {prog.phase === "integrating" ? "Integrating…" : pct !== null ? `${pct}%` : "…"}
+      </span>
+    {:else}
+      <button class="btn-primary !py-1 text-xs" on:click={install}>Install</button>
+    {/if}
+  </div>
+
+  {#if prog}
+    <div class="absolute inset-x-0 bottom-0 h-0.5 bg-zinc-200 dark:bg-zinc-700">
+      <div
+        class="h-full transition-all {pct === null ? 'w-full animate-pulse' : ''}"
+        style="background: var(--accent); {pct !== null ? `width:${pct}%` : ''}"
+      ></div>
+    </div>
+  {/if}
+</div>

@@ -1,0 +1,52 @@
+[package]
+name = "komble-arch"
+version = "0.1.0"
+description = "A modern app store for Arch Linux — pacman, the AUR and AppImages"
+authors = ["scubba"]
+license = "MIT"
+edition = "2021"
+
+[lib]
+name = "komble_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-http = "2"
+tauri-plugin-store = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-os = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-updater = { version = "2", optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "gzip", "stream"] }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+thiserror = "2"
+
+[features]
+default = []
+# Enable self-updates: add `plugins.updater` (endpoint + pubkey) to tauri.conf.json,
+# generate keys with `npm run tauri signer generate`, then build with
+# `cargo build --features self-update` (see README).
+self-update = ["dep:tauri-plugin-updater"]
+
+# Note: we deliberately shell out to pacman rather than linking libalpm. alpm's
+# C API is versioned with pacman itself, so a binding would need rebuilding on
+# every pacman release — on a rolling distro that is a standing breakage.
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
+panic = "abort"

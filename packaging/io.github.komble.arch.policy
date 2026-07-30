@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd">
+<policyconfig>
+  <vendor>Komble</vendor>
+  <vendor_url>https://github.com/prj786/komble-arch</vendor_url>
+
+  <action id="io.github.komble.arch.helper">
+    <description>Install or remove system packages</description>
+    <message>Authentication is required to change installed packages</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <!-- auth_admin_keep is why the helper gives one prompt per session rather
+           than one per package. Without the helper installed, Komble falls back
+           to `pkexec pacman ...` directly and gets no such caching. -->
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <!-- This annotation is the whole security model: polkit authorises the
+         PATH, so komble-helper's own case statement is the sole authority on
+         what is permitted. -->
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/komble/komble-helper</annotate>
+  </action>
+</policyconfig>
