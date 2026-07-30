@@ -285,8 +285,15 @@ pub async fn install_inner(app: &AppHandle, req: InstallRequest) -> Result<Value
     fs::rename(&tmp, &dest).map_err(estr)?;
 
     emit_progress(app, &id, "integrating", 0, 0);
-    let (desktop_path, icon_file) =
-        integrate(app, &id, &req.name, &version, &dest, req.icon_url.as_deref()).await?;
+    let (desktop_path, icon_file) = integrate(
+        app,
+        &id,
+        &req.name,
+        &version,
+        &dest,
+        req.icon_url.as_deref(),
+    )
+    .await?;
 
     let entry = json!({
         "id": id,
@@ -333,7 +340,9 @@ fn validate_appimage_path(path: &str) -> Result<PathBuf, String> {
     if !p.is_absolute() {
         return Err("Path must be absolute.".into());
     }
-    let p = p.canonicalize().map_err(|_| "File not found.".to_string())?;
+    let p = p
+        .canonicalize()
+        .map_err(|_| "File not found.".to_string())?;
     let ok = p
         .extension()
         .and_then(|e| e.to_str())
@@ -351,8 +360,8 @@ fn validate_appimage_path(path: &str) -> Result<PathBuf, String> {
 /// Guess "Name" and "1.2.3" from stems like `MyApp-1.2.3-x86_64`.
 fn parse_appimage_name(stem: &str) -> (String, String) {
     const NOISE: &[&str] = &[
-        "x86", "64", "x86_64", "x64", "amd64", "aarch64", "arm64", "armhf",
-        "i386", "i686", "linux", "appimage", "portable", "release", "stable",
+        "x86", "64", "x86_64", "x64", "amd64", "aarch64", "arm64", "armhf", "i386", "i686",
+        "linux", "appimage", "portable", "release", "stable",
     ];
     let mut name_parts: Vec<&str> = Vec::new();
     let mut version = String::new();
@@ -360,7 +369,11 @@ fn parse_appimage_name(stem: &str) -> (String, String) {
         let tl = t.to_lowercase();
         let bare = t.trim_start_matches(['v', 'V']);
         let is_ver = !bare.is_empty()
-            && bare.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false)
+            && bare
+                .chars()
+                .next()
+                .map(|c| c.is_ascii_digit())
+                .unwrap_or(false)
             && bare.chars().all(|c| c.is_ascii_digit() || c == '.');
         if version.is_empty() && is_ver && !name_parts.is_empty() {
             version = bare.to_string();
@@ -378,7 +391,14 @@ fn parse_appimage_name(stem: &str) -> (String, String) {
     } else {
         name_parts.join(" ")
     };
-    (name, if version.is_empty() { "local".into() } else { version })
+    (
+        name,
+        if version.is_empty() {
+            "local".into()
+        } else {
+            version
+        },
+    )
 }
 
 #[tauri::command]
@@ -451,9 +471,21 @@ pub async fn check_updates_inner(
     let mut updates = Vec::new();
     let mut errors = Vec::new();
     for entry in registry::appimages(app)? {
-        let name = entry.get("name").and_then(|v| v.as_str()).unwrap_or("?").to_string();
-        let id = entry.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let current = entry.get("version").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let name = entry
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("?")
+            .to_string();
+        let id = entry
+            .get("id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let current = entry
+            .get("version")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         let Some(repo) = entry.get("repo").and_then(|v| v.as_str()) else {
             continue;
         };
@@ -500,21 +532,25 @@ pub async fn update_appimage(
     let rel = catalog::resolve_release(app.clone(), repo.clone(), token).await?;
     let req = InstallRequest {
         id: id.clone(),
-        name: entry.get("name").and_then(|v| v.as_str()).unwrap_or(&id).to_string(),
+        name: entry
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&id)
+            .to_string(),
         url: rel.assets[0].url.clone(),
         version: Some(rel.version),
         repo: Some(repo),
-        icon_url: entry.get("iconUrl").and_then(|v| v.as_str()).map(String::from),
+        icon_url: entry
+            .get("iconUrl")
+            .and_then(|v| v.as_str())
+            .map(String::from),
         dir: old_path
             .as_deref()
             .and_then(|p| Path::new(p).parent())
             .map(|p| p.to_string_lossy().into_owned()),
     };
     let new_entry = install_inner(&app, req).await?;
-    if let (Some(old), Some(new)) = (
-        old_path,
-        new_entry.get("path").and_then(|v| v.as_str()),
-    ) {
+    if let (Some(old), Some(new)) = (old_path, new_entry.get("path").and_then(|v| v.as_str())) {
         if old != new {
             let _ = fs::remove_file(old);
         }

@@ -35,7 +35,9 @@ fn has_fuse2() -> bool {
 }
 
 fn appindicator_extension_present(app: &AppHandle) -> bool {
-    let mut dirs = vec![std::path::PathBuf::from("/usr/share/gnome-shell/extensions")];
+    let mut dirs = vec![std::path::PathBuf::from(
+        "/usr/share/gnome-shell/extensions",
+    )];
     if let Ok(home) = app.path().home_dir() {
         dirs.push(home.join(".local/share/gnome-shell/extensions"));
     }

@@ -176,7 +176,10 @@ fn map_items(raw: RawFeed) -> Vec<CatalogItem> {
                 .unwrap_or_default()
                 .into_iter()
                 .flatten()
-                .map(|a| Author { name: a.name, url: a.url })
+                .map(|a| Author {
+                    name: a.name,
+                    url: a.url,
+                })
                 .collect(),
             license: item.license.and_then(|l| match l {
                 serde_json::Value::String(s) if !s.is_empty() => Some(s),
@@ -209,7 +212,10 @@ fn map_items(raw: RawFeed) -> Vec<CatalogItem> {
 }
 
 #[tauri::command]
-pub async fn fetch_catalog(app: AppHandle, force: Option<bool>) -> Result<Vec<CatalogItem>, String> {
+pub async fn fetch_catalog(
+    app: AppHandle,
+    force: Option<bool>,
+) -> Result<Vec<CatalogItem>, String> {
     let cache = cache_dir(&app)?.join("feed.json");
     if !force.unwrap_or(false) && fresh(&cache, FEED_TTL) {
         if let Ok(text) = fs::read_to_string(&cache) {
@@ -298,7 +304,11 @@ fn to_release_info(rel: GhRelease) -> Result<ReleaseInfo, String> {
         return Err("The latest release has no .AppImage asset.".into());
     }
     assets.sort_by_key(|a| arch_score(&a.name));
-    let version = rel.tag_name.trim_start_matches('v').trim_start_matches('V').to_string();
+    let version = rel
+        .tag_name
+        .trim_start_matches('v')
+        .trim_start_matches('V')
+        .to_string();
     Ok(ReleaseInfo {
         tag: rel.tag_name,
         version,
@@ -337,12 +347,10 @@ pub async fn resolve_release(
     let resp = gh_get(&format!("{base}/latest"), &token).await?;
     let info = match resp.status().as_u16() {
         200 => to_release_info(resp.json::<GhRelease>().await.map_err(estr)?)?,
-        403 | 429 => {
-            return Err(
-                "GitHub API rate limit reached. Add a personal access token in Settings to raise it."
-                    .into(),
-            )
-        }
+        403 | 429 => return Err(
+            "GitHub API rate limit reached. Add a personal access token in Settings to raise it."
+                .into(),
+        ),
         404 => {
             // No "latest" release (or only prereleases): scan the list.
             let resp = gh_get(&format!("{base}?per_page=20"), &token).await?;

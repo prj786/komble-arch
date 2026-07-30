@@ -160,7 +160,14 @@ async fn run_privileged(direct: Vec<&str>, helper: Vec<&str>) -> Result<String, 
         Some(126) => "Authentication dialog was dismissed.".into(),
         Some(127) => "Not authorized (polkit refused).".into(),
         _ => {
-            let tail: String = log.chars().rev().take(2000).collect::<String>().chars().rev().collect();
+            let tail: String = log
+                .chars()
+                .rev()
+                .take(2000)
+                .collect::<String>()
+                .chars()
+                .rev()
+                .collect();
             format!("Command failed.\n{tail}")
         }
     })
@@ -196,7 +203,11 @@ async fn installed_set() -> HashSet<String> {
         }
     }
     let text = run_out("pacman", &["-Qq"]).await.unwrap_or_default();
-    let set: HashSet<String> = text.lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect();
+    let set: HashSet<String> = text
+        .lines()
+        .map(|l| l.trim().to_string())
+        .filter(|l| !l.is_empty())
+        .collect();
     if let Ok(mut g) = INSTALLED_CACHE.lock() {
         *g = Some((Instant::now(), set.clone()));
     }
@@ -230,7 +241,9 @@ pub fn invalidate_index() {
 /// but still gives a browsable list.
 async fn build_index() -> Vec<Entry> {
     if which("expac") {
-        let text = run_out("expac", &["-S", "%r\\t%n\\t%v\\t%d"]).await.unwrap_or_default();
+        let text = run_out("expac", &["-S", "%r\\t%n\\t%v\\t%d"])
+            .await
+            .unwrap_or_default();
         let mut out = Vec::with_capacity(16_000);
         let mut seen = HashSet::new();
         for line in text.lines() {
@@ -361,9 +374,13 @@ pub async fn package_info(package: String) -> Result<Value, String> {
         return Err("invalid package name".into());
     }
     // -Si is the repo copy; fall back to -Qi so AUR/foreign packages still show
-    let mut text = run_out("pacman", &["-Si", &package]).await.unwrap_or_default();
+    let mut text = run_out("pacman", &["-Si", &package])
+        .await
+        .unwrap_or_default();
     if text.trim().is_empty() {
-        text = run_out("pacman", &["-Qi", &package]).await.unwrap_or_default();
+        text = run_out("pacman", &["-Qi", &package])
+            .await
+            .unwrap_or_default();
     }
     if text.trim().is_empty() {
         return Err(format!("{package}: not found"));
@@ -605,11 +622,7 @@ fn urlencoding(s: &str) -> String {
 /// button that quietly breaks the system.
 #[tauri::command]
 pub async fn system_upgrade() -> Result<String, String> {
-    let log = run_privileged(
-        vec!["pacman", "-Syu", "--noconfirm"],
-        vec!["sysupgrade"],
-    )
-    .await?;
+    let log = run_privileged(vec!["pacman", "-Syu", "--noconfirm"], vec!["sysupgrade"]).await?;
     invalidate_index();
     Ok(log)
 }
@@ -709,7 +722,10 @@ pub async fn aur_install(app: AppHandle, package: String) -> Result<String, Stri
     let _ = std::fs::remove_dir_all(&base);
     std::fs::create_dir_all(&base).map_err(estr)?;
 
-    let _ = app.emit("install-progress", json!({ "id": package, "stage": "clone" }));
+    let _ = app.emit(
+        "install-progress",
+        json!({ "id": package, "stage": "clone" }),
+    );
     let clone = Command::new("git")
         .args(["clone", "--depth", "1"])
         .arg(format!("https://aur.archlinux.org/{package}.git"))
@@ -724,7 +740,10 @@ pub async fn aur_install(app: AppHandle, package: String) -> Result<String, Stri
         ));
     }
 
-    let _ = app.emit("install-progress", json!({ "id": package, "stage": "build" }));
+    let _ = app.emit(
+        "install-progress",
+        json!({ "id": package, "stage": "build" }),
+    );
     let build = Command::new("makepkg")
         .args(["--noconfirm", "--syncdeps", "--clean"])
         .current_dir(&base)
@@ -734,7 +753,14 @@ pub async fn aur_install(app: AppHandle, package: String) -> Result<String, Stri
         .map_err(estr)?;
     if !build.status.success() {
         let err = String::from_utf8_lossy(&build.stderr);
-        let tail: String = err.chars().rev().take(2000).collect::<String>().chars().rev().collect();
+        let tail: String = err
+            .chars()
+            .rev()
+            .take(2000)
+            .collect::<String>()
+            .chars()
+            .rev()
+            .collect();
         return Err(format!("makepkg failed:\n{tail}"));
     }
 
@@ -751,6 +777,9 @@ pub async fn aur_install(app: AppHandle, package: String) -> Result<String, Stri
         })
         .ok_or_else(|| "makepkg produced no package file".to_string())?;
 
-    let _ = app.emit("install-progress", json!({ "id": package, "stage": "install" }));
+    let _ = app.emit(
+        "install-progress",
+        json!({ "id": package, "stage": "install" }),
+    );
     install_package_file(app.clone(), built.to_string_lossy().to_string()).await
 }

@@ -1,0 +1,53 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Tauri needs the webkit/gtk stack to even type-check, because the tauri
+      # crate links against it. This is the Linux build dependency set, not a
+      # runtime one — the app itself targets Arch.
+      - name: System dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev libxdo-dev libssl-dev build-essential file
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Rust
+        working-directory: src-tauri
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets -- -D warnings
+
+      # The PKGBUILD and the privileged helper are shell; a syntax error in
+      # either only shows up at install time on a user's machine otherwise.
+      - name: Shell syntax
+        run: |
+          bash -n PKGBUILD
+          bash -n packaging/komble-helper
