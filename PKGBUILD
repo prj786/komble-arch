@@ -6,7 +6,7 @@
 
 pkgname=komble-arch
 pkgver=0.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc="App store for Arch — pacman, the AUR and AppImages"
 arch=('x86_64' 'aarch64')
 url="https://github.com/prj786/komble-arch"
@@ -27,6 +27,17 @@ optdepends=(
   'fuse2: needed to LAUNCH AppImages (integration works without it)'
 )
 makedepends=('rust' 'cargo' 'nodejs' 'npm')
+
+# Arch turns LTO on by default in makepkg.conf, which injects -flto into CFLAGS
+# and LDFLAGS. The `ring` crate (via reqwest/rustls) builds hand-written x86-64
+# assembly, and that does not survive -flto: its objects become bitcode and the
+# link then fails with a wall of
+#   ld.lld: error: undefined symbol: ring_core_0_17_14__p256_mul_mont
+# which reads like a missing dependency rather than a flags problem.
+#
+# Rust-level LTO is still on via [profile.release] in Cargo.toml, so this only
+# disables makepkg's *C* LTO — no loss in the resulting binary.
+options=(!lto)
 
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('8bbf8d551060cab8958e611fa0effd87865f851be15213fd52e7d0df15800ac1')
