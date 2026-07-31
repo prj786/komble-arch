@@ -19,7 +19,8 @@
         "minWidth": 820,
         "minHeight": 560,
         "center": true,
-        "dragDropEnabled": true
+        "dragDropEnabled": true,
+        "decorations": false
       }
     ],
     "security": {
@@ -28,7 +29,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["appimage"],
+    "targets": [
+      "appimage"
+    ],
     "category": "Utility",
     "shortDescription": "App store for pacman, the AUR and AppImages",
     "longDescription": "Komble is a compact desktop app store for Arch Linux. Browse and install packages from your enabled repositories, build AUR packages after reviewing their PKGBUILD, install AppImages from the community AppImageHub catalog, and keep everything updated from one Updates view.",

@@ -6,7 +6,7 @@
 
 pkgname=komble-arch
 pkgver=0.1.0
-pkgrel=2
+pkgrel=3
 pkgdesc="App store for Arch — pacman, the AUR and AppImages"
 arch=('x86_64' 'aarch64')
 url="https://github.com/prj786/komble-arch"
@@ -45,9 +45,17 @@ sha256sums=('8bbf8d551060cab8958e611fa0effd87865f851be15213fd52e7d0df15800ac1')
 build() {
   cd "$srcdir/$pkgname-$pkgver"
   npm ci
-  npm run build
-  cd src-tauri
-  cargo build --release --locked
+  # Build through the Tauri CLI, NOT bare `cargo build`.
+  #
+  # tauri-build decides at compile time whether this is a dev or a production
+  # build. A plain `cargo build --release` leaves it in dev mode, so
+  # generate_context!() bakes in devUrl (http://localhost:5173) instead of the
+  # bundled frontend — the app then starts and shows
+  # "Could not connect to localhost: Connection refused" because it is waiting
+  # for a vite dev server that does not exist on a user's machine.
+  #
+  # --no-bundle: the PKGBUILD does the packaging, so skip AppImage/deb output.
+  npm run tauri build -- --no-bundle
 }
 
 package() {
