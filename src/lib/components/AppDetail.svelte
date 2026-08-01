@@ -4,8 +4,10 @@
     selectedApp,
     installedIds,
     progress,
+    route,
     settings,
     trackedPkgs,
+    aurReview,
     toast
   } from "../stores";
   import { refreshInstalled, refreshPkgs } from "../actions";
@@ -23,6 +25,7 @@
 
   $: item = $selectedApp;
   $: isPkg = item?.kind === "pkg";
+  $: isAur = isPkg && item.section === "aur";
   $: prog = item && !isPkg && $progress[item.id];
   $: isInstalled = item
     ? isPkg
@@ -42,7 +45,11 @@
     loading = true;
     try {
       if (it.kind === "pkg") {
-        pkgInfo = await api.packageInfo(it.pkg);
+        // pacman only knows an AUR package once it is installed (-Qi); before
+        // that, the search result itself is all the detail there is.
+        if (it.section !== "aur" || it.installed) {
+          pkgInfo = await api.packageInfo(it.pkg);
+        }
       } else if (it.github) {
         release = await api.resolveRelease(it.github, $settings.githubToken);
       }
@@ -59,6 +66,13 @@
 
   async function install() {
     if (prog || isInstalled || pkgBusy) return;
+    // AUR: hand over to the review gate — never a one-click build.
+    if (isAur) {
+      aurReview.set(item.pkg);
+      route.set("aur");
+      close();
+      return;
+    }
     if (isPkg) {
       pkgBusy = true;
       try {
@@ -113,14 +127,14 @@
 
 {#if item}
   <div
-    class="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm"
+    class="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm sm:p-6"
     role="button"
     tabindex="-1"
     on:click|self={close}
     on:keydown={() => {}}
   >
     <div class="card flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden !bg-white shadow-2xl dark:!bg-zinc-900">
-      <div class="flex items-start gap-4 border-b border-zinc-200 p-5 dark:border-zinc-700/60">
+      <div class="flex items-start gap-3 border-b border-zinc-200 p-4 sm:gap-4 sm:p-5 dark:border-zinc-700/60">
         {#if isPkg}
           <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-zinc-200 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-300">
             <svg viewBox="0 0 24 24" class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -138,14 +152,16 @@
           <h2 class="truncate text-lg font-bold">{item.name}</h2>
           <div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-zinc-400 dark:text-zinc-500">
             {#if isPkg}
-              <span class="font-medium text-orange-600 dark:text-orange-400">repository package</span>
-              {#if pkgInfo?.section}<span>{pkgInfo.section}</span>{/if}
+              <span class="font-medium text-orange-600 dark:text-orange-400">{isAur ? "AUR package" : "repository package"}</span>
+              {#if pkgInfo?.section && !isAur}<span>{pkgInfo.section}</span>{/if}
               {#if loading}
                 <span>loading details…</span>
               {:else if pkgInfo}
                 <span class="font-medium text-zinc-500 dark:text-zinc-400">
                   {pkgInfo.version}{#if pkgInfo.installedSizeKb}&nbsp;· {formatBytes(pkgInfo.installedSizeKb * 1024)} installed{/if}
                 </span>
+              {:else if item.version}
+                <span class="font-medium text-zinc-500 dark:text-zinc-400">{item.version}</span>
               {/if}
             {:else}
               {#if item.authors?.[0]?.name}<span>by {item.authors[0].name}</span>{/if}
@@ -159,7 +175,7 @@
               {/if}
             {/if}
           </div>
-          <div class="mt-2.5 flex items-center gap-2">
+          <div class="mt-2.5 flex flex-wrap items-center gap-2">
             {#if isInstalled}
               <span class="text-sm font-medium text-green-600 dark:text-green-400">✓ Installed</span>
               <button class="btn-danger !py-1 text-xs" disabled={pkgBusy} on:click={remove}>
@@ -172,7 +188,7 @@
                 {prog.phase === "integrating" ? "Integrating…" : pct !== null ? `Downloading ${pct}%` : "Downloading…"}
               </span>
             {:else}
-              <button class="btn-primary" on:click={install}>Install</button>
+              <button class="btn-primary" on:click={install}>{isAur ? "Review PKGBUILD…" : "Install"}</button>
             {/if}
             {#if isPkg && pkgInfo?.homepage}
               <button class="btn-ghost !py-1.5 text-xs" on:click={() => openUrl(pkgInfo.homepage)}>Homepage ↗</button>

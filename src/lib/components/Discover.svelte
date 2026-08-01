@@ -8,7 +8,7 @@
 
   let query = "";
   let category = "";
-  let source = "all"; // all | appimage | deb
+  let source = "all"; // all | appimage | pkg | aur
   let pkgRepo = "";
   let sections = []; // [name, count]
   let sectionsLoaded = false;
@@ -26,13 +26,14 @@
   ];
 
   $: cats = [...new Set($catalog.flatMap((i) => i.categories || []))].sort();
-  $: aiResults = source === "pkg" ? [] : searchCatalog($catalog, query, category);
+  $: aiResults =
+    source === "pkg" || source === "aur" ? [] : searchCatalog($catalog, query, category);
   $: if (source === "pkg" && !sectionsLoaded) loadSections();
-  $: scheduleDebQuery(query, source, category, pkgRepo);
+  $: schedulePkgQuery(query, source, category, pkgRepo);
   $: merged =
     source === "appimage" || (source === "all" && category)
       ? aiResults
-      : source === "pkg"
+      : source === "pkg" || source === "aur"
         ? pkgResults
         : [...aiResults, ...pkgResults];
 
@@ -61,9 +62,35 @@
     };
   }
 
-  function scheduleDebQuery(q, src, cat, sec) {
+  function schedulePkgQuery(q, src, cat, sec) {
     clearTimeout(timer);
     const trimmed = q.trim();
+
+    // AUR search goes to the AUR RPC — network, so it needs a real query.
+    if (src === "aur") {
+      if (trimmed.length < 2) {
+        pkgResults = [];
+        pkgTotal = 0;
+        pkgSearching = false;
+        return;
+      }
+      pkgSearching = true;
+      timer = setTimeout(async () => {
+        try {
+          const res = await api.aurSearch(trimmed);
+          if (trimmed === query.trim()) {
+            pkgTotal = res.length;
+            pkgResults = res.map(toItem);
+          }
+        } catch {
+          pkgResults = [];
+          pkgTotal = 0;
+        }
+        pkgSearching = false;
+      }, 300);
+      return;
+    }
+
     const browsing = src === "pkg";
     if (src === "appimage" || (!browsing && (cat || trimmed.length < 2))) {
       pkgResults = [];
@@ -96,9 +123,9 @@
   }
 </script>
 
-<div class="flex h-full flex-col px-6 pt-6">
-  <div class="mb-4 flex items-center justify-between">
-    <div>
+<div class="flex h-full flex-col px-4 pt-5 sm:px-6 sm:pt-6">
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+    <div class="min-w-0">
       <h1 class="text-xl font-bold tracking-tight">Discover</h1>
       <p class="text-sm text-zinc-400 dark:text-zinc-500">
         {#if source === "pkg"}
@@ -111,12 +138,20 @@
               ? ` · showing first ${pkgResults.length.toLocaleString()}`
               : ""}
           {/if}
+        {:else if source === "aur"}
+          {#if pkgSearching}
+            Searching the AUR…
+          {:else if query.trim().length >= 2}
+            {pkgTotal.toLocaleString()} AUR package{pkgTotal === 1 ? "" : "s"}
+          {:else}
+            User-submitted packages, built from source after review
+          {/if}
         {:else if $catalogLoading}
           Loading catalog…
         {:else if query.trim()}
-          {merged.length.toLocaleString()} result{merged.length === 1 ? "" : "s"}{pkgSearching ? " · searching apt…" : ""}
+          {merged.length.toLocaleString()} result{merged.length === 1 ? "" : "s"}{pkgSearching ? " · searching the repos…" : ""}
         {:else}
-          {$catalog.length.toLocaleString()} AppImages from AppImageHub · plus your apt repositories
+          {$catalog.length.toLocaleString()} AppImages from AppImageHub · plus the Arch repositories and the AUR
         {/if}
       </p>
     </div>
@@ -133,24 +168,26 @@
     </button>
   </div>
 
-  <div class="mb-3 flex gap-2.5">
+  <div class="mb-3 flex flex-col gap-2.5 sm:flex-row">
     <input
       class="input flex-1"
       type="search"
       placeholder={source === "pkg"
-        ? "Search Debian packages…"
-        : "Search AppImages and Debian packages…"}
+        ? "Search the Arch repositories…"
+        : source === "aur"
+          ? "Search the AUR…"
+          : "Search AppImages and Arch packages…"}
       bind:value={query}
     />
     {#if source === "pkg"}
-      <select class="input w-56" bind:value={pkgRepo}>
-        <option value="">All sections</option>
+      <select class="input w-full sm:w-56" bind:value={pkgRepo}>
+        <option value="">All repositories</option>
         {#each sections as [s, n]}
           <option value={s}>{s} ({n})</option>
         {/each}
       </select>
-    {:else}
-      <select class="input w-56" bind:value={category}>
+    {:else if source !== "aur"}
+      <select class="input w-full sm:w-56" bind:value={category}>
         <option value="">All categories</option>
         {#each cats as c}
           <option value={c}>{c}</option>
@@ -159,7 +196,7 @@
     {/if}
   </div>
 
-  <div class="mb-4 flex gap-1.5">
+  <div class="mb-4 flex flex-wrap gap-1.5">
     {#each sources as [id, label]}
       <button
         class="rounded-full px-3 py-1 text-xs font-medium transition-colors
@@ -174,7 +211,7 @@
     {/each}
   </div>
 
-  {#if source !== "pkg" && $catalogLoading}
+  {#if source !== "pkg" && source !== "aur" && $catalogLoading}
     <div class="grid flex-1 grid-cols-[repeat(auto-fill,minmax(260px,1fr))] content-start gap-3.5 overflow-hidden">
       {#each Array(9) as _}
         <div class="card h-[168px] animate-pulse p-4">
@@ -192,7 +229,7 @@
         </div>
       {/each}
     </div>
-  {:else if source !== "pkg" && $catalogError}
+  {:else if source !== "pkg" && source !== "aur" && $catalogError}
     <div class="flex flex-1 flex-col items-center justify-center gap-3 pb-16 text-center">
       <div class="text-3xl">⚠️</div>
       <p class="max-w-md text-sm text-zinc-500">{$catalogError}</p>
@@ -203,8 +240,15 @@
       {#if pkgSearching}
         <div class="text-3xl">📦</div>
         <p class="text-sm text-zinc-500">
-          {indexReady ? "Searching…" : "Building the package index (first time only)…"}
+          {source === "aur"
+            ? "Searching the AUR…"
+            : indexReady
+              ? "Searching…"
+              : "Building the package index (first time only)…"}
         </p>
+      {:else if source === "aur" && query.trim().length < 2}
+        <div class="text-3xl">📦</div>
+        <p class="text-sm text-zinc-500">Type at least two characters to search the AUR.</p>
       {:else}
         <div class="text-3xl">🔍</div>
         <p class="text-sm text-zinc-500">Nothing matches “{query}”.</p>

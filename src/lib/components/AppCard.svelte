@@ -2,9 +2,11 @@
   import {
     installedIds,
     progress,
+    route,
     selectedApp,
     settings,
     trackedPkgs,
+    aurReview,
     toast
   } from "../stores";
   import { installFromItem, installPackage } from "../api";
@@ -15,6 +17,7 @@
   let pkgBusy = false;
 
   $: isPkg = item.kind === "pkg";
+  $: isAur = isPkg && item.section === "aur";
   $: prog = !isPkg && $progress[item.id];
   $: isInstalled = isPkg
     ? item.installed || $trackedPkgs.some((d) => d.package === item.pkg)
@@ -24,6 +27,13 @@
   async function install(e) {
     e.stopPropagation();
     if (prog || isInstalled || pkgBusy) return;
+    // AUR packages build from a user-reviewed PKGBUILD, never one-click —
+    // hand over to the AUR view with the review already open.
+    if (isAur) {
+      aurReview.set(item.pkg);
+      route.set("aur");
+      return;
+    }
     if (isPkg) {
       pkgBusy = true;
       try {
@@ -81,7 +91,7 @@
       <div class="truncate font-semibold">{item.name}</div>
       {#if isPkg}
         <div class="truncate text-xs text-zinc-400 dark:text-zinc-500">
-          {item.section || "Debian package"}{item.version ? ` · ${item.version}` : ""}
+          {item.section || "Arch package"}{item.version ? ` · ${item.version}` : ""}
         </div>
       {:else if item.authors?.[0]?.name}
         <div class="truncate text-xs text-zinc-400 dark:text-zinc-500">
@@ -96,9 +106,13 @@
   </p>
 
   <div class="mt-2 flex items-center gap-1.5">
-    {#if isPkg}
+    {#if isAur}
       <span class="rounded-full bg-orange-500/15 px-2 py-0.5 text-[11px] font-medium text-orange-600 dark:text-orange-400">
-        apt
+        AUR
+      </span>
+    {:else if isPkg}
+      <span class="rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] font-medium text-sky-600 dark:text-sky-400">
+        {item.section || "pacman"}
       </span>
     {:else}
       {#each (item.categories || []).slice(0, 2) as cat}
@@ -117,7 +131,7 @@
         {prog.phase === "integrating" ? "Integrating…" : pct !== null ? `${pct}%` : "…"}
       </span>
     {:else}
-      <button class="btn-primary !py-1 text-xs" on:click={install}>Install</button>
+      <button class="btn-primary !py-1 text-xs" on:click={install}>{isAur ? "Review…" : "Install"}</button>
     {/if}
   </div>
 

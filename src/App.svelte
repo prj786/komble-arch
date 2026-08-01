@@ -70,7 +70,7 @@
       // Silent update check so the sidebar badge is useful right away.
       api
         .listUpgradable()
-        .then((apt) => updatesInfo.update((u) => ({ ...u, apt })))
+        .then((packages) => updatesInfo.update((u) => ({ ...u, packages })))
         .catch(() => {});
 
       unlisteners.push(
@@ -100,11 +100,11 @@
             dragHover.set(false);
             const paths = e.payload.paths || [];
             const ai = paths.find((p) => /\.appimage$/i.test(p));
-            const deb = paths.find((p) => p.toLowerCase().includes(".pkg.tar"));
+            const pkgFile = paths.find((p) => p.toLowerCase().includes(".pkg.tar"));
             if (ai) {
               wizardFile.set(ai);
-            } else if (deb) {
-              droppedPkg.set(deb);
+            } else if (pkgFile) {
+              droppedPkg.set(pkgFile);
               route.set("aur");
             } else if (paths.length) {
               toast("Drop an .AppImage or a *.pkg.tar.zst to install it.", "info");

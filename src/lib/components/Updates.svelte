@@ -78,16 +78,16 @@
   $: total = $updatesInfo.appimages.length + $updatesInfo.packages.length;
 </script>
 
-<div class="h-full overflow-y-auto px-6 py-6">
-  <div class="mb-4 flex items-center justify-between">
-    <div>
+<div class="h-full overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+    <div class="min-w-0">
       <h1 class="text-xl font-bold tracking-tight">Updates</h1>
       <p class="text-sm text-zinc-400 dark:text-zinc-500">
         {#if checking}Checking…{:else if total === 0}Everything is up to date ✓{:else}{total} update{total === 1 ? "" : "s"} available{/if}
       </p>
     </div>
-    <div class="flex gap-2">
-      <button class="btn-ghost" disabled={working || checking} on:click={refreshLists} title="pkexec apt-get update">
+    <div class="flex flex-wrap gap-2">
+      <button class="btn-ghost" disabled={working || checking} on:click={refreshLists} title="Re-read the package databases (checkupdates — never pacman -Sy)">
         Refresh lists
       </button>
       <button class="btn-ghost" disabled={checking} on:click={check}>Check again</button>
@@ -104,7 +104,7 @@
         <span class="font-medium">Komble {$updatesInfo.self}</span>
         <span class="text-sm text-zinc-400"> is available</span>
       </div>
-      <span class="text-xs text-zinc-400">Update via your package manager or a new .deb build</span>
+      <span class="text-xs text-zinc-400">Update via pacman or the latest GitHub release</span>
     </div>
   {/if}
 

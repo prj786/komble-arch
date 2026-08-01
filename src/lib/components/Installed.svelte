@@ -39,7 +39,7 @@
   }
 </script>
 
-<div class="h-full overflow-y-auto px-6 py-6">
+<div class="h-full overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
   <h1 class="text-xl font-bold tracking-tight">Installed</h1>
   <p class="mb-4 text-sm text-zinc-400 dark:text-zinc-500">
     Apps managed by Komble on this machine

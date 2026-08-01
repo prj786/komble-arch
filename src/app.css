@@ -3,7 +3,7 @@
 /* Tailwind 4 keeps theme tokens in CSS rather than tailwind.config.js. */
 @theme {
   --color-accent: var(--accent);
-  --font-sans: Cantarell, Inter, Ubuntu, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: Cantarell, Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 /* v4 opts into class-based dark mode explicitly. */

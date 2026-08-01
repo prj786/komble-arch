@@ -1,7 +1,7 @@
 <script>
   import * as api from "../api.js";
   import { refreshPkgs } from "../actions.js";
-  import { droppedPkg, toast } from "../stores.js";
+  import { aurReview, droppedPkg, toast } from "../stores.js";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
   let query = "";
@@ -20,6 +20,16 @@
   $: if ($droppedPkg) {
     localPath = $droppedPkg;
     droppedPkg.set("");
+  }
+
+  // Handed over from Discover ("Review…" on an AUR result): pre-fill the
+  // search and open the PKGBUILD review for that package straight away.
+  $: if ($aurReview) {
+    const name = $aurReview;
+    aurReview.set("");
+    query = name;
+    search();
+    review(name);
   }
 
   let timer;
@@ -96,7 +106,7 @@
   }
 </script>
 
-<div class="mx-auto w-full max-w-4xl space-y-6 p-6">
+<div class="mx-auto h-full w-full max-w-4xl space-y-6 overflow-y-auto p-4 sm:p-6">
   <div>
     <h1 class="text-xl font-semibold">AUR</h1>
     <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">

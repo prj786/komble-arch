@@ -35,6 +35,9 @@ export const dragHover = writable(false);
 export const wizardFile = writable(null);
 /** Path of a dropped *.pkg.tar.zst → picked up by the AUR/local install view. */
 export const droppedPkg = writable(null);
+/** AUR package name → the AUR view opens its PKGBUILD review. Installing from
+ *  the AUR is never one-click: the review gate is the security model. */
+export const aurReview = writable("");
 
 export const updatesInfo = writable({ appimages: [], packages: [], errors: [], self: null, checkedAt: 0 });
 export const updatesCount = derived(

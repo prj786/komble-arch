@@ -1,5 +1,17 @@
 <script>
+  import { onMount } from "svelte";
+  import { getVersion } from "@tauri-apps/api/app";
   import { route, updatesCount } from "../stores";
+
+  // Real app version, not a hardcoded string that goes stale on release.
+  let version = "";
+  onMount(async () => {
+    try {
+      version = await getVersion();
+    } catch {
+      // dev server outside Tauri
+    }
+  });
 
   const items = [
     {
@@ -30,25 +42,27 @@
   ];
 </script>
 
+<!-- Collapses to an icon rail on narrow windows (tiled half/quarter screens). -->
 <aside
-  class="flex w-56 shrink-0 flex-col border-r border-zinc-200 bg-white/60 dark:border-zinc-700/60 dark:bg-zinc-800/40"
+  class="flex w-14 shrink-0 flex-col border-r border-zinc-200 bg-white/60 md:w-56 dark:border-zinc-700/60 dark:bg-zinc-800/40"
 >
-  <div class="flex items-center gap-2.5 px-4 pb-4 pt-5">
+  <div class="flex items-center justify-center gap-2.5 px-2 pb-4 pt-5 md:justify-start md:px-4">
     <div
-      class="flex h-8 w-8 items-center justify-center rounded-lg text-white"
+      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white"
       style="background: var(--accent)"
     >
       <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M7 10l5 5 5-5M12 15V3M5 21h14" />
       </svg>
     </div>
-    <div class="text-lg font-semibold tracking-tight">Komble</div>
+    <div class="hidden text-lg font-semibold tracking-tight md:block">Komble</div>
   </div>
 
-  <nav class="flex flex-col gap-0.5 px-2.5">
+  <nav class="flex flex-col gap-0.5 px-1.5 md:px-2.5">
     {#each items as it}
       <button
-        class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors
+        title={it.label}
+        class="relative flex items-center justify-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors md:justify-start
           {$route === it.id
           ? 'text-white'
           : 'text-zinc-600 hover:bg-zinc-200/60 dark:text-zinc-300 dark:hover:bg-zinc-700/50'}"
@@ -58,21 +72,27 @@
         <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d={it.icon} />
         </svg>
-        <span class="flex-1 text-left">{it.label}</span>
+        <span class="hidden flex-1 text-left md:block">{it.label}</span>
         {#if it.id === "updates" && $updatesCount > 0}
           <span
-            class="rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none
+            class="hidden rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none md:inline
               {$route === it.id ? 'bg-white/25 text-white' : 'text-white'}"
             style={$route === it.id ? "" : "background: var(--accent)"}
           >
             {$updatesCount}
           </span>
+          <!-- icon-rail equivalent of the count badge -->
+          <span
+            class="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full md:hidden
+              {$route === it.id ? 'bg-white' : ''}"
+            style={$route === it.id ? "" : "background: var(--accent)"}
+          ></span>
         {/if}
       </button>
     {/each}
   </nav>
 
-  <div class="mt-auto px-4 py-3 text-[11px] text-zinc-400 dark:text-zinc-500">
-    Komble 0.1.0 · no snap, no flatpak
+  <div class="mt-auto hidden px-4 py-3 text-[11px] text-zinc-400 md:block dark:text-zinc-500">
+    Komble{version ? ` ${version}` : ""} · no snap, no flatpak
   </div>
 </aside>
