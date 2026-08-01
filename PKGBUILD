@@ -40,7 +40,7 @@ makedepends=('rust' 'cargo' 'nodejs' 'npm')
 options=(!lto !debug)
 
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')  # pinned again right after the tag exists — a tag cannot contain its own tarball hash
+sha256sums=('81f33f7f78be579056e094d90ce7a8b023ac753abb63fc2bedba8b7e95b28ad1')
 
 build() {
   cd "$srcdir/$pkgname-$pkgver"
