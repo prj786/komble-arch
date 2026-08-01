@@ -5,8 +5,8 @@
 # privileged helper, which on the Debian build were carried inside the .deb.
 
 pkgname=komble-arch
-pkgver=0.1.0
-pkgrel=3
+pkgver=0.1.1
+pkgrel=1
 pkgdesc="App store for Arch — pacman, the AUR and AppImages"
 arch=('x86_64' 'aarch64')
 url="https://github.com/prj786/komble-arch"
@@ -37,10 +37,10 @@ makedepends=('rust' 'cargo' 'nodejs' 'npm')
 #
 # Rust-level LTO is still on via [profile.release] in Cargo.toml, so this only
 # disables makepkg's *C* LTO — no loss in the resulting binary.
-options=(!lto)
+options=(!lto !debug)
 
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('8bbf8d551060cab8958e611fa0effd87865f851be15213fd52e7d0df15800ac1')
+sha256sums=('SKIP')  # pinned again right after the tag exists — a tag cannot contain its own tarball hash
 
 build() {
   cd "$srcdir/$pkgname-$pkgver"
