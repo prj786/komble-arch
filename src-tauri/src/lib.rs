@@ -1,5 +1,6 @@
 mod appimage;
 mod catalog;
+mod de;
 mod pacman;
 mod registry;
 mod system;
@@ -189,6 +190,9 @@ pub fn run() {
             pacman::aur_pkgbuild,
             pacman::aur_install,
             system::system_check,
+            de::de_prefs,
+            de::qs_ipc,
+            de::backup_packages,
             system::install_fuse2,
             check_self_update
         ])

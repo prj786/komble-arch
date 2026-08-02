@@ -20,6 +20,11 @@
       icon: "M21 21l-4.35-4.35M17 11a6 6 0 1 1-12 0 6 6 0 0 1 12 0z"
     },
     {
+      id: "foryou",
+      label: "For you",
+      icon: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"
+    },
+    {
       id: "installed",
       label: "Installed",
       icon: "M20 7l-8-4-8 4v10l8 4 8-4V7zM4 7l8 4m0 0l8-4m-8 4v10"
@@ -47,12 +52,13 @@
   class="flex w-14 shrink-0 flex-col border-r border-zinc-200 bg-white/60 md:w-56 dark:border-zinc-700/60 dark:bg-zinc-800/40"
 >
   <div class="flex items-center justify-center gap-2.5 px-2 pb-4 pt-5 md:justify-start md:px-4">
+    <!-- the kombali — a shepherd's crook; Komble herds your apps -->
     <div
       class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white"
-      style="background: var(--accent)"
+      style="background: linear-gradient(135deg, #f0a65c, #744664)"
     >
       <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M7 10l5 5 5-5M12 15V3M5 21h14" />
+        <path d="M14.5 21V8a3.5 3.5 0 0 0-7 0v1.5" />
       </svg>
     </div>
     <div class="hidden text-lg font-semibold tracking-tight md:block">Komble</div>

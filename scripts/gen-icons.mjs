@@ -56,26 +56,65 @@ function png(size, draw) {
   ]);
 }
 
-// GNOME-blue rounded square with a white "download into tray" glyph.
-const BG = [53, 132, 228], FG = [255, 255, 255];
+// Komble — the shepherd of your apps. The glyph is a kombali (კომბალი, the
+// Georgian shepherd's staff): an ivory crook planted on a pasture hill, with
+// one sheep of the flock, over a dusk-sky gradient frame. Not a solid colour —
+// the frame IS the scene.
+const IVORY = [246, 240, 229];
+const HILL = [58, 74, 54];       // deep pasture green
+const SHEEP = [250, 248, 242];
+const SKY0 = [116, 70, 100];     // dusky plum (bottom-left)
+const SKY1 = [240, 166, 92];     // warm amber (top-right)
+
+// distance from point p to segment a→b (unit coords)
+function segDist(px, py, ax, ay, bx, by) {
+  const vx = bx - ax, vy = by - ay;
+  const t = Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / (vx * vx + vy * vy)));
+  return Math.hypot(px - (ax + t * vx), py - (ay + t * vy));
+}
+
 function draw(x, y, s) {
-  const u = (v) => v * s; // unit helper (fractions of size)
-  // rounded rect (inset 4%, radius 22%)
+  const u = (v) => v * s;
+  // rounded rect mask (inset 4%, radius 22%)
   const i = u(0.04), r = u(0.22), lo = i + r, hi = s - i - r;
   const cx = Math.min(Math.max(x, lo), hi), cy = Math.min(Math.max(y, lo), hi);
-  const d = Math.hypot(x - cx, y - cy);
-  if (x < i || y < i || x >= s - i || y >= s - i || d > r) return [0, 0, 0, 0];
-  // glyph: arrow shaft + head + tray bar
-  const midX = s / 2;
-  const inShaft = Math.abs(x - midX) < u(0.075) && y > u(0.22) && y < u(0.5);
-  const headY = y - u(0.5);
-  const inHead = headY >= 0 && headY < u(0.2) &&
-    Math.abs(x - midX) < u(0.24) * (1 - headY / u(0.2));
-  const inTray =
-    (y > u(0.76) && y < u(0.84) && x > u(0.24) && x < s - u(0.24)) ||
-    (x > u(0.24) && x < u(0.32) && y > u(0.62) && y < u(0.84)) ||
-    (x > s - u(0.32) && x < s - u(0.24) && y > u(0.62) && y < u(0.84));
-  return inShaft || inHead || inTray ? [...FG, 255] : [...BG, 255];
+  if (x < i || y < i || x >= s - i || y >= s - i || Math.hypot(x - cx, y - cy) > r)
+    return [0, 0, 0, 0];
+
+  const px = x / s, py = y / s;
+
+  // ── the crook: shaft + curled head, drawn first so it stands over everything
+  const W = 0.042; // half-thickness
+  // shaft, slightly tilted like a planted staff
+  const dShaft = segDist(px, py, 0.585, 0.30, 0.545, 0.84);
+  // curl: circle around (0.505, 0.265), radius 0.105 — from the shaft top,
+  // over the crown, hooking back down on the left
+  const hcx = 0.505, hcy = 0.265, hr = 0.105;
+  const ang = Math.atan2(py - hcy, px - hcx); // -PI..PI, 0 = right
+  const onArc = ang < 0.45 || ang > 2.4; // top sweep, open at lower-left
+  const dHook = Math.abs(Math.hypot(px - hcx, py - hcy) - hr);
+  const inCrook = dShaft < W || (onArc && dHook < W);
+
+  // ── pasture hill along the bottom
+  const hillY = 0.80 + 0.35 * (px - 0.42) * (px - 0.42);
+  const inHill = py > hillY;
+
+  // ── one sheep of the flock, resting on the hill
+  const inSheep =
+    Math.hypot((px - 0.30) / 1.35, py - 0.745) < 0.052 || // body
+    Math.hypot(px - 0.245, py - 0.72) < 0.03;             // head
+  const inSheepLeg =
+    py > 0.77 && py < 0.815 &&
+    (Math.abs(px - 0.275) < 0.011 || Math.abs(px - 0.335) < 0.011);
+
+  if (inCrook) return [...IVORY, 255];
+  if (inSheep) return [...SHEEP, 255];
+  if (inSheepLeg || inHill) return [...HILL, 255];
+
+  // ── dusk sky: diagonal gradient, bottom-left plum → top-right amber
+  const t = Math.max(0, Math.min(1, (px + (1 - py)) / 2));
+  const mix = (a, b) => Math.round(a + (b - a) * t);
+  return [mix(SKY0[0], SKY1[0]), mix(SKY0[1], SKY1[1]), mix(SKY0[2], SKY1[2]), 255];
 }
 
 for (const [name, size] of [

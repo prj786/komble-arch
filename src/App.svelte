@@ -21,6 +21,7 @@
   import * as api from "./lib/api";
   import Sidebar from "./lib/components/Sidebar.svelte";
   import Discover from "./lib/components/Discover.svelte";
+  import ForYou from "./lib/components/ForYou.svelte";
   import Installed from "./lib/components/Installed.svelte";
   import Updates from "./lib/components/Updates.svelte";
   import AurInstall from "./lib/components/AurInstall.svelte";
@@ -30,8 +31,15 @@
   import Toasts from "./lib/components/Toasts.svelte";
 
   const media = window.matchMedia("(prefers-color-scheme: dark)");
+  // Inside hypr-shell, "System" follows the DE's app colour scheme (the shell
+  // itself is always dark) and the accent follows the DE accent — Komble should
+  // look like a part of the desktop, not a visitor. Outside it, the old
+  // prefers-color-scheme behaviour stands.
+  let deScheme = "";
   function applyTheme(theme) {
-    const dark = theme === "dark" || (theme === "system" && media.matches);
+    const dark =
+      theme === "dark" ||
+      (theme === "system" && (deScheme ? deScheme === "dark" : media.matches));
     document.documentElement.classList.toggle("dark", dark);
   }
   $: applyTheme($settings.theme);
@@ -44,6 +52,16 @@
       loadCatalog();
       refreshInstalled();
       refreshPkgs();
+
+      api
+        .dePrefs()
+        .then((p) => {
+          if (!p) return;
+          deScheme = p.colorScheme || "";
+          document.documentElement.style.setProperty("--accent", p.accent);
+          applyTheme(get(settings).theme);
+        })
+        .catch(() => {});
 
       api
         .systemCheck()
@@ -124,6 +142,8 @@
   <main class="min-w-0 flex-1 overflow-hidden">
     {#if $route === "discover"}
       <Discover />
+    {:else if $route === "foryou"}
+      <ForYou />
     {:else if $route === "installed"}
       <Installed />
     {:else if $route === "updates"}

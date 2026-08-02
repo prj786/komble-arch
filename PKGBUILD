@@ -5,7 +5,7 @@
 # privileged helper, which on the Debian build were carried inside the .deb.
 
 pkgname=komble-arch
-pkgver=0.2.0
+pkgver=0.3.0
 pkgrel=1
 pkgdesc="App store for Arch — pacman, the AUR and AppImages"
 arch=('x86_64' 'aarch64')
@@ -40,7 +40,7 @@ makedepends=('rust' 'cargo' 'nodejs' 'npm')
 options=(!lto !debug)
 
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('3cf34ccd43d47cd2f07001d91868e8da0234d223092276ca59c36c7f0ee4baaa')
+sha256sums=('SKIP')   # pinned post-tag; release.yml builds with --skipchecksums
 
 build() {
   cd "$srcdir/$pkgname-$pkgver"
