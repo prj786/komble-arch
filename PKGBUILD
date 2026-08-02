@@ -40,7 +40,7 @@ makedepends=('rust' 'cargo' 'nodejs' 'npm')
 options=(!lto !debug)
 
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')   # pinned post-tag, as with previous releases; release.yml builds with --skipchecksums
+sha256sums=('3cf34ccd43d47cd2f07001d91868e8da0234d223092276ca59c36c7f0ee4baaa')
 
 build() {
   cd "$srcdir/$pkgname-$pkgver"
