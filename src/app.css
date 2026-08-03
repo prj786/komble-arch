@@ -1,5 +1,21 @@
 @import "tailwindcss";
 
+/* Phosphor Fill (MIT, vendored) — the DE's single icon language; used via
+   .ph-i spans with a literal glyph codepoint. */
+@font-face {
+  font-family: "Phosphor-Fill";
+  src: url("./assets/Phosphor-Fill.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+.ph-i {
+  font-family: "Phosphor-Fill";
+  font-style: normal;
+  line-height: 1;
+  display: inline-block;
+}
+
 /* Tailwind 4 keeps theme tokens in CSS rather than tailwind.config.js. */
 @theme {
   --color-accent: var(--accent);

@@ -27,13 +27,8 @@ pub async fn de_prefs() -> Result<Value, String> {
     if j.is_null() {
         return Ok(Value::Null);
     }
-    let theme_name = j["themeName"].as_str().unwrap_or("graphite").to_string();
-    // Ambiance pins the DE accent to Ubuntu orange; match it.
-    let accent = if theme_name == "ambiance" {
-        "#e95420".to_string()
-    } else {
-        j["accent"].as_str().unwrap_or("#0a84ff").to_string()
-    };
+    let theme_name = j["themeName"].as_str().unwrap_or("flock").to_string();
+    let accent = j["accent"].as_str().unwrap_or("#0a84ff").to_string();
     Ok(json!({
         "accent": accent,
         "themeName": theme_name,

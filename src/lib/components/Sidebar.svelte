@@ -13,37 +13,14 @@
     }
   });
 
+  // Phosphor Fill codepoints — same icon language as the hypr-shell DE
   const items = [
-    {
-      id: "discover",
-      label: "Discover",
-      icon: "M21 21l-4.35-4.35M17 11a6 6 0 1 1-12 0 6 6 0 0 1 12 0z"
-    },
-    {
-      id: "foryou",
-      label: "For you",
-      icon: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"
-    },
-    {
-      id: "installed",
-      label: "Installed",
-      icon: "M20 7l-8-4-8 4v10l8 4 8-4V7zM4 7l8 4m0 0l8-4m-8 4v10"
-    },
-    {
-      id: "updates",
-      label: "Updates",
-      icon: "M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
-    },
-    {
-      id: "aur",
-      label: "AUR",
-      icon: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"
-    },
-    {
-      id: "settings",
-      label: "Settings",
-      icon: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"
-    }
+    { id: "discover", label: "Discover", icon: 0xE1C8 },   // compass
+    { id: "foryou", label: "For you", icon: 0xE4C2 },      // user
+    { id: "installed", label: "Installed", icon: 0xE390 }, // package
+    { id: "updates", label: "Updates", icon: 0xE094 },     // arrows-clockwise
+    { id: "aur", label: "AUR", icon: 0xE20C },             // download-simple
+    { id: "settings", label: "Settings", icon: 0xE228 }    // faders
   ];
 </script>
 
@@ -75,9 +52,7 @@
         style={$route === it.id ? "background: var(--accent)" : ""}
         on:click={() => route.set(it.id)}
       >
-        <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d={it.icon} />
-        </svg>
+        <span class="ph-i w-4 shrink-0 text-center text-[16px]">{String.fromCodePoint(it.icon)}</span>
         <span class="hidden flex-1 text-left md:block">{it.label}</span>
         {#if it.id === "updates" && $updatesCount > 0}
           <span
