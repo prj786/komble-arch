@@ -72,13 +72,21 @@ async fn shell_pid() -> Option<String> {
 /// Shell IPC, allowlisted: exactly the Google-account verbs "For you" needs.
 #[tauri::command]
 pub async fn qs_ipc(func: String) -> Result<String, String> {
-    if !["status", "syncNow", "fetchPackages", "signIn"].contains(&func.as_str()) {
+    if !["status", "syncNow", "syncSoon", "fetchPackages", "signIn"].contains(&func.as_str()) {
         return Err(format!("ipc not allowed: google {func}"));
     }
     if let Some(pid) = shell_pid().await {
         return run_out("qs", &["ipc", "--pid", &pid, "call", "google", &func]).await;
     }
     run_out("qs", &["ipc", "call", "google", &func]).await
+}
+
+/// Fire-and-forget "the app list changed": the shell debounces the pokes and
+/// pushes the sync bundle when things go quiet. Installs never wait on it.
+pub fn poke_sync() {
+    tokio::spawn(async {
+        let _ = qs_ipc("syncSoon".into()).await;
+    });
 }
 
 /// The package lists the shell cached from the cloud bundle

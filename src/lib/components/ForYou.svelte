@@ -162,6 +162,7 @@
         <div class="truncate text-xs text-zinc-400">
           {google.profile?.email || ""}
           {#if google.lastSync}<span class="mx-1">·</span>last sync {fmt(google.lastSync)}{/if}
+          {#if google.autoSync}<span class="mx-1">·</span>auto-sync on — installs and settings upload by themselves{/if}
         </div>
       </div>
       {#if google.syncError}

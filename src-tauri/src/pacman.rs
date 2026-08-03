@@ -452,6 +452,7 @@ pub async fn install_package(app: AppHandle, package: String) -> Result<String, 
         }),
     );
     invalidate_index();
+    crate::de::poke_sync(); // the installed-app list is part of the sync bundle
     Ok(log)
 }
 
@@ -469,6 +470,7 @@ pub async fn remove_package(app: AppHandle, package: String) -> Result<String, S
     .await?;
     let _ = registry::remove_package(&app, &package);
     invalidate_index();
+    crate::de::poke_sync();
     Ok(log)
 }
 
@@ -521,6 +523,7 @@ pub async fn install_package_file(app: AppHandle, path: String) -> Result<String
         }),
     );
     invalidate_index();
+    crate::de::poke_sync(); // covers direct file installs AND aur_install's tail
     Ok(log)
 }
 
