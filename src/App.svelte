@@ -59,6 +59,7 @@
           if (!p) return;
           deScheme = p.colorScheme || "";
           document.documentElement.style.setProperty("--accent", p.accent);
+          document.documentElement.classList.toggle("blacksheep", (p.themeName || "flock") === "blacksheep");
           applyTheme(get(settings).theme);
         })
         .catch(() => {});

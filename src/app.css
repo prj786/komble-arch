@@ -81,6 +81,18 @@ textarea {
   @apply mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-zinc-500 first:mt-0 dark:text-zinc-400;
 }
 
+
+/* Black Sheep — the DE's absolute-black look. The shell varies only its five
+   neutral surface tokens (Theme.pitchBlack); the same is done here by
+   remapping the zinc scale the dark surfaces are built from (Tailwind v4
+   colors are plain CSS variables). Dark mode only. */
+.dark.blacksheep {
+  --color-zinc-900: #020202; /* app base */
+  --color-zinc-800: #101012; /* cards, inputs, inset panels */
+  --color-zinc-700: #1c1c1f; /* dividers, ghost buttons */
+  --color-zinc-600: #2a2a2e; /* hovers, strokes */
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
