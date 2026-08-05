@@ -31,7 +31,7 @@
   import Toasts from "./lib/components/Toasts.svelte";
 
   const media = window.matchMedia("(prefers-color-scheme: dark)");
-  // Inside hypr-shell, "System" follows the DE's app colour scheme (the shell
+  // Inside ewe, "System" follows the DE's app colour scheme (the shell
   // itself is always dark) and the accent follows the DE accent — Komble should
   // look like a part of the desktop, not a visitor. Outside it, the old
   // prefers-color-scheme behaviour stands.

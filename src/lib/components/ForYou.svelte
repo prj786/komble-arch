@@ -138,14 +138,14 @@
 
   {#if google === null}
     <div class="card p-6 text-center text-sm text-zinc-400">
-      The hypr-shell session is not reachable — the Google account lives in the shell.
+      The ewe session is not reachable — the Google account lives in the shell.
     </div>
   {:else if !google.signedIn}
     <div class="card flex flex-col items-center gap-3 p-8 text-center">
       <div class="text-3xl">☁️</div>
       <p class="max-w-md text-sm text-zinc-500 dark:text-zinc-400">
         Sign in with Google to back up the list of apps you install and get them back on any
-        hypr-shell machine.
+        ewe machine.
       </p>
       <button class="btn-primary" disabled={google.busy === "signin"} on:click={() => api.qsIpc("signIn").then(refreshStatus)}>
         {google.busy === "signin" ? "Waiting for the browser…" : "Sign in with Google"}

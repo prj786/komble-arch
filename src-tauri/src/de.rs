@@ -1,4 +1,4 @@
-//! hypr-shell integration: Komble is a first-class citizen of the DE, so it
+//! ewe integration: Komble is a first-class citizen of the DE, so it
 //! reads the desktop's accent/look and talks to the shell's Google account
 //! over `qs ipc` — a fixed verb allowlist, tokens never cross the boundary.
 
@@ -15,7 +15,7 @@ fn home() -> PathBuf {
 }
 
 /// The DE's user-theme.json — accent + look + app colour scheme. Missing file
-/// (Komble outside hypr-shell) → null; the frontend keeps its defaults.
+/// (Komble outside ewe) → null; the frontend keeps its defaults.
 #[tauri::command]
 pub async fn de_prefs() -> Result<Value, String> {
     let p = home().join(".config/quickshell/user-theme.json");
@@ -52,7 +52,14 @@ async fn run_out(bin: &str, args: &[&str]) -> Result<String, String> {
 async fn shell_pid() -> Option<String> {
     let out = run_out(
         "systemctl",
-        &["--user", "show", "-p", "MainPID", "--value", "hypr-shell.service"],
+        &[
+            "--user",
+            "show",
+            "-p",
+            "MainPID",
+            "--value",
+            "hypr-shell.service",
+        ],
     )
     .await
     .ok()?;
@@ -130,7 +137,10 @@ pub async fn backup_packages() -> Result<Value, String> {
             || n.ends_with("-ucode")
             || n.ends_with("-headers")
             || n.ends_with("-dkms")
-            || matches!(n, "base" | "base-devel" | "grub" | "efibootmgr" | "mkinitcpio" | "sudo");
+            || matches!(
+                n,
+                "base" | "base-devel" | "grub" | "efibootmgr" | "mkinitcpio" | "sudo"
+            );
         !sys
     };
 

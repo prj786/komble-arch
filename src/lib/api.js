@@ -51,7 +51,7 @@ export const aurSearch = (query) => invoke("aur_search", { query });
 export const aurPkgbuild = (pkg) => invoke("aur_pkgbuild", { package: pkg });
 export const aurInstall = (pkg) => invoke("aur_install", { package: pkg });
 
-// hypr-shell integration (accent/look + the shell-owned Google account)
+// ewe integration (accent/look + the shell-owned Google account)
 export const dePrefs = () => invoke("de_prefs");
 export const qsIpc = (func) => invoke("qs_ipc", { func });
 export const backupPackages = () => invoke("backup_packages");

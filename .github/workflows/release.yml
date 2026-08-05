@@ -1,5 +1,5 @@
 # Build the Arch package for every version tag and attach it to a GitHub
-# release. hypr-shell's installer downloads this .pkg.tar.zst instead of
+# release. ewe's installer downloads this .pkg.tar.zst instead of
 # compiling the Rust/Tauri app on the user's machine (a ~10 minute build).
 #
 # Flow: push a tag `vX.Y.Z` (matching pkgver in PKGBUILD) → this job builds

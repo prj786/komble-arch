@@ -13,7 +13,7 @@
     }
   });
 
-  // Phosphor Fill codepoints — same icon language as the hypr-shell DE
+  // Phosphor Fill codepoints — same icon language as the ewe DE
   const items = [
     { id: "discover", label: "Discover", icon: 0xE1C8 },   // compass
     { id: "foryou", label: "For you", icon: 0xE4C2 },      // user
