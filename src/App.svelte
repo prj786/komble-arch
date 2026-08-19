@@ -109,6 +109,21 @@
       );
       unlisteners.push(await listen("navigate", (e) => route.set(e.payload)));
 
+      // Files opened WITH Komble (double-click / "Open with" in the file
+      // manager) — same destinations as drag & drop.
+      const openPath = (p) => {
+        if (/\.appimage$/i.test(p)) {
+          wizardFile.set(p);
+        } else if (p.toLowerCase().includes(".pkg.tar")) {
+          droppedPkg.set(p);
+          route.set("aur");
+        }
+      };
+      // already running: the second instance forwards its argv as an event
+      unlisteners.push(await listen("open-file", (e) => openPath(e.payload)));
+      // cold start: the path was stashed before the webview existed
+      api.takePendingOpen().then((p) => p && openPath(p)).catch(() => {});
+
       // Global drag & drop: .AppImage opens the install wizard,
       // a built/downloaded package file jumps to the install view.
       unlisteners.push(

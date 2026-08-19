@@ -1,4 +1,10 @@
-//! AppImageHub catalog (feed.json) + GitHub release resolution, with disk caching.
+//! AppImage catalog + GitHub release resolution, with disk caching.
+//!
+//! The catalog is the AM database (github.com/ivan-hc/AM, served as JSON from
+//! portable-linux-apps.github.io). The old appimage.github.io feed was largely
+//! abandoned — full of dead projects and entries with no fetchable release —
+//! while AM is actively curated and every listed app has an install script we
+//! can mine for the download source (`resolve_am_app`).
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -8,8 +14,9 @@ use tauri::{AppHandle, Manager};
 
 use crate::util::{client, estr, slug};
 
-const FEED_URL: &str = "https://appimage.github.io/feed.json";
-const DB_URL: &str = "https://appimage.github.io/database/";
+const AM_APPS_URL: &str = "https://portable-linux-apps.github.io/apps.json";
+const AM_SCRIPT_URL: &str = "https://raw.githubusercontent.com/ivan-hc/AM/main/programs/x86_64/";
+const AM_PAGE_URL: &str = "https://portable-linux-apps.github.io/apps/";
 const FEED_TTL: u64 = 24 * 3600;
 const RELEASE_TTL: u64 = 6 * 3600;
 
@@ -28,6 +35,9 @@ pub struct CatalogItem {
     pub download: Option<String>,
     pub icon: Option<String>,
     pub screenshots: Vec<String>,
+    /// "am" — items whose download source is resolved lazily via resolve_am_app
+    #[serde(default)]
+    pub source: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -56,42 +66,15 @@ pub struct AssetInfo {
 // ---------- raw feed shapes ----------
 
 #[derive(Deserialize)]
-struct RawFeed {
-    #[serde(default)]
-    items: Vec<RawItem>,
-}
-
-#[derive(Deserialize)]
-struct RawItem {
-    name: Option<String>,
+struct AmApp {
+    #[serde(rename = "packageName")]
+    package_name: Option<String>,
     #[serde(default)]
     description: Option<String>,
-    // The feed contains nulls *inside* arrays too, so every element is Option.
     #[serde(default)]
-    categories: Option<Vec<Option<String>>>,
+    icon: Option<String>,
     #[serde(default)]
-    authors: Option<Vec<Option<RawAuthor>>>,
-    #[serde(default)]
-    license: Option<serde_json::Value>,
-    #[serde(default)]
-    links: Option<Vec<Option<RawLink>>>,
-    #[serde(default)]
-    icons: Option<Vec<Option<String>>>,
-    #[serde(default)]
-    screenshots: Option<Vec<Option<String>>>,
-}
-
-#[derive(Deserialize)]
-struct RawAuthor {
-    name: Option<String>,
-    url: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct RawLink {
-    #[serde(rename = "type")]
-    kind: Option<String>,
-    url: Option<String>,
+    arch: Option<Vec<String>>,
 }
 
 #[derive(Deserialize)]
@@ -132,80 +115,50 @@ fn fresh(path: &Path, ttl: u64) -> bool {
 
 // ---------- catalog ----------
 
-fn db_url(rel: &str) -> String {
-    if rel.starts_with("http://") || rel.starts_with("https://") {
-        rel.to_string()
-    } else {
-        format!("{DB_URL}{rel}")
-    }
+/// "qbittorrent" → "Qbittorrent", "3d-puzzles" → "3d Puzzles". The AM list has
+/// no display names, only package slugs.
+fn prettify(id: &str) -> String {
+    id.split(['-', '_'])
+        .filter(|w| !w.is_empty())
+        .map(|w| {
+            let mut c = w.chars();
+            match c.next() {
+                Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
-fn map_items(raw: RawFeed) -> Vec<CatalogItem> {
-    let mut out = Vec::with_capacity(raw.items.len());
-    for item in raw.items {
-        let Some(name) = item.name.filter(|n| !n.trim().is_empty()) else {
+fn map_items(raw: Vec<AmApp>) -> Vec<CatalogItem> {
+    let mut out = Vec::with_capacity(raw.len());
+    for item in raw {
+        let Some(id) = item.package_name.filter(|n| !n.trim().is_empty()) else {
             continue;
         };
-        let mut github = None;
-        let mut download = None;
-        for link in item.links.unwrap_or_default().into_iter().flatten() {
-            match (link.kind.as_deref(), link.url) {
-                (Some("GitHub"), Some(url)) if !url.is_empty() => {
-                    github = Some(if url.starts_with("http") {
-                        url
-                    } else {
-                        format!("https://github.com/{url}")
-                    })
-                }
-                (Some("Download"), Some(url)) if !url.is_empty() => download = Some(url),
-                _ => {}
-            }
+        // Only apps AM actually builds/links for x86_64 are installable here.
+        if !item
+            .arch
+            .as_deref()
+            .unwrap_or_default()
+            .iter()
+            .any(|a| a == "x86_64")
+        {
+            continue;
         }
         out.push(CatalogItem {
-            id: slug(&name),
-            name,
+            name: prettify(&id),
             description: item.description,
-            categories: item
-                .categories
-                .unwrap_or_default()
-                .into_iter()
-                .flatten()
-                .collect(),
-            authors: item
-                .authors
-                .unwrap_or_default()
-                .into_iter()
-                .flatten()
-                .map(|a| Author {
-                    name: a.name,
-                    url: a.url,
-                })
-                .collect(),
-            license: item.license.and_then(|l| match l {
-                serde_json::Value::String(s) if !s.is_empty() => Some(s),
-                serde_json::Value::Object(o) => o
-                    .get("name")
-                    .or_else(|| o.get("id"))
-                    .and_then(|v| v.as_str())
-                    .map(String::from),
-                _ => None,
-            }),
-            github,
-            download,
-            icon: item
-                .icons
-                .unwrap_or_default()
-                .into_iter()
-                .flatten()
-                .next()
-                .map(|i| db_url(&i)),
-            screenshots: item
-                .screenshots
-                .unwrap_or_default()
-                .into_iter()
-                .flatten()
-                .map(|s| db_url(&s))
-                .collect(),
+            categories: vec![],
+            authors: vec![],
+            license: None,
+            github: None,
+            download: Some(format!("{AM_PAGE_URL}{id}.html")),
+            icon: item.icon,
+            screenshots: vec![],
+            source: "am".into(),
+            id,
         });
     }
     out
@@ -216,27 +169,165 @@ pub async fn fetch_catalog(
     app: AppHandle,
     force: Option<bool>,
 ) -> Result<Vec<CatalogItem>, String> {
-    let cache = cache_dir(&app)?.join("feed.json");
+    let cache = cache_dir(&app)?.join("am-apps.json");
     if !force.unwrap_or(false) && fresh(&cache, FEED_TTL) {
         if let Ok(text) = fs::read_to_string(&cache) {
-            if let Ok(raw) = serde_json::from_str::<RawFeed>(&text) {
+            if let Ok(raw) = serde_json::from_str::<Vec<AmApp>>(&text) {
                 return Ok(map_items(raw));
             }
         }
     }
-    let text = client()
-        .get(FEED_URL)
+    let fetched = async {
+        client()
+            .get(AM_APPS_URL)
+            .send()
+            .await
+            .map_err(|e| format!("Could not reach the AM app database: {e}"))?
+            .error_for_status()
+            .map_err(estr)?
+            .text()
+            .await
+            .map_err(estr)
+    }
+    .await;
+    let text = match fetched {
+        Ok(t) => t,
+        // Offline: a stale cache beats an empty Discover page.
+        Err(e) => fs::read_to_string(&cache).map_err(|_| e)?,
+    };
+    let raw: Vec<AmApp> =
+        serde_json::from_str(&text).map_err(|e| format!("Bad app database: {e}"))?;
+    let _ = fs::write(&cache, &text);
+    Ok(map_items(raw))
+}
+
+// ---------- AM install-script resolution ----------
+
+/// What `resolve_am_app` figured out: when the app lives on GitHub we hand back
+/// the repo URL too, so the install can record it and the Updates view can
+/// track new releases.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AmResolved {
+    pub github: Option<String>,
+    pub release: ReleaseInfo,
+}
+
+fn valid_am_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 100
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '+' | '-'))
+}
+
+/// Crude "1.2.3" out of an AppImage file name, for direct (non-GitHub) downloads.
+fn version_from_name(name: &str) -> Option<String> {
+    name.split(['-', '_'])
+        .map(|t| t.trim_start_matches(['v', 'V']))
+        .find(|t| {
+            !t.is_empty()
+                && t.chars().next().is_some_and(|c| c.is_ascii_digit())
+                && t.chars().all(|c| c.is_ascii_digit() || c == '.')
+        })
+        .map(String::from)
+}
+
+/// Every AM app has a plain-sh install script. Nearly all of them declare
+/// `SITE="owner/repo"` (GitHub) — resolve those through the Releases API like
+/// any other GitHub app. The rest scrape a download page in their `version=`
+/// line; do the same scrape here and take the best-arch .AppImage link.
+#[tauri::command]
+pub async fn resolve_am_app(
+    app: AppHandle,
+    id: String,
+    token: Option<String>,
+) -> Result<AmResolved, String> {
+    if !valid_am_id(&id) {
+        return Err("invalid app id".into());
+    }
+    let script = client()
+        .get(format!("{AM_SCRIPT_URL}{id}"))
         .send()
         .await
-        .map_err(|e| format!("Could not reach AppImageHub: {e}"))?
+        .map_err(estr)?
         .error_for_status()
+        .map_err(|_| format!("{id}: no install recipe found (the app may have been renamed)."))?
+        .text()
+        .await
+        .map_err(estr)?;
+
+    let site = script.lines().find_map(|l| {
+        l.trim()
+            .strip_prefix("SITE=")
+            .map(|v| v.trim_matches('"').trim_matches('\'').to_string())
+    });
+    if let Some(site) = site {
+        let looks_like_repo = !site.starts_with("http")
+            && site.matches('/').count() == 1
+            && !site.contains(' ')
+            && !site.contains('$')
+            && site != "REPLACETHIS";
+        if looks_like_repo {
+            let github = format!("https://github.com/{site}");
+            let release = resolve_release(app, github.clone(), token).await?;
+            return Ok(AmResolved {
+                github: Some(github),
+                release,
+            });
+        }
+    }
+
+    // Non-GitHub app: its version= line curls a page and greps for *.AppImage —
+    // replicate that. `version=$(curl -Ls https://... | ...)`
+    let page = script
+        .lines()
+        .map(str::trim)
+        .filter(|l| l.starts_with("version="))
+        .find_map(|l| {
+            let idx = l.find("http")?;
+            let rest = &l[idx..];
+            let end = rest
+                .find(|c: char| c.is_whitespace() || c == '"' || c == '\'' || c == '|')
+                .unwrap_or(rest.len());
+            Some(rest[..end].to_string())
+        })
+        .ok_or_else(|| format!("{id}: could not determine a download source."))?;
+    let body = client()
+        .get(&page)
+        .send()
+        .await
         .map_err(estr)?
         .text()
         .await
         .map_err(estr)?;
-    let raw: RawFeed = serde_json::from_str(&text).map_err(|e| format!("Bad feed: {e}"))?;
-    let _ = fs::write(&cache, &text);
-    Ok(map_items(raw))
+    let mut urls: Vec<&str> = body
+        .split(['"', '\'', '<', '>', '(', ')', ',', ' ', '\n', '\r', '\t'])
+        .filter(|t| {
+            t.starts_with("http") && t.len() < 500 && t.to_lowercase().ends_with(".appimage")
+        })
+        .collect();
+    urls.sort_by_key(|u| arch_score(u));
+    urls.dedup();
+    let url = urls
+        .first()
+        .ok_or_else(|| format!("{id}: no .AppImage download found on the project page."))?
+        .to_string();
+    let file = url.rsplit('/').next().unwrap_or("app.AppImage").to_string();
+    let version = version_from_name(&file).unwrap_or_else(|| "latest".into());
+    Ok(AmResolved {
+        github: None,
+        release: ReleaseInfo {
+            tag: version.clone(),
+            version,
+            published_at: None,
+            assets: vec![AssetInfo {
+                name: file,
+                url,
+                size: 0,
+            }],
+        },
+    })
 }
 
 // ---------- GitHub releases ----------

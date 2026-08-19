@@ -4,6 +4,10 @@ import { invoke } from "@tauri-apps/api/core";
 export const fetchCatalog = (force = false) => invoke("fetch_catalog", { force });
 export const resolveRelease = (githubUrl, token) =>
   invoke("resolve_release", { githubUrl, token: token || null });
+// AM catalog items carry no download URL — this reads the app's AM install
+// recipe and returns { github, release } (github set when the app lives there).
+export const resolveAmApp = (id, token) =>
+  invoke("resolve_am_app", { id, token: token || null });
 
 // appimages
 export const installAppimage = (req) => invoke("install_appimage", { req });
@@ -59,12 +63,15 @@ export const backupPackages = () => invoke("backup_packages");
 // system
 export const systemCheck = () => invoke("system_check");
 export const installFuse2 = () => invoke("install_fuse2");
+export const installPacmanContrib = () => invoke("install_pacman_contrib");
 export const checkSelfUpdate = () => invoke("check_self_update");
+// file the app was opened with (double-click on an .AppImage / package file)
+export const takePendingOpen = () => invoke("take_pending_open");
 
 /**
- * Install a catalog item: resolve the real .AppImage asset via the GitHub
- * Releases API (feed Download links are often null or point at release pages),
- * falling back to a direct Download link when it already ends in .AppImage.
+ * Install a catalog item. GitHub-backed apps resolve the real .AppImage asset
+ * via the Releases API; AM catalog items resolve through their AM install
+ * recipe (which is GitHub for most of them — then updates are tracked too).
  */
 export async function installFromItem(item, settings) {
   const base = {
@@ -80,6 +87,15 @@ export async function installFromItem(item, settings) {
       url: rel.assets[0].url,
       version: rel.version,
       repo: item.github
+    });
+  }
+  if (item.source === "am") {
+    const r = await resolveAmApp(item.id, settings?.githubToken);
+    return installAppimage({
+      ...base,
+      url: r.release.assets[0].url,
+      version: r.release.version,
+      repo: r.github
     });
   }
   if (item.download && /\.appimage$/i.test(item.download.split(/[?#]/)[0])) {

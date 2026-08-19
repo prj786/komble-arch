@@ -11,6 +11,58 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 use tauri_plugin_store::StoreExt;
 
+/// A file the user opened Komble WITH (double-click / "Open with" — the .desktop
+/// entry passes it as an argv). Stashed at startup because the webview isn't
+/// listening yet; the frontend collects it via `take_pending_open` once mounted.
+static PENDING_OPEN: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+fn hex_val(b: u8) -> Option<u8> {
+    match b {
+        b'0'..=b'9' => Some(b - b'0'),
+        b'a'..=b'f' => Some(b - b'a' + 10),
+        b'A'..=b'F' => Some(b - b'A' + 10),
+        _ => None,
+    }
+}
+
+/// Some launchers hand over `file:///path/with%20spaces` rather than a path.
+fn percent_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'%' && i + 2 < b.len() {
+            if let (Some(h), Some(l)) = (hex_val(b[i + 1]), hex_val(b[i + 2])) {
+                out.push(h << 4 | l);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(b[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// An argv entry we know how to install: an .AppImage or a pacman package file.
+fn openable_path(arg: &str) -> Option<String> {
+    let p = match arg.strip_prefix("file://") {
+        Some(rest) => percent_decode(rest),
+        None => arg.to_string(),
+    };
+    let low = p.to_lowercase();
+    if low.ends_with(".appimage") || low.contains(".pkg.tar") {
+        Some(p)
+    } else {
+        None
+    }
+}
+
+#[tauri::command]
+fn take_pending_open() -> Option<String> {
+    PENDING_OPEN.lock().ok().and_then(|mut g| g.take())
+}
+
 fn show_main(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
@@ -121,10 +173,21 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
 }
 
 pub fn run() {
+    if let Some(p) = std::env::args().skip(1).find_map(|a| openable_path(&a)) {
+        if let Ok(mut g) = PENDING_OPEN.lock() {
+            *g = Some(p);
+        }
+    }
+
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            show_main(app)
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // Second launch with a file (double-click while Komble runs in the
+            // tray): forward it to the live instance.
+            show_main(app);
+            if let Some(p) = args.iter().skip(1).find_map(|a| openable_path(a)) {
+                let _ = app.emit("open-file", p);
+            }
         }))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -164,6 +227,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             catalog::fetch_catalog,
             catalog::resolve_release,
+            catalog::resolve_am_app,
             appimage::install_appimage,
             appimage::remove_appimage,
             appimage::list_appimages,
@@ -194,6 +258,8 @@ pub fn run() {
             de::qs_ipc,
             de::backup_packages,
             system::install_fuse2,
+            system::install_pacman_contrib,
+            take_pending_open,
             check_self_update
         ])
         .run(tauri::generate_context!())

@@ -77,3 +77,11 @@ pub async fn system_check(app: AppHandle) -> Result<SystemInfo, String> {
 pub async fn install_fuse2() -> Result<String, String> {
     pacman::install_package_named("fuse2").await
 }
+
+/// pacman-contrib provides `checkupdates` — without it the Updates view has no
+/// safe way to list repo updates (see pacman::upgradable_inner), so the system
+/// section sits silently empty. Offered as a one-click fix from that view.
+#[tauri::command]
+pub async fn install_pacman_contrib() -> Result<String, String> {
+    pacman::install_package_named("pacman-contrib").await
+}

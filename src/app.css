@@ -1,4 +1,9 @@
 @import "tailwindcss";
+/* shadcn-svelte ships its registry variants (data-open / data-checked /
+   data-horizontal …) and its popover animations as two plain CSS packages.
+   Both are stylesheet-only — no JavaScript from them reaches the bundle. */
+@import "shadcn-svelte/tailwind.css";
+@import "tw-animate-css";
 
 /* Phosphor Fill (MIT, vendored) — the DE's single icon language; used via
    .ph-i spans with a literal glyph codepoint. */
@@ -33,6 +38,95 @@
   --accent: #62a0ea;
   color-scheme: dark;
 }
+
+/* ── shadcn-svelte theme bridge ─────────────────────────────────────────────
+   shadcn's components are written against a fixed set of semantic CSS
+   variables. Instead of adopting shadcn's own palette — which would repaint
+   the whole app — every variable is re-pointed at tokens this design language
+   already owns: the Tailwind zinc scale for surfaces (so the Black Sheep
+   remap further down keeps working, untouched) and --accent for anything that
+   should carry the brand colour.
+
+   Two deliberate deviations from stock shadcn, both intentional:
+   • `accent` stays the BRAND accent. --color-accent is already bound to
+     var(--accent) in the @theme block above, so a highlighted menu row or
+     select item is painted in the brand colour rather than shadcn's neutral
+     grey — the same treatment the app gives a selected sidebar row.
+     --accent-foreground below is what sits on top of it.
+   • The Tailwind radius scale keeps its stock values. At --radius: 0.5rem
+     shadcn's --radius-{sm,md,lg,xl} arithmetic lands on exactly Tailwind's
+     defaults (0.25 / 0.375 / 0.5 / 0.75rem), so the tokens are a no-op today
+     and only start to bite if --radius is ever retuned.
+   -------------------------------------------------------------------------- */
+:root {
+  --background: var(--color-zinc-100);
+  --foreground: var(--color-zinc-900);
+  --card: #ffffff;
+  --card-foreground: var(--color-zinc-900);
+  --popover: #ffffff;
+  --popover-foreground: var(--color-zinc-900);
+  --primary: var(--accent);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-zinc-200);
+  --secondary-foreground: var(--color-zinc-900);
+  --muted: var(--color-zinc-200);
+  --muted-foreground: var(--color-zinc-500);
+  --accent-foreground: #ffffff;
+  --destructive: var(--color-red-600);
+  --destructive-foreground: #ffffff;
+  --border: var(--color-zinc-200);
+  --input: var(--color-zinc-300);
+  --ring: var(--accent);
+  --radius: 0.5rem;
+}
+.dark {
+  --background: var(--color-zinc-900);
+  --foreground: var(--color-zinc-100);
+  --card: var(--color-zinc-800);
+  --card-foreground: var(--color-zinc-100);
+  --popover: var(--color-zinc-800);
+  --popover-foreground: var(--color-zinc-100);
+  --primary: var(--accent);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-zinc-700);
+  --secondary-foreground: var(--color-zinc-100);
+  --muted: var(--color-zinc-700);
+  --muted-foreground: var(--color-zinc-400);
+  --accent-foreground: #ffffff;
+  --destructive: var(--color-red-600);
+  --destructive-foreground: #ffffff;
+  --border: var(--color-zinc-700);
+  --input: var(--color-zinc-600);
+  --ring: var(--accent);
+}
+
+/* `inline` so the utilities substitute the value rather than a second var
+   hop — that is what makes `bg-primary/50`-style opacity modifiers resolve. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+/* ── end shadcn-svelte theme bridge ────────────────────────────────────────*/
 
 html,
 body,

@@ -1,3 +1,4 @@
+import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
@@ -6,6 +7,13 @@ import tailwindcss from "@tailwindcss/vite";
 // theme lives in app.css under @theme rather than in tailwind.config.js.
 export default defineConfig({
   plugins: [tailwindcss(), svelte()],
+  // This is plain Vite, not SvelteKit, so $lib is not built in — shadcn-svelte's
+  // components import from it, and jsconfig.json mirrors this for editors.
+  resolve: {
+    alias: {
+      $lib: fileURLToPath(new URL("./src/lib", import.meta.url))
+    }
+  },
   clearScreen: false,
   server: {
     port: 5173,

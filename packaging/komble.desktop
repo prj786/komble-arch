@@ -2,10 +2,13 @@
 Type=Application
 Name=Komble
 GenericName=App Store
-Comment=Install packages from your repositories, the AUR and AppImageHub
-Exec=komble
+Comment=Install packages from your repositories, the AUR and AppImages
+Exec=komble %F
 Icon=komble
 Terminal=false
 Categories=System;PackageManager;Utility;
 Keywords=package;install;software;store;pacman;aur;appimage;
+# Double-clicking an .AppImage (or a built pacman package) opens the install
+# flow — the argv is handled in lib.rs (openable_path).
+MimeType=application/vnd.appimage;application/x-iso9660-appimage;application/x-appimage;
 StartupWMClass=Komble

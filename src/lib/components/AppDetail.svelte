@@ -52,6 +52,11 @@
         }
       } else if (it.github) {
         release = await api.resolveRelease(it.github, $settings.githubToken);
+      } else if (it.source === "am") {
+        const r = await api.resolveAmApp(it.id, $settings.githubToken);
+        release = r.release;
+        // remember the repo so install records it and updates get tracked
+        if (r.github) it.github = r.github;
       }
     } catch (e) {
       relError = String(e);

@@ -5,6 +5,13 @@
   import * as api from "../api";
   import VirtualGrid from "./VirtualGrid.svelte";
   import AppCard from "./AppCard.svelte";
+  import * as Select from "./ui/select/index.js";
+
+  // "" is a real value here (= no filter), but bits-ui reads "" as "nothing
+  // selected" — so it travels under a sentinel, same as ui/SelectRow.svelte.
+  const ALL = " all";
+  const enc = (v) => (v === "" || v == null ? ALL : String(v));
+  const dec = (v) => (v === ALL ? "" : v);
 
   let query = "";
   let category = "";
@@ -26,6 +33,13 @@
   ];
 
   $: cats = [...new Set($catalog.flatMap((i) => i.categories || []))].sort();
+  $: repoOpts = [
+    ["", "All repositories"],
+    ...sections.map(([name, n]) => [name, `${name} (${n})`])
+  ];
+  $: catOpts = [["", "All categories"], ...cats.map((c) => [c, c])];
+  $: repoLabel = (repoOpts.find(([v]) => v === pkgRepo) || repoOpts[0])[1];
+  $: catLabel = category || "All categories";
   $: aiResults =
     source === "pkg" || source === "aur" ? [] : searchCatalog($catalog, query, category);
   $: if (source === "pkg" && !sectionsLoaded) loadSections();
@@ -180,19 +194,27 @@
       bind:value={query}
     />
     {#if source === "pkg"}
-      <select class="input w-full sm:w-56" bind:value={pkgRepo}>
-        <option value="">All repositories</option>
-        {#each sections as [s, n]}
-          <option value={s}>{s} ({n})</option>
-        {/each}
-      </select>
+      <Select.Root type="single" value={enc(pkgRepo)} onValueChange={(raw) => (pkgRepo = dec(raw))}>
+        <Select.Trigger size="sm" class="w-full sm:w-56">
+          <span data-slot="select-value" class="truncate">{repoLabel}</span>
+        </Select.Trigger>
+        <Select.Content class="max-h-72 p-1">
+          {#each repoOpts as [value, label] (enc(value))}
+            <Select.Item value={enc(value)} {label} />
+          {/each}
+        </Select.Content>
+      </Select.Root>
     {:else if source !== "aur"}
-      <select class="input w-full sm:w-56" bind:value={category}>
-        <option value="">All categories</option>
-        {#each cats as c}
-          <option value={c}>{c}</option>
-        {/each}
-      </select>
+      <Select.Root type="single" value={enc(category)} onValueChange={(raw) => (category = dec(raw))}>
+        <Select.Trigger size="sm" class="w-full sm:w-56">
+          <span data-slot="select-value" class="truncate">{catLabel}</span>
+        </Select.Trigger>
+        <Select.Content class="max-h-72 p-1">
+          {#each catOpts as [value, label] (enc(value))}
+            <Select.Item value={enc(value)} {label} />
+          {/each}
+        </Select.Content>
+      </Select.Root>
     {/if}
   </div>
 

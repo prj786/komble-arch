@@ -3,6 +3,14 @@
   import { saveSettings } from "../persist";
   import * as api from "../api";
   import { enable, disable } from "@tauri-apps/plugin-autostart";
+  import SelectRow from "./ui/SelectRow.svelte";
+  import ToggleRow from "./ui/ToggleRow.svelte";
+
+  const themes = [
+    { label: "System", value: "system" },
+    { label: "Light", value: "light" },
+    { label: "Dark", value: "dark" }
+  ];
 
   // Local editable copy; re-synced whenever the store changes (load/save).
   let s = { ...$settings };
@@ -48,39 +56,38 @@
   <div class="max-w-2xl">
     <div class="section-title">Appearance</div>
     <div class="card divide-y divide-zinc-200 dark:divide-zinc-700/60">
-      <label class="flex items-center justify-between px-4 py-3">
-        <span class="text-sm font-medium">Theme</span>
-        <select class="input !w-40" bind:value={s.theme} on:change={() => saveSettings({ theme: s.theme })}>
-          <option value="system">System</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </select>
-      </label>
+      <SelectRow
+        label="Theme"
+        options={themes}
+        value={s.theme}
+        width="w-40"
+        picked={(v) => {
+          s.theme = v;
+          saveSettings({ theme: v });
+        }}
+      />
     </div>
 
     <div class="section-title">Behavior</div>
     <div class="card divide-y divide-zinc-200 dark:divide-zinc-700/60">
-      <label class="flex items-center justify-between px-4 py-3">
-        <div>
-          <div class="text-sm font-medium">Minimize to tray on close</div>
-          <div class="text-xs text-zinc-400">Closing the window keeps Komble running in the tray</div>
-        </div>
-        <input type="checkbox" class="h-4 w-4" style="accent-color: var(--accent)" bind:checked={s.minimizeToTray} />
-      </label>
-      <label class="flex items-center justify-between px-4 py-3">
-        <div>
-          <div class="text-sm font-medium">Start at login</div>
-          <div class="text-xs text-zinc-400">Launch Komble automatically when you log in</div>
-        </div>
-        <input type="checkbox" class="h-4 w-4" style="accent-color: var(--accent)" bind:checked={s.autostart} />
-      </label>
-      <label class="flex items-center justify-between px-4 py-3">
-        <div>
-          <div class="text-sm font-medium">Notify about updates</div>
-          <div class="text-xs text-zinc-400">Background check every 6 hours</div>
-        </div>
-        <input type="checkbox" class="h-4 w-4" style="accent-color: var(--accent)" bind:checked={s.notifyUpdates} />
-      </label>
+      <ToggleRow
+        title="Minimize to tray on close"
+        sub="Closing the window keeps Komble running in the tray"
+        on={!!s.minimizeToTray}
+        toggled={() => (s.minimizeToTray = !s.minimizeToTray)}
+      />
+      <ToggleRow
+        title="Start at login"
+        sub="Launch Komble automatically when you log in"
+        on={!!s.autostart}
+        toggled={() => (s.autostart = !s.autostart)}
+      />
+      <ToggleRow
+        title="Notify about updates"
+        sub="Background check every 6 hours"
+        on={!!s.notifyUpdates}
+        toggled={() => (s.notifyUpdates = !s.notifyUpdates)}
+      />
     </div>
 
     <div class="section-title">Sources</div>
@@ -147,19 +154,15 @@
 
     <div class="section-title">Advanced</div>
     <div class="card divide-y divide-zinc-200 dark:divide-zinc-700/60">
-      <label class="flex items-center justify-between px-4 py-3">
-        <div>
-          <div class="text-sm font-medium">Show advanced options</div>
-          <div class="text-xs text-zinc-400">For users who know what they're doing</div>
-        </div>
-        <input
-          type="checkbox"
-          class="h-4 w-4"
-          style="accent-color: var(--accent)"
-          bind:checked={s.advancedMode}
-          on:change={() => saveSettings({ advancedMode: s.advancedMode })}
-        />
-      </label>
+      <ToggleRow
+        title="Show advanced options"
+        sub="For users who know what they're doing"
+        on={!!s.advancedMode}
+        toggled={() => {
+          s.advancedMode = !s.advancedMode;
+          saveSettings({ advancedMode: s.advancedMode });
+        }}
+      />
       {#if s.advancedMode}
         <div class="px-4 py-3 text-sm text-zinc-400">
           <div class="font-medium text-zinc-500 dark:text-zinc-300">Extra repositories</div>

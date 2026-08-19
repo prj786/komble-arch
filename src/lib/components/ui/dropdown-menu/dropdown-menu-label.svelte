@@ -1,0 +1,20 @@
+<script>
+	import { cn } from "$lib/utils.js";
+	let {
+		ref = $bindable(null),
+		class: className,
+		inset,
+		children,
+		...restProps
+	} = $props();
+</script>
+
+<div
+	bind:this={ref}
+	data-slot="dropdown-menu-label"
+	data-inset={inset}
+	class={cn("px-2 py-1.5 text-xs font-medium text-muted-foreground data-inset:pl-8 data-[inset]:pl-8", className)}
+	{...restProps}
+>
+	{@render children?.()}
+</div>

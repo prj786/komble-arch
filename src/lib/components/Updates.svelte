@@ -1,11 +1,31 @@
 <script>
   import { onMount } from "svelte";
-  import { updatesInfo, settings, progress, toast } from "../stores";
+  import { updatesInfo, settings, progress, systemInfo, toast } from "../stores";
   import { refreshInstalled } from "../actions";
   import * as api from "../api";
 
   let checking = false;
   let working = false;
+  let fixingContrib = false;
+
+  // Without checkupdates (pacman-contrib) there is NO safe way to list repo
+  // updates, and the system section sits silently empty — surface that here
+  // with a one-click fix instead of pretending the system is up to date.
+  $: contribMissing = $systemInfo && !$systemInfo.checkupdates;
+
+  async function installContrib() {
+    fixingContrib = true;
+    try {
+      toast("Installing pacman-contrib — authentication may be required…", "info");
+      await api.installPacmanContrib();
+      systemInfo.update((i) => (i ? { ...i, checkupdates: true } : i));
+      toast("pacman-contrib installed — checking for system updates", "success");
+      await check();
+    } catch (e) {
+      toast(e, "error");
+    }
+    fixingContrib = false;
+  }
 
   async function check() {
     checking = true;
@@ -141,9 +161,22 @@
   {/if}
 
   <div class="section-title">System packages · {$updatesInfo.packages.length}</div>
+  {#if contribMissing}
+    <div class="card mb-2 flex items-center gap-3 border-amber-400/40 px-4 py-3">
+      <div class="min-w-0 flex-1 text-sm">
+        <span class="font-medium">Full system updates need pacman-contrib.</span>
+        <span class="text-zinc-400">
+          It provides checkupdates, the only safe way to list pending repo updates — without it
+          only AUR and AppImage updates appear here.</span>
+      </div>
+      <button class="btn-primary !py-1 whitespace-nowrap text-xs" disabled={fixingContrib} on:click={installContrib}>
+        {fixingContrib ? "Installing…" : "Install it"}
+      </button>
+    </div>
+  {/if}
   {#if $updatesInfo.packages.length === 0}
     <div class="card p-5 text-center text-sm text-zinc-400">
-      {checking ? "Checking…" : "Everything is up to date."}
+      {checking ? "Checking…" : contribMissing ? "Repo updates unknown — install pacman-contrib above." : "Everything is up to date."}
     </div>
   {:else}
     <div class="mb-2 flex items-center justify-between gap-3">
