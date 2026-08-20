@@ -36,9 +36,22 @@ export const listUpgradable = () => invoke("list_upgradable");
 // own database copy, so there is no `pacman -Sy` to run (and running one would
 // arm a partial upgrade).
 export const refreshLists = () => invoke("refresh_lists");
-// There is no per-package upgrade on purpose — a partial upgrade is unsupported
-// on a rolling release. The only upgrade is the whole system.
+// There is no per-REPO-package upgrade on purpose — a partial upgrade is
+// unsupported on a rolling release. The only repo upgrade is the whole system.
 export const systemUpgrade = () => invoke("system_upgrade");
+// -Syu never touches foreign packages: AUR ones are rebuilt separately, each
+// through the same clone → makepkg → pacman -U pipeline as an install.
+export const aurUpgrade = () => invoke("aur_upgrade");
+
+// first-party ewe apps (Komble, ewe-settings) + the desktop itself
+export const firstPartyStatus = (token) =>
+  invoke("first_party_status", { token: token || null });
+export const installFirstParty = (pkg, token) =>
+  invoke("install_first_party", { pkg, token: token || null });
+export const eweStatus = (token) => invoke("ewe_status", { token: token || null });
+export const eweUpdate = () => invoke("ewe_update");
+export const eweUpdateTerminal = () => invoke("ewe_update_terminal");
+export const takePendingRoute = () => invoke("take_pending_route");
 export const browsePackages = (query, section, limit) =>
   invoke("browse_packages", {
     query: query || null,

@@ -7,18 +7,22 @@
     settings,
     trackedPkgs,
     aurReview,
+    busyPkgs,
+    setPkgBusy,
     toast
   } from "../stores";
-  import { installFromItem, installPackage } from "../api";
+  import { installFromItem, installPackage, installFirstParty } from "../api";
   import { refreshPkgs } from "../actions";
 
   export let item;
   let iconError = false;
-  let pkgBusy = false;
 
   $: isPkg = item.kind === "pkg";
   $: isAur = isPkg && item.section === "aur";
+  $: isEwe = isPkg && item.section === "ewe"; // first-party (GitHub release)
   $: prog = !isPkg && $progress[item.id];
+  // busy state is SHARED (stores.busyPkgs) so the detail modal agrees with us
+  $: pkgBusy = isPkg && $busyPkgs.has(item.pkg);
   $: isInstalled = isPkg
     ? item.installed || $trackedPkgs.some((d) => d.package === item.pkg)
     : $installedIds.has(item.id);
@@ -35,17 +39,18 @@
       return;
     }
     if (isPkg) {
-      pkgBusy = true;
+      setPkgBusy(item.pkg, true);
       try {
         toast(`Installing ${item.pkg} — authentication may be required…`, "info");
-        await installPackage(item.pkg);
+        if (isEwe) await installFirstParty(item.pkg, $settings.githubToken);
+        else await installPackage(item.pkg);
         toast(`${item.pkg} installed`, "success");
         item.installed = true;
         refreshPkgs();
       } catch (err) {
         toast(err, "error");
       }
-      pkgBusy = false;
+      setPkgBusy(item.pkg, false);
       return;
     }
     try {

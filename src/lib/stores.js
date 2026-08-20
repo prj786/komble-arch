@@ -26,6 +26,20 @@ export const settings = writable({ ...DEFAULT_SETTINGS });
 /** id → { phase, downloaded, total } while an install/update is running. */
 export const progress = writable({});
 
+/** Package names (pacman / AUR / first-party) with an install or remove in
+ *  flight. ONE shared set — a card and the detail modal must never disagree
+ *  about "Installing…" (they used to each keep a private busy flag, so the
+ *  modal said "Install" while the card underneath said "Installing"). */
+export const busyPkgs = writable(new Set());
+export function setPkgBusy(pkg, busy) {
+  busyPkgs.update((s) => {
+    const n = new Set(s);
+    if (busy) n.add(pkg);
+    else n.delete(pkg);
+    return n;
+  });
+}
+
 /** Catalog item currently open in the detail modal. */
 export const selectedApp = writable(null);
 
@@ -39,10 +53,10 @@ export const droppedPkg = writable(null);
  *  the AUR is never one-click: the review gate is the security model. */
 export const aurReview = writable("");
 
-export const updatesInfo = writable({ appimages: [], packages: [], errors: [], self: null, checkedAt: 0 });
+export const updatesInfo = writable({ appimages: [], packages: [], errors: [], self: null, desktop: 0, checkedAt: 0 });
 export const updatesCount = derived(
   updatesInfo,
-  (i) => i.appimages.length + i.packages.length + (i.self ? 1 : 0)
+  (i) => i.appimages.length + i.packages.length + (i.desktop || 0) + (i.self ? 1 : 0)
 );
 
 export const systemInfo = writable(null);

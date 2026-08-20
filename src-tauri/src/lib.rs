@@ -1,13 +1,12 @@
 mod appimage;
 mod catalog;
 mod de;
+mod first_party;
 mod pacman;
 mod registry;
 mod system;
 mod util;
 
-use tauri::menu::{Menu, MenuItem};
-use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 use tauri_plugin_store::StoreExt;
 
@@ -15,6 +14,25 @@ use tauri_plugin_store::StoreExt;
 /// entry passes it as an argv). Stashed at startup because the webview isn't
 /// listening yet; the frontend collects it via `take_pending_open` once mounted.
 static PENDING_OPEN: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+/// A route the app was launched INTO (`komble --updates`, used by the DE bar's
+/// update indicator). Same stash-then-collect pattern as PENDING_OPEN: the
+/// webview isn't listening for events yet at process start.
+static PENDING_ROUTE: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+fn route_arg(arg: &str) -> Option<String> {
+    match arg {
+        "--updates" => Some("updates".into()),
+        "--settings" => Some("settings".into()),
+        _ => None,
+    }
+}
+
+#[tauri::command]
+fn take_pending_route() -> Option<String> {
+    PENDING_ROUTE.lock().ok().and_then(|mut g| g.take())
+}
+
 
 fn hex_val(b: u8) -> Option<u8> {
     match b {
@@ -138,44 +156,15 @@ async fn background_update_loop(app: AppHandle) {
     }
 }
 
-fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
-    let open_i = MenuItem::with_id(app, "open", "Open Komble", true, None::<&str>)?;
-    let updates_i = MenuItem::with_id(app, "updates", "Check for updates", true, None::<&str>)?;
-    let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open_i, &updates_i, &quit_i])?;
-
-    TrayIconBuilder::with_id("komble-tray")
-        .icon(app.default_window_icon().unwrap().clone())
-        .tooltip("Komble")
-        .menu(&menu)
-        .show_menu_on_left_click(false)
-        .on_menu_event(|app, event| match event.id().as_ref() {
-            "open" => show_main(app),
-            "updates" => {
-                show_main(app);
-                let _ = app.emit("navigate", "updates");
-            }
-            "quit" => app.exit(0),
-            _ => {}
-        })
-        .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click {
-                button: MouseButton::Left,
-                button_state: MouseButtonState::Up,
-                ..
-            } = event
-            {
-                show_main(tray.app_handle());
-            }
-        })
-        .build(app)?;
-    Ok(())
-}
-
 pub fn run() {
     if let Some(p) = std::env::args().skip(1).find_map(|a| openable_path(&a)) {
         if let Ok(mut g) = PENDING_OPEN.lock() {
             *g = Some(p);
+        }
+    }
+    if let Some(r) = std::env::args().skip(1).find_map(|a| route_arg(&a)) {
+        if let Ok(mut g) = PENDING_ROUTE.lock() {
+            *g = Some(r);
         }
     }
 
@@ -187,6 +176,10 @@ pub fn run() {
             show_main(app);
             if let Some(p) = args.iter().skip(1).find_map(|a| openable_path(a)) {
                 let _ = app.emit("open-file", p);
+            }
+            // `komble --updates` from the bar indicator while already running
+            if let Some(r) = args.iter().skip(1).find_map(|a| route_arg(a)) {
+                let _ = app.emit("navigate", r);
             }
         }))
         .plugin(tauri_plugin_shell::init())
@@ -209,13 +202,17 @@ pub fn run() {
 
     builder
         .setup(|app| {
-            setup_tray(app)?;
+            // No tray icon — the DE bar's always-on indicator IS the tray
+            // (font-icon states + update count, live even before first launch).
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(background_update_loop(handle));
             Ok(())
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
+                // hide, don't quit: a running upgrade must survive the window
+                // closing, and the bar indicator / single-instance relaunch
+                // brings the window back
                 if window.label() == "main"
                     && setting_bool(window.app_handle(), "minimizeToTray", true)
                 {
@@ -244,11 +241,19 @@ pub fn run() {
             pacman::list_tracked_packages,
             pacman::package_file_info,
             pacman::install_package_file,
-            // updates — note there is no per-package upgrade command on purpose;
-            // partial upgrades are unsupported on Arch (see pacman.rs)
+            // updates — note there is no per-REPO-package upgrade command on
+            // purpose; partial upgrades are unsupported on Arch (see pacman.rs).
+            // aur_upgrade rebuilds foreign packages, which -Syu never touches.
             pacman::list_upgradable,
             pacman::system_upgrade,
+            pacman::aur_upgrade,
             pacman::refresh_lists,
+            // first-party ewe apps + the desktop itself
+            first_party::first_party_status,
+            first_party::install_first_party,
+            first_party::ewe_status,
+            first_party::ewe_update,
+            first_party::ewe_update_terminal,
             // AUR
             pacman::aur_search,
             pacman::aur_pkgbuild,
@@ -260,6 +265,7 @@ pub fn run() {
             system::install_fuse2,
             system::install_pacman_contrib,
             take_pending_open,
+            take_pending_route,
             check_self_update
         ])
         .run(tauri::generate_context!())

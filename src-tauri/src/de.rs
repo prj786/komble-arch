@@ -49,26 +49,23 @@ async fn run_out(bin: &str, args: &[&str]) -> Result<String, String> {
 
 /// The DE shell's qs pid — targeting it explicitly makes `qs ipc` unambiguous
 /// even when another qs instance exists (e.g. a nested test session).
+/// The user unit is `ewe.service` since the rename; `hypr-shell.service` is
+/// probed second for machines still on a pre-rename install.
 async fn shell_pid() -> Option<String> {
-    let out = run_out(
-        "systemctl",
-        &[
-            "--user",
-            "show",
-            "-p",
-            "MainPID",
-            "--value",
-            "hypr-shell.service",
-        ],
-    )
-    .await
-    .ok()?;
-    let pid = out.trim().to_string();
-    if pid.is_empty() || pid == "0" {
-        None
-    } else {
-        Some(pid)
+    for unit in ["ewe.service", "hypr-shell.service"] {
+        if let Ok(out) = run_out(
+            "systemctl",
+            &["--user", "show", "-p", "MainPID", "--value", unit],
+        )
+        .await
+        {
+            let pid = out.trim().to_string();
+            if !pid.is_empty() && pid != "0" {
+                return Some(pid);
+            }
+        }
     }
+    None
 }
 
 /// Shell IPC, allowlisted: exactly the Google-account verbs "For you" needs.
@@ -88,6 +85,48 @@ pub async fn qs_ipc(func: String) -> Result<String, String> {
 pub fn poke_sync() {
     tokio::spawn(async {
         let _ = qs_ipc("syncSoon".into()).await;
+    });
+}
+
+/// Fire-and-forget "re-count pending updates": the bar's Komble indicator
+/// re-runs its checkupdates/paru probe. Poked after every transaction so the
+/// glyph flips (spinner while pacman holds the lock, count/check after).
+/// Raise/clear the bar indicator's "an upgrade is running" state. AUR builds
+/// hold no pacman lock while makepkg runs, so without this the bar would show
+/// the spinner only for the final `pacman -U` seconds of a long upgrade. The
+/// shell auto-clears it after 15 min without a re-assert (crash safety).
+///
+/// Awaited, not spawned: the repo phase's `false` and the AUR phase's `true`
+/// follow each other within milliseconds, and two spawned pokes can land out
+/// of order — turning the glyph OFF for the whole build. In-order pokes cost
+/// ~30 ms each, which is nothing against an upgrade.
+pub async fn poke_working_now(on: bool) {
+    let mut args: Vec<String> = vec!["ipc".into()];
+    if let Some(pid) = shell_pid().await {
+        args.push("--pid".into());
+        args.push(pid);
+    }
+    args.extend(["call", "updates", "working"].map(String::from));
+    args.push(if on { "true".into() } else { "false".into() });
+    let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    let _ = run_out("qs", &refs).await;
+}
+
+/// Fire-and-forget variant for mid-run re-asserts, where ordering can't matter.
+pub fn poke_working(on: bool) {
+    tokio::spawn(poke_working_now(on));
+}
+
+pub fn poke_updates() {
+    tokio::spawn(async {
+        let mut args: Vec<String> = vec!["ipc".into()];
+        if let Some(pid) = shell_pid().await {
+            args.push("--pid".into());
+            args.push(pid);
+        }
+        args.extend(["call", "updates", "refresh"].map(String::from));
+        let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+        let _ = run_out("qs", &refs).await;
     });
 }
 

@@ -8,6 +8,8 @@
     settings,
     trackedPkgs,
     aurReview,
+    busyPkgs,
+    setPkgBusy,
     toast
   } from "../stores";
   import { refreshInstalled, refreshPkgs } from "../actions";
@@ -20,13 +22,15 @@
   let loading = false;
   let iconError = false;
   let confirming = false;
-  let pkgBusy = false;
   let lastId = null;
 
   $: item = $selectedApp;
   $: isPkg = item?.kind === "pkg";
   $: isAur = isPkg && item.section === "aur";
+  $: isEwe = isPkg && item.section === "ewe"; // first-party (GitHub release)
   $: prog = item && !isPkg && $progress[item.id];
+  // busy state is SHARED (stores.busyPkgs) so we agree with the card behind us
+  $: pkgBusy = isPkg && $busyPkgs.has(item.pkg);
   $: isInstalled = item
     ? isPkg
       ? item.installed || $trackedPkgs.some((d) => d.package === item.pkg)
@@ -45,9 +49,9 @@
     loading = true;
     try {
       if (it.kind === "pkg") {
-        // pacman only knows an AUR package once it is installed (-Qi); before
-        // that, the search result itself is all the detail there is.
-        if (it.section !== "aur" || it.installed) {
+        // pacman only knows an AUR or first-party package once it is
+        // installed (-Qi); before that, the search result IS the detail.
+        if ((it.section !== "aur" && it.section !== "ewe") || it.installed) {
           pkgInfo = await api.packageInfo(it.pkg);
         }
       } else if (it.github) {
@@ -79,17 +83,18 @@
       return;
     }
     if (isPkg) {
-      pkgBusy = true;
+      setPkgBusy(item.pkg, true);
       try {
         toast(`Installing ${item.pkg} — authentication may be required…`, "info");
-        await api.installPackage(item.pkg);
+        if (isEwe) await api.installFirstParty(item.pkg, $settings.githubToken);
+        else await api.installPackage(item.pkg);
         toast(`${item.pkg} installed`, "success");
         item.installed = true;
         refreshPkgs();
       } catch (e) {
         toast(e, "error");
       }
-      pkgBusy = false;
+      setPkgBusy(item.pkg, false);
       return;
     }
     try {
@@ -109,13 +114,13 @@
     confirming = false;
     try {
       if (isPkg) {
-        pkgBusy = true;
+        setPkgBusy(item.pkg, true);
         toast(`Removing ${item.pkg} — authentication may be required…`, "info");
         await api.removePackage(item.pkg);
         toast(`${item.pkg} removed`, "success");
         item.installed = false;
         refreshPkgs();
-        pkgBusy = false;
+        setPkgBusy(item.pkg, false);
       } else {
         await api.removeAppimage(item.id);
         toast(`${item.name} removed`, "success");
@@ -123,7 +128,7 @@
       }
     } catch (e) {
       toast(e, "error");
-      pkgBusy = false;
+      if (isPkg) setPkgBusy(item.pkg, false);
     }
   }
 </script>
@@ -157,7 +162,7 @@
           <h2 class="truncate text-lg font-bold">{item.name}</h2>
           <div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-zinc-400 dark:text-zinc-500">
             {#if isPkg}
-              <span class="font-medium text-orange-600 dark:text-orange-400">{isAur ? "AUR package" : "repository package"}</span>
+              <span class="font-medium text-orange-600 dark:text-orange-400">{isAur ? "AUR package" : isEwe ? "ewe first-party app" : "repository package"}</span>
               {#if pkgInfo?.section && !isAur}<span>{pkgInfo.section}</span>{/if}
               {#if loading}
                 <span>loading details…</span>

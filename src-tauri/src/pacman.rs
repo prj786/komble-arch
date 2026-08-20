@@ -22,6 +22,7 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -153,6 +154,9 @@ async fn run_privileged(direct: Vec<&str>, helper: Vec<&str>) -> Result<String, 
     log.push_str(&String::from_utf8_lossy(&out.stderr));
 
     invalidate_installed_cache();
+    // every privileged action changes what is pending — tell the DE bar's
+    // update indicator to re-count (fire-and-forget, no-op outside ewe)
+    crate::de::poke_updates();
     if out.status.success() {
         return Ok(log);
     }
@@ -214,7 +218,7 @@ async fn installed_set() -> HashSet<String> {
     set
 }
 
-async fn installed_version(pkg: &str) -> Option<String> {
+pub(crate) async fn installed_version(pkg: &str) -> Option<String> {
     let text = run_out("pacman", &["-Q", pkg]).await.ok()?;
     text.split_whitespace().nth(1).map(|s| s.to_string())
 }
@@ -342,7 +346,7 @@ pub async fn browse_packages(
         });
     }
     let limit = limit.unwrap_or(2000).min(5000);
-    let items = matches
+    let mut items: Vec<BrowseItem> = matches
         .into_iter()
         .take(limit)
         .map(|e| BrowseItem {
@@ -353,6 +357,30 @@ pub async fn browse_packages(
             installed: installed.contains(&e.name),
         })
         .collect();
+
+    // First-party ewe apps are installed from GitHub releases, never from the
+    // sync DBs, so the index above can't surface them — inject them at the top
+    // whenever the query matches (section "ewe"; the frontend routes their
+    // install through install_first_party instead of pacman -S).
+    let mut total = total;
+    if !q.is_empty() && repo.is_none() {
+        for (name, _, summary) in crate::first_party::DISCOVER.iter().rev() {
+            if name.contains(&q) || summary.to_lowercase().contains(&q) {
+                let ver = installed_version(name).await.unwrap_or_default();
+                items.insert(
+                    0,
+                    BrowseItem {
+                        name: name.to_string(),
+                        summary: summary.to_string(),
+                        section: "ewe".into(),
+                        version: ver,
+                        installed: installed.contains(*name),
+                    },
+                );
+                total += 1;
+            }
+        }
+    }
     Ok(BrowseResult { total, items })
 }
 
@@ -619,15 +647,85 @@ fn urlencoding(s: &str) -> String {
         .collect()
 }
 
+/// One upgrade at a time, process-wide. Two overlapping flows (e.g. "Update
+/// all" and "Upgrade system" clicked in succession) used to run two makepkg
+/// pipelines side by side — wasted bandwidth at best, colliding `pacman -U`
+/// transactions at worst. The guard also drives the DE bar's "updating" state
+/// for its whole lifetime, not just while pacman holds db.lck.
+static UPGRADE_RUNNING: AtomicBool = AtomicBool::new(false);
+
+struct UpgradeGuard;
+impl UpgradeGuard {
+    fn acquire() -> Result<Self, String> {
+        if UPGRADE_RUNNING.swap(true, Ordering::SeqCst) {
+            return Err("An upgrade is already running — let it finish first.".into());
+        }
+        Ok(UpgradeGuard)
+    }
+}
+impl Drop for UpgradeGuard {
+    fn drop(&mut self) {
+        UPGRADE_RUNNING.store(false, Ordering::SeqCst);
+    }
+}
+
 /// A full `-Syu` and nothing else. There is deliberately no per-package upgrade:
 /// on a rolling release that is a partial upgrade, and partial upgrades are
 /// unsupported by design — the Updates view says so rather than offering a
 /// button that quietly breaks the system.
 #[tauri::command]
 pub async fn system_upgrade() -> Result<String, String> {
-    let log = run_privileged(vec!["pacman", "-Syu", "--noconfirm"], vec!["sysupgrade"]).await?;
+    let _guard = UpgradeGuard::acquire()?;
+    crate::de::poke_working_now(true).await;
+    let r = run_privileged(vec!["pacman", "-Syu", "--noconfirm"], vec!["sysupgrade"]).await;
     invalidate_index();
-    Ok(log)
+    crate::de::poke_working_now(false).await;
+    r
+}
+
+/// Rebuild every outdated AUR package. `pacman -Syu` never touches foreign
+/// packages, so without this the AUR rows survive "Upgrade system" forever —
+/// exactly the "old packages are still there" bug. Each package goes through
+/// the same clone → makepkg → pacman -U pipeline as an install (the frontend
+/// hears the same install-progress events); failures are collected so one
+/// broken PKGBUILD doesn't strand the rest.
+///
+/// No PKGBUILD review gate here, deliberately: the gate exists so nothing the
+/// user never approved gets to run, and these packages were each reviewed at
+/// install time. Re-reviewing every diff on every rebuild is what paru's
+/// default is, and nobody reads those either — the meaningful consent was at
+/// install.
+#[tauri::command]
+pub async fn aur_upgrade(app: AppHandle) -> Result<String, String> {
+    let _guard = UpgradeGuard::acquire()?;
+    let pending = aur_updates().await.unwrap_or_default();
+    if pending.is_empty() {
+        return Ok(String::new());
+    }
+    crate::de::poke_working_now(true).await;
+    let mut log = String::new();
+    let mut failed: Vec<String> = Vec::new();
+    for u in pending {
+        // re-assert per package: the shell's crash-safety timeout would clear
+        // the "updating" glyph mid-way through a long multi-package run
+        crate::de::poke_working(true);
+        match aur_install(app.clone(), u.name.clone()).await {
+            Ok(l) => {
+                log.push_str(&l);
+                log.push('\n');
+            }
+            Err(e) => failed.push(format!("{}: {e}", u.name)),
+        }
+    }
+    crate::de::poke_working_now(false).await;
+    if failed.is_empty() {
+        Ok(log)
+    } else {
+        Err(format!(
+            "Some AUR packages failed to rebuild:\n{}",
+            failed.join("\n")
+        ))
+    }
 }
 
 /// "Refresh lists" costs nothing and touches nothing: checkupdates already works
@@ -706,6 +804,14 @@ pub async fn aur_pkgbuild(package: String) -> Result<String, String> {
 /// waiting for a password on a terminal that does not exist.
 #[tauri::command]
 pub async fn aur_install(app: AppHandle, package: String) -> Result<String, String> {
+    let r = aur_install_inner(app.clone(), package.clone()).await;
+    // ALWAYS clear the progress entry — stage events ("clone"/"build") have no
+    // terminal marker of their own, and a lingering entry pins "…" on cards
+    let _ = app.emit("install-progress", json!({ "id": package, "phase": "done" }));
+    r
+}
+
+async fn aur_install_inner(app: AppHandle, package: String) -> Result<String, String> {
     if !valid_pkg_name(&package) {
         return Err("invalid package name".into());
     }

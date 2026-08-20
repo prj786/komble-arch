@@ -123,6 +123,8 @@
       unlisteners.push(await listen("open-file", (e) => openPath(e.payload)));
       // cold start: the path was stashed before the webview existed
       api.takePendingOpen().then((p) => p && openPath(p)).catch(() => {});
+      // `komble --updates` from the DE bar's indicator (cold start)
+      api.takePendingRoute().then((r) => r && route.set(r)).catch(() => {});
 
       // Global drag & drop: .AppImage opens the install wizard,
       // a built/downloaded package file jumps to the install view.
