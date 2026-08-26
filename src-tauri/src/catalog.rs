@@ -7,6 +7,7 @@
 //! can mine for the download source (`resolve_am_app`).
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -17,6 +18,10 @@ use crate::util::{client, estr, slug};
 const AM_APPS_URL: &str = "https://portable-linux-apps.github.io/apps.json";
 const AM_SCRIPT_URL: &str = "https://raw.githubusercontent.com/ivan-hc/AM/main/programs/x86_64/";
 const AM_PAGE_URL: &str = "https://portable-linux-apps.github.io/apps/";
+// The Pages site stopped serving /icons/*.png (404), but the same files are
+// still in the site's repo — fetch them raw.
+const AM_ICON_URL: &str =
+    "https://raw.githubusercontent.com/Portable-Linux-Apps/Portable-Linux-Apps.github.io/main/icons/";
 const FEED_TTL: u64 = 24 * 3600;
 const RELEASE_TTL: u64 = 6 * 3600;
 
@@ -65,16 +70,17 @@ pub struct AssetInfo {
 
 // ---------- raw feed shapes ----------
 
+/// apps.json changed shape in 2026-08: it used to be an array of
+/// `{packageName, description, icon, arch}`, now it's a map of
+/// `id → {description, archs}` (no icon field — see AM_ICON_URL).
+type AmFeed = BTreeMap<String, AmApp>;
+
 #[derive(Deserialize)]
 struct AmApp {
-    #[serde(rename = "packageName")]
-    package_name: Option<String>,
     #[serde(default)]
     description: Option<String>,
     #[serde(default)]
-    icon: Option<String>,
-    #[serde(default)]
-    arch: Option<Vec<String>>,
+    archs: Option<Vec<String>>,
 }
 
 #[derive(Deserialize)]
@@ -131,15 +137,16 @@ fn prettify(id: &str) -> String {
         .join(" ")
 }
 
-fn map_items(raw: Vec<AmApp>) -> Vec<CatalogItem> {
+fn map_items(raw: AmFeed) -> Vec<CatalogItem> {
     let mut out = Vec::with_capacity(raw.len());
-    for item in raw {
-        let Some(id) = item.package_name.filter(|n| !n.trim().is_empty()) else {
+    // BTreeMap iteration → the catalog arrives alphabetized by id.
+    for (id, item) in raw {
+        if id.trim().is_empty() {
             continue;
-        };
+        }
         // Only apps AM actually builds/links for x86_64 are installable here.
         if !item
-            .arch
+            .archs
             .as_deref()
             .unwrap_or_default()
             .iter()
@@ -155,7 +162,9 @@ fn map_items(raw: Vec<AmApp>) -> Vec<CatalogItem> {
             license: None,
             github: None,
             download: Some(format!("{AM_PAGE_URL}{id}.html")),
-            icon: item.icon,
+            // Constructed, not listed in the feed — a missing file just 404s
+            // and the card falls back to its glyph (AppCard's on:error).
+            icon: Some(format!("{AM_ICON_URL}{id}.png")),
             screenshots: vec![],
             source: "am".into(),
             id,
@@ -172,7 +181,9 @@ pub async fn fetch_catalog(
     let cache = cache_dir(&app)?.join("am-apps.json");
     if !force.unwrap_or(false) && fresh(&cache, FEED_TTL) {
         if let Ok(text) = fs::read_to_string(&cache) {
-            if let Ok(raw) = serde_json::from_str::<Vec<AmApp>>(&text) {
+            // A cache in the pre-2026-08 array shape fails this parse and
+            // falls through to a refetch, which overwrites it.
+            if let Ok(raw) = serde_json::from_str::<AmFeed>(&text) {
                 return Ok(map_items(raw));
             }
         }
@@ -195,7 +206,7 @@ pub async fn fetch_catalog(
         // Offline: a stale cache beats an empty Discover page.
         Err(e) => fs::read_to_string(&cache).map_err(|_| e)?,
     };
-    let raw: Vec<AmApp> =
+    let raw: AmFeed =
         serde_json::from_str(&text).map_err(|e| format!("Bad app database: {e}"))?;
     let _ = fs::write(&cache, &text);
     Ok(map_items(raw))
@@ -473,4 +484,31 @@ pub async fn resolve_release(
 
     let _ = fs::write(&cache, serde_json::to_string(&info).unwrap_or_default());
     Ok(info)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // The 2026-08 apps.json shape: a map of id → {description, archs}.
+    #[test]
+    fn parses_am_map_feed() {
+        let text = r#"{
+            "0ad": {"description": "RTS game", "archs": ["x86_64"]},
+            "arm-only": {"description": "not for us", "archs": ["aarch64"]},
+            "no-archs": {"description": "skipped"}
+        }"#;
+        let raw: AmFeed = serde_json::from_str(text).unwrap();
+        let items = map_items(raw);
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].id, "0ad");
+        assert_eq!(items[0].description.as_deref(), Some("RTS game"));
+        assert_eq!(
+            items[0].icon.as_deref(),
+            Some(concat!(
+                "https://raw.githubusercontent.com/Portable-Linux-Apps/",
+                "Portable-Linux-Apps.github.io/main/icons/0ad.png"
+            ))
+        );
+    }
 }

@@ -165,7 +165,7 @@
         {:else if query.trim()}
           {merged.length.toLocaleString()} result{merged.length === 1 ? "" : "s"}{pkgSearching ? " · searching the repos…" : ""}
         {:else}
-          {$catalog.length.toLocaleString()} AppImages from AppImageHub · plus the Arch repositories and the AUR
+          {$catalog.length.toLocaleString()} AppImages from the AM catalog · plus the Arch repositories and the AUR
         {/if}
       </p>
     </div>

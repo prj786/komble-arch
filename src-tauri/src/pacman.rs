@@ -568,7 +568,48 @@ pub async fn list_tracked_packages(app: AppHandle) -> Result<Vec<Value>, String>
 pub async fn upgradable_inner() -> Result<Vec<PkgUpdate>, String> {
     let mut out = Vec::new();
     if which("checkupdates") {
-        let text = run_out("checkupdates", &[]).await.unwrap_or_default();
+        // Give checkupdates a PRIVATE sync-DB dir. The stock default
+        // (/tmp/checkup-db-$UID) is shared with every other checkupdates on
+        // the system — the DE bar's periodic check, a terminal run — and two
+        // at once collide on that DB's lock: checkupdates exits 1 with empty
+        // output, which used to read as "0 updates" and blank the badge.
+        // Exit codes: 0 = updates listed, 2 = none, 1 = error. Errors get one
+        // retry (a concurrent pacman sync, a mirror hiccup) and then surface,
+        // instead of masquerading as an up-to-date system.
+        let db = std::env::var_os("XDG_CACHE_HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))
+            .unwrap_or_else(std::env::temp_dir)
+            .join("komble/checkup-db");
+        let mut text = String::new();
+        let mut err = String::new();
+        for attempt in 0..2 {
+            if attempt > 0 {
+                tokio::time::sleep(Duration::from_secs(3)).await;
+            }
+            let r = Command::new("checkupdates")
+                .env("LANG", "C")
+                .env("LC_ALL", "C")
+                .env("CHECKUPDATES_DB", &db)
+                .stdin(Stdio::null())
+                .output()
+                .await
+                .map_err(estr)?;
+            match r.status.code() {
+                Some(0) | Some(2) => {
+                    text = String::from_utf8_lossy(&r.stdout).to_string();
+                    err.clear();
+                    break;
+                }
+                _ => {
+                    let tail = String::from_utf8_lossy(&r.stderr);
+                    err = tail.lines().last().unwrap_or("checkupdates failed").to_string();
+                }
+            }
+        }
+        if !err.is_empty() {
+            return Err(format!("Could not check for repo updates: {err}"));
+        }
         for line in text.lines() {
             // "name oldver -> newver"
             let f: Vec<&str> = line.split_whitespace().collect();
