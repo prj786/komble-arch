@@ -206,8 +206,7 @@ pub async fn fetch_catalog(
         // Offline: a stale cache beats an empty Discover page.
         Err(e) => fs::read_to_string(&cache).map_err(|_| e)?,
     };
-    let raw: AmFeed =
-        serde_json::from_str(&text).map_err(|e| format!("Bad app database: {e}"))?;
+    let raw: AmFeed = serde_json::from_str(&text).map_err(|e| format!("Bad app database: {e}"))?;
     let _ = fs::write(&cache, &text);
     Ok(map_items(raw))
 }

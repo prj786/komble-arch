@@ -603,7 +603,11 @@ pub async fn upgradable_inner() -> Result<Vec<PkgUpdate>, String> {
                 }
                 _ => {
                     let tail = String::from_utf8_lossy(&r.stderr);
-                    err = tail.lines().last().unwrap_or("checkupdates failed").to_string();
+                    err = tail
+                        .lines()
+                        .last()
+                        .unwrap_or("checkupdates failed")
+                        .to_string();
                 }
             }
         }
@@ -848,7 +852,10 @@ pub async fn aur_install(app: AppHandle, package: String) -> Result<String, Stri
     let r = aur_install_inner(app.clone(), package.clone()).await;
     // ALWAYS clear the progress entry — stage events ("clone"/"build") have no
     // terminal marker of their own, and a lingering entry pins "…" on cards
-    let _ = app.emit("install-progress", json!({ "id": package, "phase": "done" }));
+    let _ = app.emit(
+        "install-progress",
+        json!({ "id": package, "phase": "done" }),
+    );
     r
 }
 

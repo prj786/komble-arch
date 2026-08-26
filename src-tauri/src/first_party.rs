@@ -90,7 +90,10 @@ async fn version_newer(candidate: &str, current: &str) -> bool {
 /// tag + the machine-matching .pkg.tar.zst asset URL from a repo's latest
 /// GitHub release (same selection rule as the installer: skip -debug-, take
 /// this arch or -any).
-async fn latest_release(repo: &str, token: Option<&str>) -> Result<(String, Option<String>), String> {
+async fn latest_release(
+    repo: &str,
+    token: Option<&str>,
+) -> Result<(String, Option<String>), String> {
     let url = format!("https://api.github.com/repos/{repo}/releases/latest");
     let mut req = crate::util::client().get(&url);
     if let Some(t) = token {
@@ -182,11 +185,18 @@ async fn install_first_party_inner(
         format!("{pkg} {version}: the release has no prebuilt package for this machine")
     })?;
 
-    let dir = app.path().app_cache_dir().map_err(estr)?.join("first-party");
+    let dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(estr)?
+        .join("first-party");
     std::fs::create_dir_all(&dir).map_err(estr)?;
     let dest = dir.join(format!("{pkg}-{version}.pkg.tar.zst"));
 
-    let _ = app.emit("install-progress", json!({ "id": pkg, "stage": "download" }));
+    let _ = app.emit(
+        "install-progress",
+        json!({ "id": pkg, "stage": "download" }),
+    );
     let bytes = crate::util::client()
         .get(&url)
         .send()
@@ -276,8 +286,7 @@ pub async fn ewe_update(app: AppHandle) -> Result<String, String> {
     let dir = ewe_dir();
     if !dir.join("update.sh").is_file() {
         return Err(
-            "This ewe install has no update.sh (tarball install) — use the terminal update."
-                .into(),
+            "This ewe install has no update.sh (tarball install) — use the terminal update.".into(),
         );
     }
 
@@ -336,7 +345,8 @@ pub async fn ewe_update_terminal() -> Result<(), String> {
         "bash <(curl -fsSL https://raw.githubusercontent.com/prj786/ewe/main/get.sh) --yes"
             .to_string()
     };
-    let script = format!("{inner}; s=$?; echo; read -n1 -s -p '— done (exit '$s') — press any key —'");
+    let script =
+        format!("{inner}; s=$?; echo; read -n1 -s -p '— done (exit '$s') — press any key —'");
     for term in ["kitty", "foot", "alacritty", "xterm"] {
         if which(term) {
             Command::new(term)
