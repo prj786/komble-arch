@@ -127,7 +127,18 @@ async fn latest_release(
 pub async fn first_party_status(token: Option<String>) -> Result<Vec<Value>, String> {
     let mut rows = Vec::new();
     for (pkg, repo, summary) in DISCOVER {
-        let installed = crate::pacman::installed_version(pkg).await;
+        // display without the pacman pkgrel: the row reads "0.9.2" like the
+        // desktop's own row, not "0.9.2-1" (comparisons still use vercmp on
+        // full strings elsewhere)
+        let installed =
+            crate::pacman::installed_version(pkg)
+                .await
+                .map(|v| match v.rsplit_once('-') {
+                    Some((base, rel)) if rel.chars().all(|c| c.is_ascii_digit()) => {
+                        base.to_string()
+                    }
+                    _ => v,
+                });
         let (latest, asset) = match latest_release(repo, token.as_deref()).await {
             Ok(x) => x,
             Err(e) => {
