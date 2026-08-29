@@ -159,17 +159,12 @@
       The ewe session is not reachable — the Google account lives in the shell.
     </div>
   {:else if !google.signedIn}
-    <div class="card flex flex-col items-center gap-3 p-8 text-center">
-      <div class="text-3xl">☁️</div>
-      <p class="max-w-md text-sm text-zinc-500 dark:text-zinc-400">
-        Sign in with Google to back up the list of apps you install and get them back on any
-        ewe machine.
-      </p>
-      <button class="btn-primary" disabled={google.busy === "signin"} on:click={() => api.qsIpc("signIn").then(refreshStatus)}>
-        {google.busy === "signin" ? "Waiting for the browser…" : "Sign in with Google"}
-      </button>
-      {#if google.error}<p class="text-xs text-amber-500">{google.error}</p>{/if}
-    </div>
+    <!-- freedom by absence: no promo, no button — the one sign-in lives in
+         Settings → Account. This pane just says where. -->
+    <p class="text-sm text-zinc-500">
+      Not connected. To sync your apps between machines, connect a Google
+      account in <span class="text-zinc-300">Settings → Account</span>.
+    </p>
   {:else}
     <div class="card mb-4 flex items-center gap-3 px-4 py-3">
       {#if google.profile?.picture}
