@@ -71,7 +71,6 @@ export const aurInstall = (pkg) => invoke("aur_install", { package: pkg });
 // ewe integration (accent/look + the shell-owned Google account)
 export const dePrefs = () => invoke("de_prefs");
 export const qsIpc = (func) => invoke("qs_ipc", { func });
-export const backupPackages = () => invoke("backup_packages");
 
 // system
 export const systemCheck = () => invoke("system_check");
