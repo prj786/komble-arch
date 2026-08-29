@@ -215,3 +215,96 @@ pub async fn backup_packages() -> Result<Value, String> {
         "apps": apps,
     }))
 }
+
+// ── RFC-002 step 4: the restore surface ─────────────────────────────────────
+// A synced ewe.conf carries [apps.installed] — everything Komble managed on
+// the machine that wrote it. After a pull on a fresh machine, this reads the
+// manifest THROUGH ewe-conf (never the file directly) and reports what is
+// missing here, so the UI can offer the reinstall list. Explicit confirm
+// stays with the user: a restored file must never silently install software.
+
+fn ewe_conf_bin() -> Option<std::path::PathBuf> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".into());
+    let farm = std::path::PathBuf::from(&home).join(".config/quickshell/../../bin/ewe-conf");
+    if farm.exists() {
+        return Some(farm);
+    }
+    let usr = std::path::PathBuf::from("/usr/bin/ewe-conf");
+    usr.exists().then_some(usr)
+}
+
+#[tauri::command]
+pub async fn restore_manifest(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let Some(bin) = ewe_conf_bin() else {
+        return Ok(serde_json::json!({"available": false, "reason": "no-ewe-conf"}));
+    };
+    let out = tokio::process::Command::new(bin)
+        .args(["get", "apps.installed"])
+        .output()
+        .await
+        .map_err(crate::util::estr)?;
+    if !out.status.success() {
+        return Ok(serde_json::json!({"available": false, "reason": "no-manifest"}));
+    }
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&out.stdout).map_err(crate::util::estr)?;
+
+    // every manifest entry, flagged with whether it exists HERE
+    let mut pkgs = Vec::new();
+    for p in manifest
+        .get("packages")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&vec![])
+    {
+        if let Some(name) = p.get("package").and_then(|v| v.as_str()) {
+            let mut e = p.clone();
+            e["installed"] =
+                serde_json::json!(crate::pacman::installed_version(name).await.is_some());
+            pkgs.push(e);
+        }
+    }
+    let here: std::collections::HashSet<String> = crate::registry::appimages(&app)
+        .ok()
+        .map(|v| {
+            v.iter()
+                .filter_map(|a| a.get("id").and_then(|x| x.as_str()).map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    let appimages: Vec<serde_json::Value> = manifest
+        .get("appimages")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .map(|a| {
+                    let mut e = a.clone();
+                    let id = a.get("id").and_then(|x| x.as_str()).unwrap_or("");
+                    e["installed"] = serde_json::json!(here.contains(id));
+                    e
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(serde_json::json!({
+        "available": true,
+        "packages": pkgs,
+        "appimages": appimages,
+    }))
+}
+
+/// push/pull the one file via ewe-conf (RFC-002 sync verbs).
+#[tauri::command]
+pub async fn conf_sync(direction: String) -> Result<serde_json::Value, String> {
+    if direction != "push" && direction != "pull" {
+        return Err("direction must be push or pull".into());
+    }
+    let Some(bin) = ewe_conf_bin() else {
+        return Err("ewe-conf not installed".into());
+    };
+    let out = tokio::process::Command::new(bin)
+        .arg(&direction)
+        .output()
+        .await
+        .map_err(crate::util::estr)?;
+    serde_json::from_slice(&out.stdout).map_err(crate::util::estr)
+}

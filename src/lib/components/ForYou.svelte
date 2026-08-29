@@ -27,9 +27,22 @@
     if (google?.syncState !== "syncing") syncing = false;
   }
 
+  // RFC-002: the app list comes from ewe.conf's [apps.installed] manifest
+  // (read through ewe-conf), shaped like the legacy bundle so the UI below
+  // is unchanged. `aur` steers the install path to the PKGBUILD review gate.
   async function readBackup() {
     try {
-      backup = await api.backupPackages();
+      const m = await api.restoreManifest();
+      if (!m.available) { backup = null; return; }
+      const apps = [
+        ...(m.packages || []).map((p) => ({
+          name: p.package, installed: !!p.installed, aur: p.source === "aur",
+        })),
+        ...(m.appimages || []).map((a) => ({
+          name: a.name || a.id, installed: !!a.installed, aur: false, appimage: true, id: a.id,
+        })),
+      ];
+      backup = { apps, fetchedAt: Date.now() };
     } catch {
       backup = null;
     }
@@ -45,21 +58,18 @@
   });
   onDestroy(() => clearInterval(timer));
 
-  /** Ask the shell to fetch the cloud bundle, then poll the cache file. */
+  /** Pull the one file from Drive (explicit — a timestamped local backup is
+   *  kept by ewe-conf), re-apply it, then re-read the manifest. */
   async function checkBackup() {
     checking = true;
     try {
-      const r = (await api.qsIpc("fetchPackages")).trim();
-      if (r === "not-signed-in") {
+      const r = await api.confSync("pull");
+      if (r.ok === false && r.error === "not-signed-in") {
         checking = false;
         return;
       }
-      const before = backup?.fetchedAt;
-      for (let i = 0; i < 20; i++) {
-        await new Promise((res) => setTimeout(res, 700));
-        await readBackup();
-        if (backup && backup.fetchedAt !== before) break;
-      }
+      if (r.ok === false && r.error !== "nothing-synced") toast(r.error, "error");
+      await readBackup();
     } catch (e) {
       toast(e, "error");
     }
@@ -69,8 +79,9 @@
   async function syncNow() {
     syncing = true;
     try {
-      await api.qsIpc("syncNow");
-      toast("Syncing your apps and settings to Drive…", "info");
+      const r = await api.confSync("push");
+      if (r.ok === false) throw r.error;
+      toast("Your machine's file is synced to Drive.", "success");
     } catch (e) {
       toast(e, "error");
       syncing = false;
@@ -79,6 +90,13 @@
   }
 
   async function install(a) {
+    if (a.appimage) {
+      // AppImages reinstall through their normal Discover flow (release
+      // resolution, arch pick) — jump there rather than half-reimplementing it
+      route.set("discover");
+      toast(`Search for "${a.name}" in Discover to reinstall it.`, "info", 5000);
+      return;
+    }
     if (a.aur) {
       // AUR builds go through the PKGBUILD review gate, same as everywhere
       aurReview.set(a.name);

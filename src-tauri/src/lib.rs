@@ -126,6 +126,9 @@ async fn check_self_update(app: AppHandle) -> Result<Option<String>, String> {
 }
 
 async fn background_update_loop(app: AppHandle) {
+    // RFC-002: publish the installed-apps manifest into ewe.conf at startup
+    // too — a machine that never installs anything still describes itself.
+    registry::mirror_manifest(&app);
     // First check a few minutes after launch, then every 6 hours.
     tokio::time::sleep(std::time::Duration::from_secs(300)).await;
     let mut last: i64 = -1;
@@ -249,6 +252,8 @@ pub fn run() {
             pacman::refresh_lists,
             // first-party ewe apps + the desktop itself
             first_party::first_party_status,
+            de::restore_manifest,
+            de::conf_sync,
             first_party::install_first_party,
             first_party::ewe_status,
             first_party::ewe_update,

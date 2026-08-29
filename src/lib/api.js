@@ -118,3 +118,8 @@ export async function installFromItem(item, settings) {
     "No installable release found for this app. Try its download page instead."
   );
 }
+
+// RFC-002: the one-file restore surface (manifest read through ewe-conf) +
+// push/pull of ewe.conf itself
+export const restoreManifest = () => invoke("restore_manifest");
+export const confSync = (direction) => invoke("conf_sync", { direction });

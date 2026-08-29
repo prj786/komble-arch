@@ -36,7 +36,7 @@ fn write_map(
 /// (`apps.installed` in ~/.config/ewe/ewe.conf) so a restored machine knows
 /// what to reinstall. Fire-and-forget: the registry stores stay the source
 /// of truth, the manifest is the syncable reflection.
-fn mirror_manifest(app: &AppHandle) {
+pub(crate) fn mirror_manifest(app: &AppHandle) {
     fn trim(v: &Value, keys: &[&str]) -> Value {
         let mut m = Map::new();
         if let Some(o) = v.as_object() {
