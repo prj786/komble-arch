@@ -117,6 +117,14 @@ pub fn poke_working(on: bool) {
     tokio::spawn(poke_working_now(on));
 }
 
+/// Frontend-triggered poke: the Updates view fires this after its own count
+/// lands, so the bar re-probes at the same moment and the two numbers move
+/// together instead of up to an hour apart.
+#[tauri::command]
+pub fn poke_shell_updates() {
+    poke_updates();
+}
+
 pub fn poke_updates() {
     tokio::spawn(async {
         let mut args: Vec<String> = vec!["ipc".into()];

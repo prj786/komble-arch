@@ -114,6 +114,8 @@
       (st && st.updateAvailable ? 1 : 0) + rows.filter((r) => r.updateAvailable).length;
     updatesInfo.set(res);
     checking = false;
+    // nudge the bar to re-probe now, so its count moves with this one
+    api.pokeShellUpdates().catch(() => {});
   }
   onMount(check);
 

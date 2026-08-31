@@ -265,6 +265,7 @@ pub fn run() {
             system::system_check,
             de::de_prefs,
             de::qs_ipc,
+            de::poke_shell_updates,
             system::install_fuse2,
             system::install_pacman_contrib,
             take_pending_open,

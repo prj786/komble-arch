@@ -636,15 +636,46 @@ pub async fn list_upgradable() -> Result<Vec<PkgUpdate>, String> {
     upgradable_inner().await
 }
 
+/// Packages pacman is told to leave alone (`IgnorePkg` in pacman.conf). The
+/// bar's paru count honours these natively; counting them here made the two
+/// numbers disagree on any machine with a pin.
+fn ignored_pkgs() -> std::collections::HashSet<String> {
+    let mut set = std::collections::HashSet::new();
+    if let Ok(text) = std::fs::read_to_string("/etc/pacman.conf") {
+        for line in text.lines() {
+            let line = line.trim();
+            if let Some(rest) = line.strip_prefix("IgnorePkg") {
+                if let Some(v) = rest.split_once('=').map(|(_, v)| v) {
+                    set.extend(v.split_whitespace().map(String::from));
+                }
+            }
+        }
+    }
+    set
+}
+
+/// pacman's own version comparison — epochs, pkgrels, and locally-rebuilt
+/// packages judged exactly like paru judges them. Plain `latest != cur`
+/// counted a package as "updatable" when the LOCAL copy was the newer one.
+async fn is_newer(latest: &str, cur: &str) -> bool {
+    match run_out("vercmp", &[latest, cur]).await {
+        Ok(o) => o.trim().parse::<i32>().map(|n| n > 0).unwrap_or(false),
+        Err(_) => latest != cur,
+    }
+}
+
 /// Foreign packages (`-Qm`) are the AUR ones; ask the AUR RPC for their current
 /// versions in a single batched request.
 async fn aur_updates() -> Result<Vec<PkgUpdate>, String> {
     let text = run_out("pacman", &["-Qm"]).await.unwrap_or_default();
+    let ignored = ignored_pkgs();
     let mut have: Vec<(String, String)> = Vec::new();
     for line in text.lines() {
         let mut f = line.split_whitespace();
         if let (Some(n), Some(v)) = (f.next(), f.next()) {
-            have.push((n.to_string(), v.to_string()));
+            if !ignored.contains(n) {
+                have.push((n.to_string(), v.to_string()));
+            }
         }
     }
     if have.is_empty() {
@@ -668,7 +699,7 @@ async fn aur_updates() -> Result<Vec<PkgUpdate>, String> {
     for p in reply.results {
         let latest = p.version.unwrap_or_default();
         if let Some((_, cur)) = have.iter().find(|(n, _)| *n == p.name) {
-            if !latest.is_empty() && &latest != cur {
+            if !latest.is_empty() && is_newer(&latest, cur).await {
                 out.push(PkgUpdate {
                     name: p.name,
                     current: cur.clone(),
