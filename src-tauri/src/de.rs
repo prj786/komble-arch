@@ -130,7 +130,6 @@ pub fn poke_updates() {
     });
 }
 
-/// The package lists the shell cached from the cloud bund
 // ── RFC-002 step 4: the restore surface ─────────────────────────────────────
 // A synced ewe.conf carries [apps.installed] — everything Komble managed on
 // the machine that wrote it. After a pull on a fresh machine, this reads the
