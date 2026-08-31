@@ -327,6 +327,7 @@ pub async fn remove_appimage(app: AppHandle, id: String) -> Result<(), String> {
         }
     }
     let r = registry::remove_appimage(&app, &id);
+    registry::manifest_forget("appimages", &id);
     crate::de::poke_sync();
     r
 }

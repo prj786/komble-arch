@@ -11,7 +11,8 @@
   import * as api from "../api";
 
   let google = null; // null = shell unreachable
-  let backup = null; // backup_packages() result
+  let backup = null; // { apps, fetchedAt } from the local [apps.installed] manifest
+  let cloud = null; // { device, updatedAt } — the Drive copy's facts (status probe only)
   let checking = false;
   let syncing = false;
   let busyPkg = "";
@@ -51,16 +52,33 @@
   onMount(async () => {
     await refreshStatus();
     await readBackup();
-    if (google?.signedIn) checkBackup();
+    if (google?.signedIn) probeCloud();
     timer = setInterval(() => {
       if (syncing || google?.busy) refreshStatus();
     }, 2000);
   });
   onDestroy(() => clearInterval(timer));
 
-  /** Pull the one file from Drive (explicit — a timestamped local backup is
-   *  kept by ewe-conf), re-apply it, then re-read the manifest. */
-  async function checkBackup() {
+  /** Facts only — never touches the local file. (This used to be a silent
+   *  pull that overwrote ewe.conf the moment the pane opened.) */
+  async function probeCloud() {
+    try {
+      const st = await api.confSyncStatus();
+      cloud =
+        st.ok && st.remote
+          ? {
+              device: st.remote.appProperties?.machine || "your account",
+              updatedAt: st.remote.modifiedTime || ""
+            }
+          : null;
+    } catch {
+      cloud = null;
+    }
+  }
+
+  /** EXPLICIT restore: pull the one file from Drive (ewe-conf keeps a
+   *  timestamped backup of the old one), apply it, re-read the manifest. */
+  async function fetchBackup() {
     checking = true;
     try {
       const r = await api.confSync("pull");
@@ -69,7 +87,9 @@
         return;
       }
       if (r.ok === false && r.error !== "nothing-synced") toast(r.error, "error");
+      if (r.ok) toast("Backup fetched — the previous local file is kept as a .bak.", "success");
       await readBackup();
+      await probeCloud();
     } catch (e) {
       toast(e, "error");
     }
@@ -144,8 +164,9 @@
     </div>
     {#if google?.signedIn}
       <div class="flex gap-2">
-        <button class="btn-ghost" disabled={checking} on:click={checkBackup}>
-          {checking ? "Checking…" : "Check backup"}
+        <button class="btn-ghost" disabled={checking} on:click={fetchBackup}
+                title="Downloads your Drive backup over this machine's file (the old one is kept as a .bak)">
+          {checking ? "Fetching…" : "Fetch backup"}
         </button>
         <button class="btn-primary" disabled={syncing || google.syncState === "syncing"} on:click={syncNow}>
           {syncing || google.syncState === "syncing" ? "Syncing…" : "Sync now"}
@@ -183,10 +204,10 @@
       {/if}
     </div>
 
-    {#if backup?.ok && backup.apps?.length}
+    {#if backup?.apps?.length}
       <div class="section-title">
         Apps missing from this machine · {missing.length}
-        {#if backup.device}<span class="ml-2 font-normal normal-case tracking-normal">backup from {backup.device}, {fmt(backup.updatedAt)}</span>{/if}
+        {#if cloud}<span class="ml-2 font-normal normal-case tracking-normal">cloud copy from {cloud.device}, {fmt(cloud.updatedAt)}</span>{/if}
       </div>
       {#if missing.length === 0}
         <div class="card p-5 text-center text-sm text-zinc-400">
@@ -228,6 +249,11 @@
       </div>
     {:else if checking}
       <div class="card p-6 text-center text-sm text-zinc-400">Fetching your backup from Drive…</div>
+    {:else if cloud}
+      <div class="card p-6 text-center text-sm text-zinc-400">
+        A backup from <span class="text-zinc-300">{cloud.device}</span> ({fmt(cloud.updatedAt)})
+        is in your Drive — “Fetch backup” brings it onto this machine.
+      </div>
     {:else}
       <div class="card p-6 text-center text-sm text-zinc-400">
         No backup found yet — "Sync now" pushes this machine's apps and settings to your Drive.

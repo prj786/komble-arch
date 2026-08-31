@@ -223,8 +223,35 @@ pub async fn conf_sync(direction: String) -> Result<serde_json::Value, String> {
     let Some(bin) = ewe_conf_bin() else {
         return Err("ewe-conf not installed".into());
     };
-    let out = tokio::process::Command::new(bin)
+    let out = tokio::process::Command::new(&bin)
         .arg(&direction)
+        .output()
+        .await
+        .map_err(crate::util::estr)?;
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).map_err(crate::util::estr)?;
+    // A pull that leaves ewe.conf = remote while every runtime file = local
+    // is half a restore. Regenerate the artifacts and tell the shell — the
+    // same tail the shell's own applyRestore runs.
+    if direction == "pull" && v.get("ok").and_then(|b| b.as_bool()) == Some(true) {
+        let _ = tokio::process::Command::new(&bin)
+            .args(["apply", "--no-hooks"])
+            .output()
+            .await;
+        let _ = run_out("qs", &["ipc", "call", "settings", "reload"]).await;
+    }
+    Ok(v)
+}
+
+/// Cloud-copy facts WITHOUT touching anything — the UI decides, the user
+/// clicks. (`conf_sync("pull")` used to double as the probe, silently
+/// overwriting the local file the moment the pane opened.)
+#[tauri::command]
+pub async fn conf_sync_status() -> Result<serde_json::Value, String> {
+    let Some(bin) = ewe_conf_bin() else {
+        return Err("ewe-conf not installed".into());
+    };
+    let out = tokio::process::Command::new(bin)
+        .arg("sync-status")
         .output()
         .await
         .map_err(crate::util::estr)?;

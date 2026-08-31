@@ -254,6 +254,7 @@ pub fn run() {
             first_party::first_party_status,
             de::restore_manifest,
             de::conf_sync,
+            de::conf_sync_status,
             first_party::install_first_party,
             first_party::ewe_status,
             first_party::ewe_update,

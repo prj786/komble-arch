@@ -123,3 +123,4 @@ export async function installFromItem(item, settings) {
 // push/pull of ewe.conf itself
 export const restoreManifest = () => invoke("restore_manifest");
 export const confSync = (direction) => invoke("conf_sync", { direction });
+export const confSyncStatus = () => invoke("conf_sync_status");

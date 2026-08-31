@@ -497,6 +497,7 @@ pub async fn remove_package(app: AppHandle, package: String) -> Result<String, S
     )
     .await?;
     let _ = registry::remove_package(&app, &package);
+    registry::manifest_forget("packages", &package);
     invalidate_index();
     crate::de::poke_sync();
     Ok(log)

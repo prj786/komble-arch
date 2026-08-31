@@ -35,7 +35,13 @@ fn write_map(
 /// RFC-001 Phase 6: mirror what Komble manages into the one file
 /// (`apps.installed` in ~/.config/ewe/ewe.conf) so a restored machine knows
 /// what to reinstall. Fire-and-forget: the registry stores stay the source
-/// of truth, the manifest is the syncable reflection.
+/// of truth, the manifest is the syncable reflection — UNIONED with what the
+/// manifest already carries. On a fresh machine the pulled manifest lists 15
+/// apps while Komble's local stores know none; a wholesale rewrite here used
+/// to truncate the list on the FIRST restored install, and the shell's auto
+/// push then destroyed the Drive backup. Entries Komble manages locally win
+/// (fresher versions); foreign entries survive until `manifest_forget`
+/// removes them on an explicit uninstall.
 pub(crate) fn mirror_manifest(app: &AppHandle) {
     fn trim(v: &Value, keys: &[&str]) -> Value {
         let mut m = Map::new();
@@ -58,24 +64,78 @@ pub(crate) fn mirror_manifest(app: &AppHandle) {
         .values()
         .map(|v| trim(v, &["package", "version", "source"]))
         .collect();
+    let Some(bin) = manifest_bin() else { return };
+    // union with the existing manifest: local entries win per key, foreign
+    // (not-yet-restored) entries survive
+    let existing = read_manifest(&bin);
+    let ai = union_by(ai, existing.get("appimages"), "id");
+    let pk = union_by(pk, existing.get("packages"), "package");
     let manifest = serde_json::json!({ "appimages": ai, "packages": pk });
+    write_manifest(&bin, manifest.to_string());
+}
+
+fn manifest_bin() -> Option<std::path::PathBuf> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".into());
     let farm = std::path::PathBuf::from(&home).join(".config/quickshell/../../bin/ewe-conf");
-    let bin = if farm.exists() {
-        farm
-    } else {
-        std::path::PathBuf::from("/usr/bin/ewe-conf")
-    };
-    if !bin.exists() {
-        return; // pre-0.9 DE — the manifest simply is not mirrored yet
+    if farm.exists() {
+        return Some(farm);
     }
+    let usr = std::path::PathBuf::from("/usr/bin/ewe-conf");
+    if usr.exists() {
+        return Some(usr); // pre-0.9 DE otherwise — the manifest simply is not mirrored
+    }
+    None
+}
+
+fn read_manifest(bin: &std::path::Path) -> Map<String, Value> {
+    std::process::Command::new(bin)
+        .args(["get", "apps.installed"])
+        .stdin(std::process::Stdio::null())
+        .output()
+        .ok()
+        .and_then(|o| serde_json::from_slice::<Value>(&o.stdout).ok())
+        .and_then(|v| v.as_object().cloned())
+        .unwrap_or_default()
+}
+
+fn write_manifest(bin: &std::path::Path, manifest: String) {
     let _ = std::process::Command::new(bin)
         .args(["set", "--no-hooks", "apps.installed"])
-        .arg(manifest.to_string())
+        .arg(manifest)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .spawn();
+}
+
+fn union_by(local: Vec<Value>, existing: Option<&Value>, key: &str) -> Vec<Value> {
+    let mut out = local;
+    let have: std::collections::HashSet<String> = out
+        .iter()
+        .filter_map(|v| v.get(key).and_then(|k| k.as_str()).map(String::from))
+        .collect();
+    if let Some(arr) = existing.and_then(|v| v.as_array()) {
+        for v in arr {
+            if let Some(k) = v.get(key).and_then(|k| k.as_str()) {
+                if !have.contains(k) {
+                    out.push(v.clone());
+                }
+            }
+        }
+    }
+    out
+}
+
+/// An explicit uninstall is the ONE thing allowed to shrink the manifest —
+/// mirror_manifest's union would otherwise resurrect the entry forever.
+pub(crate) fn manifest_forget(kind: &str, name: &str) {
+    let Some(bin) = manifest_bin() else { return };
+    let mut m = read_manifest(&bin);
+    let key = if kind == "appimages" { "id" } else { "package" };
+    if let Some(arr) = m.get_mut(kind).and_then(|v| v.as_array_mut()) {
+        arr.retain(|v| v.get(key).and_then(|k| k.as_str()) != Some(name));
+    }
+    write_manifest(&bin, Value::Object(m).to_string());
 }
 
 pub fn appimages(app: &AppHandle) -> Result<Vec<Value>, String> {
