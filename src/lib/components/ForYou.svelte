@@ -5,8 +5,9 @@
   // by the shell; this view only sends allowlisted `qs ipc` verbs and reads
   // the package cache the shell writes — tokens never enter Komble.
   import { onMount, onDestroy } from "svelte";
-  import { route, aurReview, trackedPkgs, toast } from "../stores";
-  import { installPackage } from "../api";
+  import { route, aurReview, trackedPkgs, toast, settings } from "../stores";
+  import { installPackage, installFromItem } from "../api";
+  import { get } from "svelte/store";
   import { refreshPkgs } from "../actions";
   import * as api from "../api";
 
@@ -40,7 +41,8 @@
           name: p.package, installed: !!p.installed, aur: p.source === "aur",
         })),
         ...(m.appimages || []).map((a) => ({
-          name: a.name || a.id, installed: !!a.installed, aur: false, appimage: true, id: a.id,
+          name: a.name || a.id, installed: !!a.installed, aur: false, appimage: true,
+          id: a.id, github: a.github || null,
         })),
       ];
       backup = { apps, fetchedAt: Date.now() };
@@ -111,10 +113,25 @@
 
   async function install(a) {
     if (a.appimage) {
-      // AppImages reinstall through their normal Discover flow (release
-      // resolution, arch pick) — jump there rather than half-reimplementing it
-      route.set("discover");
-      toast(`Search for "${a.name}" in Discover to reinstall it.`, "info", 5000);
+      if (!a.github) {
+        // no release source in the manifest (a local .AppImage install) —
+        // Discover is the only road back
+        route.set("discover");
+        toast(`Search for "${a.name}" in Discover to reinstall it.`, "info", 5000);
+        return;
+      }
+      // the manifest carries the GitHub source — reinstall through the same
+      // release-resolution path Discover uses
+      busyPkg = a.name;
+      try {
+        await installFromItem({ id: a.id, name: a.name, github: a.github }, get(settings));
+        toast(`${a.name} reinstalled`, "success");
+        a.installed = true;
+        backup = backup;
+      } catch (e) {
+        toast(e, "error");
+      }
+      busyPkg = "";
       return;
     }
     if (a.aur) {
