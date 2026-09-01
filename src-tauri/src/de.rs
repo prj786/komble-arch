@@ -83,7 +83,7 @@ pub async fn qs_ipc(func: String) -> Result<String, String> {
 /// Fire-and-forget "the app list changed": the shell debounces the pokes and
 /// pushes the sync bundle when things go quiet. Installs never wait on it.
 pub fn poke_sync() {
-    tokio::spawn(async {
+    tauri::async_runtime::spawn(async {
         let _ = qs_ipc("syncSoon".into()).await;
     });
 }
@@ -113,8 +113,16 @@ pub async fn poke_working_now(on: bool) {
 }
 
 /// Fire-and-forget variant for mid-run re-asserts, where ordering can't matter.
+/// tauri's spawner, NOT tokio::spawn: sync #[tauri::command]s run on the main
+/// thread with no reactor, where tokio::spawn PANICS — and with panic=abort
+/// that killed the whole app the moment the Updates view poked the shell
+/// (SIGABRT ×4 on 2026-09-01).
 pub fn poke_working(on: bool) {
-    tokio::spawn(poke_working_now(on));
+    // tauri's spawner, NOT tokio::spawn: the sync command path runs on the
+    // main thread with no reactor, where tokio::spawn PANICS — and with
+    // panic=abort that killed the whole app the moment the Updates view
+    // poked the shell (SIGABRT, 2026-09-01).
+    tauri::async_runtime::spawn(poke_working_now(on));
 }
 
 /// Frontend-triggered poke: the Updates view fires this after its own count
@@ -126,7 +134,7 @@ pub fn poke_shell_updates() {
 }
 
 pub fn poke_updates() {
-    tokio::spawn(async {
+    tauri::async_runtime::spawn(async {
         let mut args: Vec<String> = vec!["ipc".into()];
         if let Some(pid) = shell_pid().await {
             args.push("--pid".into());
