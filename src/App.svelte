@@ -53,16 +53,24 @@
       refreshInstalled();
       refreshPkgs();
 
-      api
-        .dePrefs()
-        .then((p) => {
-          if (!p) return;
-          deScheme = p.colorScheme || "";
-          document.documentElement.style.setProperty("--accent", p.accent);
-          document.documentElement.classList.toggle("blacksheep", (p.themeName || "flock") === "blacksheep");
-          applyTheme(get(settings).theme);
-        })
-        .catch(() => {});
+      // Follow the DE live: accent/scheme/surface changes in Settings land
+      // here without a restart — re-read on focus and on a light poll, same
+      // "part of the desktop, not a visitor" rule as the first read.
+      const applyDePrefs = () =>
+        api
+          .dePrefs()
+          .then((p) => {
+            if (!p) return;
+            deScheme = p.colorScheme || "";
+            document.documentElement.style.setProperty("--accent", p.accent);
+            document.documentElement.classList.toggle("blacksheep", (p.themeName || "flock") === "blacksheep");
+            applyTheme(get(settings).theme);
+          })
+          .catch(() => {});
+      applyDePrefs();
+      window.addEventListener("focus", applyDePrefs);
+      const deTimer = setInterval(applyDePrefs, 4000);
+      unlisteners.push(() => { window.removeEventListener("focus", applyDePrefs); clearInterval(deTimer); });
 
       api
         .systemCheck()
