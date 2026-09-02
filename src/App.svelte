@@ -163,7 +163,7 @@
   });
 </script>
 
-<div class="flex h-full">
+<div class="surface flex h-full">
   <Sidebar />
   <main class="min-w-0 flex-1 overflow-hidden">
     {#if $route === "discover"}
