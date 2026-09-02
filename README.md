@@ -26,6 +26,13 @@ been run against a live pacman. Treat it as a working skeleton.
   `~/.local/share/appimages` with menu integration, no root at any point.
 - **Updates** — repo, AUR and AppImage updates in one view, plus a tray
   indicator and a background check.
+- **The one file** — every install and removal is recorded in
+  `~/.config/ewe/ewe.conf` under `[apps.installed]` (through `ewe-conf`, as
+  you, no root), with its source: `repo`, `aur` or `first-party`. **For you**
+  reads that list back and offers whatever another ewe machine recorded that
+  is missing here. Komble never syncs, fetches or restores the file itself —
+  the account and the restore live in the desktop's Settings (RFC-005); a
+  restore done there shows up in For you on the next look.
 
 ## Four things Arch forced, which are not stylistic choices
 
@@ -70,6 +77,10 @@ names and file paths are validated in Rust *and* again in the helper.
 
 Nothing is ever passed through a shell. Commands are built as argv vectors, so
 there is no interpolation and no metacharacter surface.
+
+The manifest write (`ewe-conf set --no-hooks apps.installed`) runs as the
+user, after the privileged step has returned, and is the only thing Komble
+writes outside its own registry — no account, no network, no secrets.
 
 Without the helper installed (e.g. `npm run tauri dev`), Komble falls back to
 `pkexec pacman …` with a fixed argv — correct, but one auth prompt per action

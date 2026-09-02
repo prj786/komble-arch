@@ -1,6 +1,9 @@
 //! ewe integration: Komble is a first-class citizen of the DE, so it
-//! reads the desktop's accent/look and talks to the shell's Google account
-//! over `qs ipc` — a fixed verb allowlist, tokens never cross the boundary.
+//! reads the desktop's accent/look, pokes the bar's updates indicator over
+//! `qs ipc` (a fixed verb allowlist), and reads the one file's app manifest
+//! through `ewe-conf`. It never syncs anything itself (RFC-005): the account,
+//! push/pull and restore live in the shell and Settings; Komble only writes
+//! `apps.installed` after every install/removal and reads it back.
 
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -68,26 +71,6 @@ async fn shell_pid() -> Option<String> {
     None
 }
 
-/// Shell IPC, allowlisted: exactly the Google-account verbs "For you" needs.
-#[tauri::command]
-pub async fn qs_ipc(func: String) -> Result<String, String> {
-    if !["status", "syncNow", "syncSoon", "fetchPackages", "signIn"].contains(&func.as_str()) {
-        return Err(format!("ipc not allowed: google {func}"));
-    }
-    if let Some(pid) = shell_pid().await {
-        return run_out("qs", &["ipc", "--pid", &pid, "call", "google", &func]).await;
-    }
-    run_out("qs", &["ipc", "call", "google", &func]).await
-}
-
-/// Fire-and-forget "the app list changed": the shell debounces the pokes and
-/// pushes the sync bundle when things go quiet. Installs never wait on it.
-pub fn poke_sync() {
-    tauri::async_runtime::spawn(async {
-        let _ = qs_ipc("syncSoon".into()).await;
-    });
-}
-
 /// Fire-and-forget "re-count pending updates": the bar's Komble indicator
 /// re-runs its checkupdates/paru probe. Poked after every transaction so the
 /// glyph flips (spinner while pacman holds the lock, count/check after).
@@ -146,12 +129,13 @@ pub fn poke_updates() {
     });
 }
 
-// ── RFC-002 step 4: the restore surface ─────────────────────────────────────
-// A synced ewe.conf carries [apps.installed] — everything Komble managed on
-// the machine that wrote it. After a pull on a fresh machine, this reads the
-// manifest THROUGH ewe-conf (never the file directly) and reports what is
-// missing here, so the UI can offer the reinstall list. Explicit confirm
-// stays with the user: a restored file must never silently install software.
+// ── the manifest, read-only ─────────────────────────────────────────────────
+// ewe.conf carries [apps.installed] — everything Komble managed on the machine
+// that wrote it. This reads the manifest THROUGH ewe-conf (never the file
+// directly) and reports what is missing here, so "For you" can offer the
+// reinstall list. Explicit confirm stays with the user: a restored file must
+// never silently install software. How the file got here (Nextcloud restore,
+// a manual copy) is not Komble's business — RFC-005.
 
 fn ewe_conf_bin() -> Option<std::path::PathBuf> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".into());
@@ -164,7 +148,7 @@ fn ewe_conf_bin() -> Option<std::path::PathBuf> {
 }
 
 #[tauri::command]
-pub async fn restore_manifest(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+pub async fn app_manifest(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     let Some(bin) = ewe_conf_bin() else {
         return Ok(serde_json::json!({"available": false, "reason": "no-ewe-conf"}));
     };
@@ -263,48 +247,10 @@ async fn repo_knows(name: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// push/pull the one file via ewe-conf (RFC-002 sync verbs).
+/// What Komble would write into `apps.installed` right now — the registry
+/// stores unioned with the file's foreign entries. A support/debug window
+/// into the mirror, never written by this call.
 #[tauri::command]
-pub async fn conf_sync(direction: String) -> Result<serde_json::Value, String> {
-    if direction != "push" && direction != "pull" {
-        return Err("direction must be push or pull".into());
-    }
-    let Some(bin) = ewe_conf_bin() else {
-        return Err("ewe-conf not installed".into());
-    };
-    let out = tokio::process::Command::new(&bin)
-        .arg(&direction)
-        .output()
-        .await
-        .map_err(crate::util::estr)?;
-    let v: serde_json::Value = serde_json::from_slice(&out.stdout).map_err(crate::util::estr)?;
-    // A pull that leaves ewe.conf = remote while every runtime file = local
-    // is half a restore. Regenerate the artifacts WITH hooks: `apply` itself
-    // re-themes, pokes the shell (`settings reload`) and reloads Hyprland, so
-    // gaps and the window border follow the restored file at once instead of
-    // waiting for a relogin (the old `--no-hooks` + shell-only poke never
-    // touched Hyprland).
-    if direction == "pull" && v.get("ok").and_then(|b| b.as_bool()) == Some(true) {
-        let _ = tokio::process::Command::new(&bin)
-            .arg("apply")
-            .output()
-            .await;
-    }
-    Ok(v)
-}
-
-/// Cloud-copy facts WITHOUT touching anything — the UI decides, the user
-/// clicks. (`conf_sync("pull")` used to double as the probe, silently
-/// overwriting the local file the moment the pane opened.)
-#[tauri::command]
-pub async fn conf_sync_status() -> Result<serde_json::Value, String> {
-    let Some(bin) = ewe_conf_bin() else {
-        return Err("ewe-conf not installed".into());
-    };
-    let out = tokio::process::Command::new(bin)
-        .arg("sync-status")
-        .output()
-        .await
-        .map_err(crate::util::estr)?;
-    serde_json::from_slice(&out.stdout).map_err(crate::util::estr)
+pub fn manifest_dump(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    Ok(crate::registry::build_manifest(&app))
 }

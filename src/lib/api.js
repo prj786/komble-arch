@@ -74,9 +74,8 @@ export const aurSrcinfo = (pkg) => invoke("aur_srcinfo", { package: pkg });
 export const aurInstall = (pkg, skipPgpCheck = false) =>
   invoke("aur_install", { package: pkg, skipPgpCheck });
 
-// ewe integration (accent/look + the shell-owned Google account)
+// ewe integration (accent/look, the bar's updates indicator)
 export const dePrefs = () => invoke("de_prefs");
-export const qsIpc = (func) => invoke("qs_ipc", { func });
 export const pokeShellUpdates = () => invoke("poke_shell_updates");
 
 // system
@@ -125,8 +124,8 @@ export async function installFromItem(item, settings) {
   );
 }
 
-// RFC-002: the one-file restore surface (manifest read through ewe-conf) +
-// push/pull of ewe.conf itself
-export const restoreManifest = () => invoke("restore_manifest");
-export const confSync = (direction) => invoke("conf_sync", { direction });
-export const confSyncStatus = () => invoke("conf_sync_status");
+// RFC-005: the one file's app manifest, read through ewe-conf (Komble never
+// syncs it — the shell and Settings do); manifestDump is what Komble would
+// write, for support
+export const appManifest = () => invoke("app_manifest");
+export const manifestDump = () => invoke("manifest_dump");

@@ -308,7 +308,6 @@ pub async fn install_inner(app: &AppHandle, req: InstallRequest) -> Result<Value
     });
     registry::upsert_appimage(app, &id, entry.clone())?;
     emit_progress(app, &id, "done", 0, 0);
-    crate::de::poke_sync(); // the AppImage registry is part of the sync bundle
     Ok(entry)
 }
 
@@ -328,7 +327,6 @@ pub async fn remove_appimage(app: AppHandle, id: String) -> Result<(), String> {
     }
     let r = registry::remove_appimage(&app, &id);
     registry::manifest_forget("appimages", &id);
-    crate::de::poke_sync();
     r
 }
 
@@ -463,7 +461,6 @@ pub async fn install_local_appimage(
     });
     registry::upsert_appimage(&app, &id, entry.clone())?;
     emit_progress(&app, &id, "done", 0, 0);
-    crate::de::poke_sync();
     Ok(entry)
 }
 

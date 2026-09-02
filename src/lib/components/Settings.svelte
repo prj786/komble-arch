@@ -16,6 +16,17 @@
   let s = { ...$settings };
   $: s = { ...$settings };
 
+  // support: the manifest exactly as the mirror would write it (never written here)
+  async function copyManifest() {
+    try {
+      const text = JSON.stringify(await api.manifestDump(), null, 2);
+      await navigator.clipboard.writeText(text);
+      toast("Manifest copied to the clipboard.", "success");
+    } catch (e) {
+      toast(`Could not copy: ${e}`, "error");
+    }
+  }
+
   async function save() {
     try {
       try {
@@ -164,6 +175,15 @@
         }}
       />
       {#if s.advancedMode}
+        <div class="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+          <div>
+            <div class="font-medium text-zinc-500 dark:text-zinc-300">Copy manifest</div>
+            <p class="mt-0.5 text-xs text-zinc-400">
+              What Komble writes into ewe.conf's [apps.installed] — for a bug report.
+            </p>
+          </div>
+          <button class="btn-ghost !py-1 text-xs" on:click={copyManifest}>Copy</button>
+        </div>
         <div class="px-4 py-3 text-sm text-zinc-400">
           <div class="font-medium text-zinc-500 dark:text-zinc-300">Extra repositories</div>
           <p class="mt-1 text-xs">

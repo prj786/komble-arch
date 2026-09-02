@@ -49,17 +49,29 @@ fn write_map(
     Ok(())
 }
 
-/// RFC-001 Phase 6: mirror what Komble manages into the one file
+/// RFC-001 Phase 6 / RFC-005: mirror what Komble manages into the one file
 /// (`apps.installed` in ~/.config/ewe/ewe.conf) so a restored machine knows
-/// what to reinstall. Fire-and-forget: the registry stores stay the source
-/// of truth, the manifest is the syncable reflection — UNIONED with what the
-/// manifest already carries. On a fresh machine the pulled manifest lists 15
-/// apps while Komble's local stores know none; a wholesale rewrite here used
-/// to truncate the list on the FIRST restored install, and the shell's auto
-/// push then destroyed the Drive backup. Entries Komble manages locally win
-/// (fresher versions); foreign entries survive until `manifest_forget`
-/// removes them on an explicit uninstall.
+/// what to reinstall. The registry stores stay the source of truth, the
+/// manifest is the syncable reflection — UNIONED with what the manifest
+/// already carries. On a fresh machine the restored manifest lists 15 apps
+/// while Komble's local stores know none; a wholesale rewrite here used to
+/// truncate the list on the FIRST restored install. Entries Komble manages
+/// locally win (fresher versions); foreign entries survive until
+/// `manifest_forget` removes them on an explicit uninstall.
+///
+/// Written synchronously: an install returns only after the file carries it,
+/// so `ewe-conf get apps.installed` right after the action shows it (the old
+/// fire-and-forget thread raced exactly that check).
 pub(crate) fn mirror_manifest(app: &AppHandle) {
+    let Some(bin) = manifest_bin() else { return };
+    let manifest = build_manifest(app);
+    write_manifest(&bin, manifest.to_string());
+}
+
+/// The manifest as Komble would write it now: local registry entries
+/// (sources normalised to repo | aur | first-party, paths moved to `file`)
+/// unioned with the file's foreign entries. Pure — nothing is written.
+pub(crate) fn build_manifest(app: &AppHandle) -> Value {
     fn trim(v: &Value, keys: &[&str]) -> Value {
         let mut m = Map::new();
         if let Some(o) = v.as_object() {
@@ -94,14 +106,14 @@ pub(crate) fn mirror_manifest(app: &AppHandle) {
             e
         })
         .collect();
-    let Some(bin) = manifest_bin() else { return };
     // union with the existing manifest: local entries win per key, foreign
     // (not-yet-restored) entries survive
-    let existing = read_manifest(&bin);
+    let existing = manifest_bin()
+        .map(|bin| read_manifest(&bin))
+        .unwrap_or_default();
     let ai = union_by(ai, existing.get("appimages"), "id");
     let pk = union_by(pk, existing.get("packages"), "package");
-    let manifest = serde_json::json!({ "appimages": ai, "packages": pk });
-    write_manifest(&bin, manifest.to_string());
+    serde_json::json!({ "appimages": ai, "packages": pk })
 }
 
 fn manifest_bin() -> Option<std::path::PathBuf> {
@@ -128,27 +140,24 @@ fn read_manifest(bin: &std::path::Path) -> Map<String, Value> {
         .unwrap_or_default()
 }
 
-/// Off the caller's thread (ewe-conf is a Python start-up, ~100 ms), but run
-/// to completion and LOGGED: a spawn-and-forget here is how a machine's
-/// backup silently went out without its app list — the failure was invisible.
+/// Run to completion (ewe-conf is a Python start-up, ~100 ms) and LOGGED: a
+/// spawn-and-forget here is how a machine's app list once silently failed to
+/// reach the file — the failure was invisible.
 fn write_manifest(bin: &std::path::Path, manifest: String) {
-    let bin = bin.to_path_buf();
-    std::thread::spawn(move || {
-        let out = std::process::Command::new(&bin)
-            .args(["set", "--no-hooks", "apps.installed"])
-            .arg(manifest)
-            .stdin(std::process::Stdio::null())
-            .output();
-        match out {
-            Ok(o) if o.status.success() => {}
-            Ok(o) => eprintln!(
-                "komble: ewe-conf set apps.installed failed ({}): {}",
-                o.status,
-                String::from_utf8_lossy(&o.stderr).trim()
-            ),
-            Err(e) => eprintln!("komble: could not run {}: {e}", bin.display()),
-        }
-    });
+    let out = std::process::Command::new(bin)
+        .args(["set", "--no-hooks", "apps.installed"])
+        .arg(manifest)
+        .stdin(std::process::Stdio::null())
+        .output();
+    match out {
+        Ok(o) if o.status.success() => {}
+        Ok(o) => eprintln!(
+            "komble: ewe-conf set apps.installed failed ({}): {}",
+            o.status,
+            String::from_utf8_lossy(&o.stderr).trim()
+        ),
+        Err(e) => eprintln!("komble: could not run {}: {e}", bin.display()),
+    }
 }
 
 fn union_by(local: Vec<Value>, existing: Option<&Value>, key: &str) -> Vec<Value> {

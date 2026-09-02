@@ -229,7 +229,7 @@
   {#if $aurQueue.length && !building}
     <div class="card flex flex-wrap items-center justify-between gap-2 border-sky-400/40 px-4 py-2.5 text-xs">
       <span class="text-sky-700 dark:text-sky-300">
-        From your backup: {$aurQueue.length} more AUR app{$aurQueue.length === 1 ? "" : "s"} to review after this one
+        From your ewe.conf: {$aurQueue.length} more AUR app{$aurQueue.length === 1 ? "" : "s"} to review after this one
         <span class="text-zinc-400">({$aurQueue.slice(0, 4).join(", ")}{$aurQueue.length > 4 ? ", …" : ""})</span>
       </span>
       <span class="flex gap-2">
