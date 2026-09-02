@@ -1,0 +1,46 @@
+<!doctype html>
+<!-- Browser-only harness: fakes the Tauri bridge with a three-app catalog so
+     the chrome can be eyeballed without a compositor. Never shipped (dev
+     server only); delete freely. Open http://localhost:5175/dev-mock.html -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Komble (mock)</title>
+    <script>
+      const app = (id, name, description, categories) => ({
+        id, name, description, categories, kind: "appimage", source: "am",
+        icon: "", version: "1.0", homepage: "", plainDesc: description
+      });
+      window.__TAURI_INTERNALS__ = {
+        transformCallback: (cb) => cb,
+        metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main" } },
+        invoke: (cmd) => {
+          switch (cmd) {
+            case "fetch_catalog":
+              return Promise.resolve([
+                app("zed", "Zed", "A high-performance, multiplayer code editor.", ["Development"]),
+                app("obsidian", "Obsidian", "A knowledge base that works on local Markdown files.", ["Office"]),
+                app("kdenlive", "Kdenlive", "Free and open source video editor.", ["Video"])
+              ]);
+            case "de_prefs":
+              return Promise.resolve({ accent: "#8fbce0", colorScheme: "dark", themeName: "flock" });
+            case "system_check":
+              return Promise.resolve({ fuse2: true, gnome: false, appindicatorOk: true });
+            case "list_appimages": case "list_upgradable": case "list_tracked_packages": case "package_repos":
+              return Promise.resolve([]);
+            case "take_pending_open": case "take_pending_route":
+              return Promise.resolve(null);
+            default:
+              if (String(cmd).startsWith("plugin:store")) return Promise.resolve(null);
+              return Promise.resolve("");
+          }
+        }
+      };
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

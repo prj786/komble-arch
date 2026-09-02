@@ -25,10 +25,9 @@
 </script>
 
 <!-- Collapses to an icon rail on narrow windows (tiled half/quarter screens). -->
-<aside
-  class="flex w-14 shrink-0 flex-col border-r border-zinc-200 bg-white/60 md:w-56 dark:border-zinc-700/60 dark:bg-zinc-800/40"
->
-  <div class="flex items-center justify-center gap-2.5 px-2 pb-4 pt-5 md:justify-start md:px-4">
+<!-- .rail / .rail-* — the chrome shared with ewe-settings and ewe-sync (app.css) -->
+<aside class="rail">
+  <div class="rail-brand">
     <!-- the kombali — a shepherd's crook; Komble herds your apps -->
     <div
       class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white"
@@ -38,22 +37,18 @@
         <path d="M14.5 21V8a3.5 3.5 0 0 0-7 0v1.5" />
       </svg>
     </div>
-    <div class="hidden text-lg font-semibold tracking-tight md:block">Komble</div>
+    <div class="rail-brand-name">Komble</div>
   </div>
 
-  <nav class="flex flex-col gap-0.5 px-1.5 md:px-2.5">
+  <nav class="rail-nav">
     {#each items as it}
       <button
         title={it.label}
-        class="relative flex items-center justify-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors md:justify-start
-          {$route === it.id
-          ? 'text-white'
-          : 'text-zinc-600 hover:bg-zinc-200/60 dark:text-zinc-300 dark:hover:bg-zinc-700/50'}"
-        style={$route === it.id ? "background: var(--accent)" : ""}
+        class="rail-item {$route === it.id ? 'is-active' : ''}"
         on:click={() => route.set(it.id)}
       >
-        <span class="ph-i w-4 shrink-0 text-center text-[16px]">{String.fromCodePoint(it.icon)}</span>
-        <span class="hidden flex-1 text-left md:block">{it.label}</span>
+        <span class="ph-i">{String.fromCodePoint(it.icon)}</span>
+        <span class="rail-label">{it.label}</span>
         {#if it.id === "updates" && $updatesCount > 0}
           <span
             class="hidden rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none md:inline
@@ -73,7 +68,7 @@
     {/each}
   </nav>
 
-  <div class="mt-auto hidden px-4 py-3 text-[11px] text-zinc-400 md:block dark:text-zinc-500">
+  <div class="rail-foot">
     Komble{version ? ` ${version}` : ""} · no snap, no flatpak
   </div>
 </aside>
