@@ -1148,7 +1148,13 @@ async fn aur_install_inner(
         "install-progress",
         json!({ "id": package, "stage": "build" }),
     );
-    let mut args = vec!["--noconfirm", "--syncdeps", "--needed", "--clean", "--noprogressbar"];
+    let mut args = vec![
+        "--noconfirm",
+        "--syncdeps",
+        "--needed",
+        "--clean",
+        "--noprogressbar",
+    ];
     if skip_pgp_check {
         args.push("--skippgpcheck");
     }
