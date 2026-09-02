@@ -262,6 +262,7 @@ pub fn run() {
             // AUR
             pacman::aur_search,
             pacman::aur_pkgbuild,
+            pacman::aur_srcinfo,
             pacman::aur_install,
             system::system_check,
             de::de_prefs,

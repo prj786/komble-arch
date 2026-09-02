@@ -786,7 +786,7 @@ pub async fn aur_upgrade(app: AppHandle) -> Result<String, String> {
         // re-assert per package: the shell's crash-safety timeout would clear
         // the "updating" glyph mid-way through a long multi-package run
         crate::de::poke_working(true);
-        match aur_install(app.clone(), u.name.clone()).await {
+        match aur_install(app.clone(), u.name.clone(), None).await {
             Ok(l) => {
                 log.push_str(&l);
                 log.push('\n');
@@ -815,6 +815,26 @@ pub async fn refresh_lists() -> Result<String, String> {
 }
 
 // ── AUR ─────────────────────────────────────────────────────────────────────
+
+/// One GET with a single retry on a transport error (the AUR front end
+/// resets idle connections now and then; a second attempt on a fresh
+/// connection is what a browser would do). HTTP error statuses are NOT
+/// retried — those are answers, not failures.
+async fn aur_get(url: &str) -> Result<reqwest::Response, String> {
+    let client = crate::util::client();
+    match client.get(url).send().await {
+        Ok(r) => Ok(r),
+        Err(first) => {
+            tokio::time::sleep(Duration::from_millis(400)).await;
+            client
+                .get(url)
+                .send()
+                .await
+                .map_err(|second| format!("{first} (retry: {second})"))
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn aur_search(query: String) -> Result<Vec<BrowseItem>, String> {
     let q = query.trim();
@@ -825,14 +845,7 @@ pub async fn aur_search(query: String) -> Result<Vec<BrowseItem>, String> {
         "https://aur.archlinux.org/rpc/v5/search/{}?by=name-desc",
         urlencoding(q)
     );
-    let reply: AurReply = crate::util::client()
-        .get(&url)
-        .send()
-        .await
-        .map_err(estr)?
-        .json()
-        .await
-        .map_err(estr)?;
+    let reply: AurReply = aur_get(&url).await?.json().await.map_err(estr)?;
     let installed = installed_set().await;
     let mut items: Vec<BrowseItem> = reply
         .results
@@ -866,11 +879,179 @@ pub async fn aur_pkgbuild(package: String) -> Result<String, String> {
         "https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h={}",
         urlencoding(&package)
     );
-    let res = crate::util::client().get(&url).send().await.map_err(estr)?;
+    let res = aur_get(&url).await?;
     if !res.status().is_success() {
         return Err(format!("no PKGBUILD for {package} (HTTP {})", res.status()));
     }
     res.text().await.map_err(estr)
+}
+
+// ── .SRCINFO: the machine-readable half of a PKGBUILD ───────────────────────
+//
+// makepkg verifies every `source` that ships a detached signature against the
+// PKGBUILD's `validpgpkeys`, and refuses to build when a key is not in the
+// USER's gpg keyring. A fresh install has an empty keyring, so every signed
+// package (1password, many -bin packages) failed with "One or more PGP
+// signatures could not be verified" — a global bug, not a per-package one.
+// The keys are declared in .SRCINFO, which the AUR generates from the
+// PKGBUILD and which every AUR clone carries; reading it (not the PKGBUILD)
+// means no shell evaluation of untrusted text.
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct AurMeta {
+    pub validpgpkeys: Vec<String>,
+    pub depends: Vec<String>,
+    pub makedepends: Vec<String>,
+    /// at least one source has a `.sig`/`.asc` companion — makepkg WILL verify
+    pub signed_sources: bool,
+}
+
+/// A PGP fingerprint (40 hex) or long key id (16 hex). Anything else never
+/// reaches a gpg argv.
+fn valid_fingerprint(k: &str) -> bool {
+    (16..=40).contains(&k.len()) && k.chars().all(|c| c.is_ascii_hexdigit())
+}
+
+fn parse_srcinfo(text: &str) -> AurMeta {
+    let mut m = AurMeta::default();
+    for line in text.lines() {
+        let Some((k, v)) = line.trim().split_once('=') else {
+            continue;
+        };
+        let (k, v) = (k.trim(), v.trim());
+        // split packages carry per-package keys as `depends_x86_64` etc.;
+        // the architecture suffix does not change what we need
+        let key = k.split('_').next().unwrap_or(k);
+        match key {
+            "validpgpkeys" => {
+                let up = v.to_ascii_uppercase();
+                if valid_fingerprint(&up) && !m.validpgpkeys.contains(&up) {
+                    m.validpgpkeys.push(up);
+                }
+            }
+            "depends" => m.depends.push(v.to_string()),
+            "makedepends" => m.makedepends.push(v.to_string()),
+            "source" => {
+                let file = v.split("::").next().unwrap_or(v);
+                if file.ends_with(".sig") || file.ends_with(".asc") || file.ends_with(".sign") {
+                    m.signed_sources = true;
+                }
+            }
+            _ => {}
+        }
+    }
+    m
+}
+
+/// The package's .SRCINFO from the AUR — for the review card, BEFORE the
+/// clone exists, so the user sees "signed by key X" next to the PKGBUILD.
+#[tauri::command]
+pub async fn aur_srcinfo(package: String) -> Result<AurMeta, String> {
+    if !valid_pkg_name(&package) {
+        return Err("invalid package name".into());
+    }
+    aur_srcinfo_remote(&package).await
+}
+
+async fn aur_srcinfo_remote(package: &str) -> Result<AurMeta, String> {
+    let url = format!(
+        "https://aur.archlinux.org/cgit/aur.git/plain/.SRCINFO?h={}",
+        urlencoding(package)
+    );
+    let res = aur_get(&url).await?;
+    if !res.status().is_success() {
+        return Err(format!("no .SRCINFO for {package} (HTTP {})", res.status()));
+    }
+    Ok(parse_srcinfo(&res.text().await.map_err(estr)?))
+}
+
+/// After the clone: the checkout's own .SRCINFO is what makepkg will verify
+/// against, so prefer it; the AUR copy is the fallback for a clone that
+/// somehow lacks one.
+async fn aur_srcinfo_for_checkout(base: &std::path::Path, package: &str) -> AurMeta {
+    if let Ok(text) = std::fs::read_to_string(base.join(".SRCINFO")) {
+        return parse_srcinfo(&text);
+    }
+    aur_srcinfo_remote(package).await.unwrap_or_default()
+}
+
+async fn gpg_has_key(fpr: &str) -> bool {
+    Command::new("gpg")
+        .args(["--batch", "--list-keys", fpr])
+        .env("LANG", "C")
+        .env("LC_ALL", "C")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .await
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+/// Fetch the PKGBUILD's signing keys into the USER's keyring, the same way a
+/// person would before `makepkg` (and the same fallback order ewe-repo's CI
+/// uses). Nothing here is privileged: gpg creates ~/.gnupg itself and talks
+/// to the keyservers through dirmngr. Each attempt is bounded — a keyserver
+/// that blackholes must not hang the install forever.
+async fn import_pgp_keys(app: &AppHandle, package: &str, keys: &[String]) -> Result<(), String> {
+    const ATTEMPTS: [&[&str]; 3] = [
+        &["--keyserver", "hkps://keyserver.ubuntu.com"],
+        &["--keyserver", "hkps://keys.openpgp.org"],
+        &[], // dirmngr's configured default
+    ];
+    if !which("gpg") {
+        return Err(format!(
+            "{package}'s sources are PGP-signed but gpg is not installed — install gnupg and retry."
+        ));
+    }
+    let _ = app.emit(
+        "install-progress",
+        json!({ "id": package, "stage": "keys" }),
+    );
+    for fpr in keys {
+        if !valid_fingerprint(fpr) {
+            return Err(format!("{package}: malformed validpgpkeys entry {fpr:?}"));
+        }
+        if gpg_has_key(fpr).await {
+            continue;
+        }
+        let mut last_err = String::new();
+        let mut imported = false;
+        for extra in ATTEMPTS {
+            let mut cmd = Command::new("gpg");
+            cmd.arg("--batch")
+                .args(extra)
+                .args(["--recv-keys", fpr])
+                .env("LANG", "C")
+                .env("LC_ALL", "C")
+                .stdin(Stdio::null())
+                .kill_on_drop(true);
+            match tokio::time::timeout(Duration::from_secs(30), cmd.output()).await {
+                Ok(Ok(out)) if out.status.success() => {
+                    imported = true;
+                    break;
+                }
+                Ok(Ok(out)) => {
+                    last_err = String::from_utf8_lossy(&out.stderr).trim().to_string();
+                }
+                Ok(Err(e)) => last_err = e.to_string(),
+                Err(_) => last_err = "keyserver did not answer within 30 s".into(),
+            }
+        }
+        // `--recv-keys` can exit 0 without importing (keyserver returned
+        // nothing) — trust the keyring, not the exit code
+        if !imported || !gpg_has_key(fpr).await {
+            return Err(format!(
+                "{package}'s sources are signed by PGP key {fpr} and it could not be fetched \
+                 from a keyserver (is the network up? is dirmngr blocked?).\n\
+                 Import it yourself, then retry:\n  gpg --recv-keys {fpr}\n{last_err}"
+            )
+            .trim_end()
+            .to_string());
+        }
+    }
+    Ok(())
 }
 
 /// Clone, build as the USER, then install the built artifact with pkexec.
@@ -879,9 +1060,22 @@ pub async fn aur_pkgbuild(package: String) -> Result<String, String> {
 /// others. PACMAN_AUTH=pkexec is how makepkg is told to elevate for its own
 /// dependency installs — without it, it shells out to sudo and hangs forever
 /// waiting for a password on a terminal that does not exist.
+///
+/// `skip_pgp_check` is the explicit, per-install, off-by-default override for
+/// a package whose key genuinely cannot be fetched. It is never the default:
+/// the signature is the one integrity check upstream ships.
 #[tauri::command]
-pub async fn aur_install(app: AppHandle, package: String) -> Result<String, String> {
-    let r = aur_install_inner(app.clone(), package.clone()).await;
+pub async fn aur_install(
+    app: AppHandle,
+    package: String,
+    skip_pgp_check: Option<bool>,
+) -> Result<String, String> {
+    let r = aur_install_inner(
+        app.clone(),
+        package.clone(),
+        skip_pgp_check.unwrap_or(false),
+    )
+    .await;
     // ALWAYS clear the progress entry — stage events ("clone"/"build") have no
     // terminal marker of their own, and a lingering entry pins "…" on cards
     let _ = app.emit(
@@ -891,7 +1085,22 @@ pub async fn aur_install(app: AppHandle, package: String) -> Result<String, Stri
     r
 }
 
-async fn aur_install_inner(app: AppHandle, package: String) -> Result<String, String> {
+/// Last ~2000 chars of a log — the part with the error in it.
+fn tail(s: &str) -> String {
+    s.chars()
+        .rev()
+        .take(2000)
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect()
+}
+
+async fn aur_install_inner(
+    app: AppHandle,
+    package: String,
+    skip_pgp_check: bool,
+) -> Result<String, String> {
     if !valid_pkg_name(&package) {
         return Err("invalid package name".into());
     }
@@ -929,41 +1138,71 @@ async fn aur_install_inner(app: AppHandle, package: String) -> Result<String, St
         ));
     }
 
+    // the signing keys makepkg is about to verify against, from the checkout
+    let meta = aur_srcinfo_for_checkout(&base, &package).await;
+    if !meta.validpgpkeys.is_empty() && !skip_pgp_check {
+        import_pgp_keys(&app, &package, &meta.validpgpkeys).await?;
+    }
+
     let _ = app.emit(
         "install-progress",
         json!({ "id": package, "stage": "build" }),
     );
+    let mut args = vec!["--noconfirm", "--syncdeps", "--needed", "--clean", "--noprogressbar"];
+    if skip_pgp_check {
+        args.push("--skippgpcheck");
+    }
     let build = Command::new("makepkg")
-        .args(["--noconfirm", "--syncdeps", "--clean"])
+        .args(&args)
         .current_dir(&base)
         .env("PACMAN_AUTH", "pkexec")
+        .env("LANG", "C")
+        .env("LC_ALL", "C")
+        .stdin(Stdio::null())
         .output()
         .await
         .map_err(estr)?;
+    // makepkg's own narration goes to stdout and the errors to stderr; a
+    // build() failure without the stdout half is a blank "makepkg failed"
+    let mut log = String::from_utf8_lossy(&build.stdout).to_string();
+    log.push_str(&String::from_utf8_lossy(&build.stderr));
+    // the whole log, so the UI can keep it on screen after the toast is gone
+    let _ = app.emit(
+        "install-log",
+        json!({ "id": package, "ok": build.status.success(), "log": log }),
+    );
     if !build.status.success() {
-        let err = String::from_utf8_lossy(&build.stderr);
-        let tail: String = err
-            .chars()
-            .rev()
-            .take(2000)
-            .collect::<String>()
-            .chars()
-            .rev()
-            .collect();
-        return Err(format!("makepkg failed:\n{tail}"));
+        return Err(format!("makepkg failed:\n{}", tail(&log)));
     }
 
-    // whatever it produced — version and arch are the PKGBUILD's business
-    let built = std::fs::read_dir(&base)
+    // whatever it produced — version and arch are the PKGBUILD's business.
+    // The stock makepkg.conf enables `debug`, so a package that strips
+    // binaries ALSO drops a <pkg>-debug-*.pkg.tar.zst beside the real one;
+    // never install that by accident. Split packages: prefer the one that
+    // carries the requested name.
+    let mut built: Vec<PathBuf> = std::fs::read_dir(&base)
         .map_err(estr)?
         .filter_map(|e| e.ok())
         .map(|e| e.path())
+        .filter(|p| {
+            p.file_name()
+                .and_then(|s| s.to_str())
+                .map(|n| n.contains(".pkg.tar") && !n.contains("-debug-"))
+                .unwrap_or(false)
+        })
+        .collect();
+    built.sort();
+    let prefix = format!("{package}-");
+    let built = built
+        .iter()
         .find(|p| {
             p.file_name()
                 .and_then(|s| s.to_str())
-                .map(|n| n.contains(".pkg.tar"))
+                .map(|n| n.starts_with(&prefix))
                 .unwrap_or(false)
         })
+        .or_else(|| built.first())
+        .cloned()
         .ok_or_else(|| "makepkg produced no package file".to_string())?;
 
     let _ = app.emit(

@@ -3,6 +3,8 @@
   import { refreshPkgs } from "../actions.js";
   import { aurReview, droppedPkg, toast } from "../stores.js";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
+  import { listen } from "@tauri-apps/api/event";
+  import { onMount, onDestroy } from "svelte";
 
   let query = "";
   let results = [];
@@ -11,9 +13,40 @@
   // the package whose PKGBUILD is on screen; nothing builds until this is read
   let reviewing = null;
   let pkgbuild = "";
+  let meta = null; // .SRCINFO facts: validpgpkeys, deps — null until fetched
   let loadingPkgbuild = false;
   let building = false;
   let stage = "";
+  // explicit, per-install, off by default: makepkg --skippgpcheck
+  let skipPgp = false;
+  // the build's own words, kept on screen after the toast is gone
+  let buildLog = "";
+  let buildError = "";
+  let showLog = false;
+
+  const STAGES = {
+    clone: "Cloning",
+    keys: "Importing signing key",
+    build: "Building",
+    install: "Installing",
+  };
+
+  let unlisteners = [];
+  onMount(async () => {
+    unlisteners.push(
+      await listen("install-progress", (e) => {
+        const p = e.payload;
+        if (p.id === reviewing && p.stage) stage = STAGES[p.stage] || p.stage;
+      })
+    );
+    unlisteners.push(
+      await listen("install-log", (e) => {
+        const p = e.payload;
+        if (p.id === reviewing) buildLog = p.log || "";
+      })
+    );
+  });
+  onDestroy(() => unlisteners.forEach((u) => u()));
 
   let localPath = "";
 
@@ -56,7 +89,15 @@
   async function review(name) {
     reviewing = name;
     pkgbuild = "";
+    meta = null;
+    skipPgp = false;
+    buildLog = "";
+    buildError = "";
+    showLog = false;
     loadingPkgbuild = true;
+    // the .SRCINFO half is informational (signing keys, deps) — its absence
+    // must never block the review itself
+    const metaReq = api.aurSrcinfo(name).catch(() => null);
     try {
       pkgbuild = await api.aurPkgbuild(name);
     } catch (e) {
@@ -64,24 +105,35 @@
       reviewing = null;
     }
     loadingPkgbuild = false;
+    const m = await metaReq;
+    if (reviewing === name) meta = m;
   }
 
   async function build() {
     if (!reviewing) return;
+    const name = reviewing;
     building = true;
-    stage = "building";
+    stage = "Starting";
+    buildLog = "";
+    buildError = "";
+    showLog = false;
     try {
-      await api.aurInstall(reviewing);
-      toast(`${reviewing} installed`, "success");
+      await api.aurInstall(name, skipPgp);
+      toast(`${name} installed`, "success");
       reviewing = null;
       pkgbuild = "";
+      meta = null;
       await refreshPkgs();
     } catch (e) {
+      buildError = String(e);
+      showLog = true;
       toast(e, "error");
     }
     building = false;
     stage = "";
   }
+
+  const shortKey = (k) => (k.length > 16 ? `${k.slice(0, 8)}…${k.slice(-8)}` : k);
 
   async function pickLocal() {
     const sel = await openDialog({
@@ -166,13 +218,45 @@
       {#if loadingPkgbuild}
         <p class="text-xs text-zinc-400">Fetching…</p>
       {:else}
+        {#if meta?.validpgpkeys?.length}
+          <!-- makepkg verifies signed sources against these keys and refuses
+               to build without them; a fresh keyring has none, so Komble
+               fetches them first (never --skippgpcheck by default). -->
+          <div class="mb-2 rounded-lg border border-sky-400/40 bg-sky-500/5 px-3 py-2 text-xs text-sky-700 dark:text-sky-300">
+            Sources are PGP-signed by key
+            {#each meta.validpgpkeys as k, i}
+              <code class="font-mono" title={k}>{shortKey(k)}</code>{i < meta.validpgpkeys.length - 1 ? ", " : ""}
+            {/each}.
+            Komble will import {meta.validpgpkeys.length === 1 ? "it" : "them"} into your GPG keyring
+            (<code>gpg --recv-keys</code>) before building.
+            <label class="mt-1.5 flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+              <input type="checkbox" bind:checked={skipPgp} disabled={building} />
+              Skip signature check (unsafe — only if the key cannot be fetched)
+            </label>
+          </div>
+        {/if}
         <pre class="max-h-96 overflow-auto rounded-lg bg-zinc-100 p-3 text-[11px] leading-relaxed dark:bg-zinc-900">{pkgbuild}</pre>
+        {#if buildError}
+          <!-- the toast lives eight seconds; the reason stays here until the
+               card is closed or the next attempt starts -->
+          <div class="mt-3 rounded-lg border border-red-400/40 bg-red-500/5 p-3 text-xs text-red-700 dark:text-red-300">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-medium">Build failed</span>
+              {#if buildLog}
+                <button class="btn-ghost !py-0.5 text-[11px]" on:click={() => (showLog = !showLog)}>
+                  {showLog ? "Hide full log" : "Show full log"}
+                </button>
+              {/if}
+            </div>
+            <pre class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{showLog && buildLog ? buildLog : buildError}</pre>
+          </div>
+        {/if}
         <div class="mt-3 flex items-center justify-end gap-2">
           {#if building}
             <span class="text-xs text-zinc-400">{stage}…</span>
           {:else}
             <button class="btn-primary !py-1 text-xs" on:click={build}>
-              I have read this — build and install
+              {buildError ? "Try again" : "I have read this — build and install"}
             </button>
           {/if}
         </div>

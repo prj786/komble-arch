@@ -98,14 +98,27 @@ fn read_manifest(bin: &std::path::Path) -> Map<String, Value> {
         .unwrap_or_default()
 }
 
+/// Off the caller's thread (ewe-conf is a Python start-up, ~100 ms), but run
+/// to completion and LOGGED: a spawn-and-forget here is how a machine's
+/// backup silently went out without its app list — the failure was invisible.
 fn write_manifest(bin: &std::path::Path, manifest: String) {
-    let _ = std::process::Command::new(bin)
-        .args(["set", "--no-hooks", "apps.installed"])
-        .arg(manifest)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn();
+    let bin = bin.to_path_buf();
+    std::thread::spawn(move || {
+        let out = std::process::Command::new(&bin)
+            .args(["set", "--no-hooks", "apps.installed"])
+            .arg(manifest)
+            .stdin(std::process::Stdio::null())
+            .output();
+        match out {
+            Ok(o) if o.status.success() => {}
+            Ok(o) => eprintln!(
+                "komble: ewe-conf set apps.installed failed ({}): {}",
+                o.status,
+                String::from_utf8_lossy(&o.stderr).trim()
+            ),
+            Err(e) => eprintln!("komble: could not run {}: {e}", bin.display()),
+        }
+    });
 }
 
 fn union_by(local: Vec<Value>, existing: Option<&Value>, key: &str) -> Vec<Value> {

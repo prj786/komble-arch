@@ -13,6 +13,8 @@
 
   let google = null; // null = shell unreachable
   let backup = null; // { apps, fetchedAt } from the local [apps.installed] manifest
+  let backupReason = ""; // why there is no manifest: "no-manifest" | "no-ewe-conf" | …
+  let fetched = false; // a pull succeeded in this session — the file IS the backup now
   let cloud = null; // { device, updatedAt } — the Drive copy's facts (status probe only)
   let checking = false;
   let syncing = false;
@@ -35,7 +37,12 @@
   async function readBackup() {
     try {
       const m = await api.restoreManifest();
-      if (!m.available) { backup = null; return; }
+      if (!m.available) {
+        backup = null;
+        backupReason = m.reason || "no-manifest";
+        return;
+      }
+      backupReason = "";
       const apps = [
         ...(m.packages || []).map((p) => ({
           name: p.package, installed: !!p.installed, aur: p.source === "aur",
@@ -89,7 +96,10 @@
         return;
       }
       if (r.ok === false && r.error !== "nothing-synced") toast(r.error, "error");
-      if (r.ok) toast("Backup fetched — the previous local file is kept as a .bak.", "success");
+      if (r.ok) {
+        fetched = true;
+        toast("Backup fetched — the previous local file is kept as a .bak.", "success");
+      }
       await readBackup();
       await probeCloud();
     } catch (e) {
@@ -102,7 +112,7 @@
     syncing = true;
     try {
       const r = await api.confSync("push");
-      if (r.ok === false) throw r.error;
+      if (r.ok === false) throw pushError(r.error);
       toast("Your machine's file is synced to Drive.", "success");
     } catch (e) {
       toast(e, "error");
@@ -160,6 +170,16 @@
     if (aurLeft.length)
       toast(`${aurLeft.length} AUR package${aurLeft.length === 1 ? "" : "s"} left — each needs its PKGBUILD reviewed in the AUR view.`, "info", 6000);
   }
+
+  // ewe-conf's push guard codes → words a person can act on
+  const pushError = (code) =>
+    ({
+      "remote-exists":
+        "A backup already exists on Drive from another machine — restore it first (Fetch backup), or force the push from Settings → Account.",
+      "remote-newer":
+        "Another machine saved newer settings — fetch the backup first, or force the push from Settings → Account.",
+      "not-signed-in": "Not signed in — connect a Google account in Settings → Account.",
+    })[code] || code;
 
   $: missing = (backup?.apps || []).filter((a) => !a.installed);
   $: present = (backup?.apps || []).filter((a) => a.installed);
@@ -266,6 +286,25 @@
       </div>
     {:else if checking}
       <div class="card p-6 text-center text-sm text-zinc-400">Fetching your backup from Drive…</div>
+    {:else if backupReason === "no-ewe-conf"}
+      <div class="card p-6 text-center text-sm text-zinc-400">
+        <span class="text-zinc-300">ewe-conf</span> is not installed here, so there is no
+        app list to read — this needs the ewe desktop (0.9 or newer).
+      </div>
+    {:else if backup && backup.apps.length === 0}
+      <div class="card p-6 text-center text-sm text-zinc-400">
+        This backup's app list is empty — the machine that wrote it had no apps
+        Komble knew about yet.
+      </div>
+    {:else if backupReason && (fetched || google.lastSync)}
+      <!-- the file has been restored/synced, yet carries no [apps.installed]:
+           say so, instead of an empty pane that looks like a bug -->
+      <div class="card p-6 text-center text-sm text-zinc-400">
+        This backup has no app list. Apps installed on the other machine before
+        Komble 0.9.3, or with pacman directly, were not recorded; newer ewe
+        versions record every explicitly installed package, so the next sync from
+        that machine will carry them.
+      </div>
     {:else if cloud}
       <div class="card p-6 text-center text-sm text-zinc-400">
         A backup from <span class="text-zinc-300">{cloud.device}</span> ({fmt(cloud.updatedAt)})

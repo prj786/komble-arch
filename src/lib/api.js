@@ -66,7 +66,11 @@ export const installPackage = (pkg) => invoke("install_package", { package: pkg 
 // is a shell script that runs with your privileges at build time.
 export const aurSearch = (query) => invoke("aur_search", { query });
 export const aurPkgbuild = (pkg) => invoke("aur_pkgbuild", { package: pkg });
-export const aurInstall = (pkg) => invoke("aur_install", { package: pkg });
+// the .SRCINFO half: signing keys (validpgpkeys), deps — shown on the review card
+export const aurSrcinfo = (pkg) => invoke("aur_srcinfo", { package: pkg });
+// skipPgpCheck is the explicit, per-install "unsafe" override; never the default
+export const aurInstall = (pkg, skipPgpCheck = false) =>
+  invoke("aur_install", { package: pkg, skipPgpCheck });
 
 // ewe integration (accent/look + the shell-owned Google account)
 export const dePrefs = () => invoke("de_prefs");

@@ -6,7 +6,7 @@
 
 pkgname=komble-arch
 pkgver=0.9.11
-pkgrel=1
+pkgrel=2   # 2: signed AUR sources, For You reasons, build log
 pkgdesc="App store for Arch — pacman, the AUR and AppImages"
 arch=('x86_64' 'aarch64')
 url="https://github.com/prj786/komble-arch"

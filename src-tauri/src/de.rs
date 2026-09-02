@@ -174,7 +174,14 @@ pub async fn restore_manifest(app: tauri::AppHandle) -> Result<serde_json::Value
         .await
         .map_err(crate::util::estr)?;
     if !out.status.success() {
-        return Ok(serde_json::json!({"available": false, "reason": "no-manifest"}));
+        // newer ewe-conf prints {"error": "..."} on stderr for a missing key;
+        // older ones just exit 1 — both mean the file carries no app list
+        let reason = serde_json::from_slice::<serde_json::Value>(&out.stderr)
+            .ok()
+            .and_then(|v| v.get("error").and_then(|e| e.as_str()).map(String::from))
+            .filter(|e| !e.is_empty())
+            .unwrap_or_else(|| "no-manifest".into());
+        return Ok(serde_json::json!({"available": false, "reason": reason}));
     }
     let manifest: serde_json::Value =
         serde_json::from_slice(&out.stdout).map_err(crate::util::estr)?;
@@ -238,14 +245,16 @@ pub async fn conf_sync(direction: String) -> Result<serde_json::Value, String> {
         .map_err(crate::util::estr)?;
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).map_err(crate::util::estr)?;
     // A pull that leaves ewe.conf = remote while every runtime file = local
-    // is half a restore. Regenerate the artifacts and tell the shell — the
-    // same tail the shell's own applyRestore runs.
+    // is half a restore. Regenerate the artifacts WITH hooks: `apply` itself
+    // re-themes, pokes the shell (`settings reload`) and reloads Hyprland, so
+    // gaps and the window border follow the restored file at once instead of
+    // waiting for a relogin (the old `--no-hooks` + shell-only poke never
+    // touched Hyprland).
     if direction == "pull" && v.get("ok").and_then(|b| b.as_bool()) == Some(true) {
         let _ = tokio::process::Command::new(&bin)
-            .args(["apply", "--no-hooks"])
+            .arg("apply")
             .output()
             .await;
-        let _ = run_out("qs", &["ipc", "call", "settings", "reload"]).await;
     }
     Ok(v)
 }
