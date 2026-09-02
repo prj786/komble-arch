@@ -5,8 +5,8 @@
 # privileged helper, which on the Debian build were carried inside the .deb.
 
 pkgname=komble-arch
-pkgver=0.9.11
-pkgrel=2   # 2: signed AUR sources, For You reasons, build log
+pkgver=0.9.12
+pkgrel=1
 pkgdesc="App store for Arch — pacman, the AUR and AppImages"
 arch=('x86_64' 'aarch64')
 url="https://github.com/prj786/komble-arch"
