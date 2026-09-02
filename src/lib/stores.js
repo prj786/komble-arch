@@ -52,6 +52,10 @@ export const droppedPkg = writable(null);
 /** AUR package name → the AUR view opens its PKGBUILD review. Installing from
  *  the AUR is never one-click: the review gate is the security model. */
 export const aurReview = writable("");
+// The rest of a restore's AUR list: after one review+build finishes, the AUR
+// view opens the next one ("Review next") so the user walks the list instead
+// of hunting each name. Names only; each still gets its own PKGBUILD gate.
+export const aurQueue = writable([]);
 
 export const updatesInfo = writable({ appimages: [], packages: [], errors: [], self: null, desktop: 0, checkedAt: 0 });
 export const updatesCount = derived(

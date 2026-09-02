@@ -239,6 +239,7 @@ pub fn run() {
             pacman::package_repos,
             pacman::package_info,
             pacman::install_package,
+            pacman::install_packages,
             pacman::remove_package,
             pacman::list_tracked_packages,
             pacman::package_file_info,

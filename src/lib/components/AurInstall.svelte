@@ -1,7 +1,7 @@
 <script>
   import * as api from "../api.js";
   import { refreshPkgs } from "../actions.js";
-  import { aurReview, droppedPkg, toast } from "../stores.js";
+  import { aurReview, aurQueue, droppedPkg, toast } from "../stores.js";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import { listen } from "@tauri-apps/api/event";
   import { onMount, onDestroy } from "svelte";
@@ -124,6 +124,8 @@
       pkgbuild = "";
       meta = null;
       await refreshPkgs();
+      // a restore walks its AUR list: the next one's review opens by itself
+      reviewNext();
     } catch (e) {
       buildError = String(e);
       showLog = true;
@@ -134,6 +136,21 @@
   }
 
   const shortKey = (k) => (k.length > 16 ? `${k.slice(0, 8)}…${k.slice(-8)}` : k);
+
+  // The queue behind a restore ("Review AUR apps" in For you): pop the next
+  // name and open its review; an empty queue just leaves the view idle.
+  function reviewNext() {
+    let next = "";
+    aurQueue.update((q) => {
+      next = q[0] || "";
+      return q.slice(1);
+    });
+    if (next) {
+      query = next;
+      search();
+      review(next);
+    }
+  }
 
   async function pickLocal() {
     const sel = await openDialog({
@@ -208,6 +225,19 @@
       </div>
     {/if}
   </div>
+
+  {#if $aurQueue.length && !building}
+    <div class="card flex flex-wrap items-center justify-between gap-2 border-sky-400/40 px-4 py-2.5 text-xs">
+      <span class="text-sky-700 dark:text-sky-300">
+        From your backup: {$aurQueue.length} more AUR app{$aurQueue.length === 1 ? "" : "s"} to review after this one
+        <span class="text-zinc-400">({$aurQueue.slice(0, 4).join(", ")}{$aurQueue.length > 4 ? ", …" : ""})</span>
+      </span>
+      <span class="flex gap-2">
+        <button class="btn-ghost !py-0.5 text-[11px]" on:click={reviewNext}>{reviewing ? "Skip to next" : "Review next"}</button>
+        <button class="btn-ghost !py-0.5 text-[11px]" on:click={() => aurQueue.set([])}>Stop</button>
+      </span>
+    </div>
+  {/if}
 
   {#if reviewing}
     <div class="card p-4">

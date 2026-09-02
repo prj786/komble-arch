@@ -186,19 +186,37 @@ pub async fn restore_manifest(app: tauri::AppHandle) -> Result<serde_json::Value
     let manifest: serde_json::Value =
         serde_json::from_slice(&out.stdout).map_err(crate::util::estr)?;
 
-    // every manifest entry, flagged with whether it exists HERE
+    // every manifest entry, flagged with whether it exists HERE, and with a
+    // NORMALISED source: older Komble versions wrote the built package's file
+    // path into `source`, so a backup may say `/…/aur/foo/foo-1-1.pkg.tar.zst`
+    // where it means "aur". First-party apps (Komble, ewe-settings) come with
+    // the desktop and are never "missing" — they are skipped and counted.
     let mut pkgs = Vec::new();
+    let mut skipped = 0;
     for p in manifest
         .get("packages")
         .and_then(|v| v.as_array())
         .unwrap_or(&vec![])
     {
-        if let Some(name) = p.get("package").and_then(|v| v.as_str()) {
-            let mut e = p.clone();
-            e["installed"] =
-                serde_json::json!(crate::pacman::installed_version(name).await.is_some());
-            pkgs.push(e);
+        let Some(name) = p.get("package").and_then(|v| v.as_str()) else {
+            continue;
+        };
+        let raw = p.get("source").and_then(|v| v.as_str()).unwrap_or("");
+        let mut source = crate::registry::classify_source(raw);
+        if source == "first-party" {
+            skipped += 1;
+            continue;
         }
+        let installed = crate::pacman::installed_version(name).await.is_some();
+        // "repo" is only trusted once the repos actually know the name — a
+        // hand-installed file or an old path-shaped entry may really be AUR
+        if source == "repo" && !installed && !repo_knows(name).await {
+            source = "aur";
+        }
+        let mut e = p.clone();
+        e["source"] = serde_json::json!(source);
+        e["installed"] = serde_json::json!(installed);
+        pkgs.push(e);
     }
     let here: std::collections::HashSet<String> = crate::registry::appimages(&app)
         .ok()
@@ -226,7 +244,23 @@ pub async fn restore_manifest(app: tauri::AppHandle) -> Result<serde_json::Value
         "available": true,
         "packages": pkgs,
         "appimages": appimages,
+        "skipped": skipped,
     }))
+}
+
+/// `pacman -Si` succeeds only for a package the sync databases carry — the
+/// cheapest honest "is this a repo package" there is (no `-Sy`, no network).
+async fn repo_knows(name: &str) -> bool {
+    Command::new("pacman")
+        .args(["-Si", "--", name])
+        .env("LANG", "C")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .await
+        .map(|s| s.success())
+        .unwrap_or(false)
 }
 
 /// push/pull the one file via ewe-conf (RFC-002 sync verbs).

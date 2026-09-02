@@ -61,6 +61,8 @@ export const browsePackages = (query, section, limit) =>
 export const packageRepos = () => invoke("package_repos");
 export const packageInfo = (pkg) => invoke("package_info", { package: pkg });
 export const installPackage = (pkg) => invoke("install_package", { package: pkg });
+// several repo packages in ONE transaction (one prompt) — the restore path
+export const installPackages = (pkgs) => invoke("install_packages", { packages: pkgs });
 
 // AUR — aurPkgbuild is a mandatory review step, not an optional one: a PKGBUILD
 // is a shell script that runs with your privileges at build time.

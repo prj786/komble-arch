@@ -221,7 +221,12 @@ async fn install_first_party_inner(
     std::fs::write(&dest, &bytes).map_err(estr)?;
 
     let _ = app.emit("install-progress", json!({ "id": pkg, "stage": "install" }));
-    crate::pacman::install_package_file(app.clone(), dest.to_string_lossy().to_string()).await
+    crate::pacman::install_package_file_as(
+        app.clone(),
+        dest.to_string_lossy().to_string(),
+        "first-party",
+    )
+    .await
 }
 
 /// The desktop itself: where it lives, what version it is, and whether the

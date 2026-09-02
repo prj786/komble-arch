@@ -530,8 +530,23 @@ pub async fn package_file_info(path: String) -> Result<PkgFileInfo, String> {
     Ok(info)
 }
 
+/// A package file the user picked themselves: not from a repo, not from the
+/// AUR — but the manifest only knows those two kinds plus first-party, and a
+/// restore verifies against the repos before falling back to the AUR, so
+/// "repo" is the honest default for a hand-picked file.
 #[tauri::command]
 pub async fn install_package_file(app: AppHandle, path: String) -> Result<String, String> {
+    install_package_file_as(app, path, "repo").await
+}
+
+/// `pacman -U` a package file and record it in the manifest as `source`
+/// (`repo` | `aur` | `first-party`) — never the file path (see
+/// registry::classify_source). The path is kept in `file` for reference.
+pub(crate) async fn install_package_file_as(
+    app: AppHandle,
+    path: String,
+    source: &str,
+) -> Result<String, String> {
     let p = validate_pkg_file(&path)?;
     let ps = p.to_string_lossy().to_string();
     let info = package_file_info(ps.clone()).await?;
@@ -547,12 +562,52 @@ pub async fn install_package_file(app: AppHandle, path: String) -> Result<String
             "package": info.package,
             "version": info.version,
             "description": info.description,
-            "source": ps,
+            "source": registry::classify_source(source),
+            "file": ps,
             "installedAt": now_secs(),
         }),
     );
     invalidate_index();
     crate::de::poke_sync(); // covers direct file installs AND aur_install's tail
+    Ok(log)
+}
+
+/// Several repo packages in ONE transaction (one polkit prompt, one
+/// dependency resolution): what a restore of "everything from the backup"
+/// needs. Same helper verb as a single install — `install-repo` takes a list.
+#[tauri::command]
+pub async fn install_packages(app: AppHandle, packages: Vec<String>) -> Result<String, String> {
+    if packages.is_empty() {
+        return Err("no packages given".into());
+    }
+    for p in &packages {
+        if !valid_pkg_name(p) {
+            return Err(format!("invalid package name: {p}"));
+        }
+    }
+    let names: Vec<&str> = packages.iter().map(String::as_str).collect();
+    let mut direct = vec!["pacman", "-S", "--noconfirm", "--needed", "--"];
+    direct.extend(names.iter().copied());
+    let mut helper = vec!["install-repo"];
+    helper.extend(names.iter().copied());
+    let log = run_privileged(direct, helper).await?;
+
+    for package in &packages {
+        let version = installed_version(package).await.unwrap_or_default();
+        let _ = registry::upsert_package(
+            &app,
+            package,
+            json!({
+                "package": package,
+                "version": version,
+                "description": "",
+                "source": "repo",
+                "installedAt": now_secs(),
+            }),
+        );
+    }
+    invalidate_index();
+    crate::de::poke_sync();
     Ok(log)
 }
 
@@ -1215,5 +1270,5 @@ async fn aur_install_inner(
         "install-progress",
         json!({ "id": package, "stage": "install" }),
     );
-    install_package_file(app.clone(), built.to_string_lossy().to_string()).await
+    install_package_file_as(app.clone(), built.to_string_lossy().to_string(), "aur").await
 }

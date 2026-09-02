@@ -12,6 +12,23 @@ use crate::util::estr;
 const APPIMAGES: (&str, &str) = ("registry.json", "appimages");
 const PKGS: (&str, &str) = ("packages.json", "packages");
 
+/// Where a package came from, as the manifest records it: `repo`, `aur` or
+/// `first-party`. Komble used to write the built package's FILE PATH here
+/// (`…/aur/<pkg>/<pkg>-1.2-1-x86_64.pkg.tar.zst`), and the restore view
+/// decides "aur" by `source == "aur"` — so every restored AUR app was handed
+/// to `pacman -S`, which cannot find it (first bare-metal restore,
+/// 2026-09-02). Paths are still understood, so old entries migrate on the
+/// next mirror.
+pub(crate) fn classify_source(source: &str) -> &'static str {
+    match source {
+        "aur" => "aur",
+        "first-party" => "first-party",
+        s if s.contains("/aur/") => "aur",
+        s if s.contains("/first-party/") => "first-party",
+        _ => "repo",
+    }
+}
+
 fn read_map(app: &AppHandle, (file, key): (&str, &str)) -> Result<Map<String, Value>, String> {
     let store = app.store(file).map_err(estr)?;
     Ok(store
@@ -62,7 +79,20 @@ pub(crate) fn mirror_manifest(app: &AppHandle) {
     let pk: Vec<Value> = read_map(app, PKGS)
         .unwrap_or_default()
         .values()
-        .map(|v| trim(v, &["package", "version", "source"]))
+        .map(|v| {
+            let mut e = trim(v, &["package", "version", "source", "file"]);
+            // migrate: a path in `source` becomes its kind, the path moves to `file`
+            let src = e
+                .get("source")
+                .and_then(|s| s.as_str())
+                .unwrap_or("")
+                .to_string();
+            if src.starts_with('/') && e.get("file").is_none() {
+                e["file"] = Value::String(src.clone());
+            }
+            e["source"] = Value::String(classify_source(&src).to_string());
+            e
+        })
         .collect();
     let Some(bin) = manifest_bin() else { return };
     // union with the existing manifest: local entries win per key, foreign

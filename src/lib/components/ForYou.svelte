@@ -5,8 +5,8 @@
   // by the shell; this view only sends allowlisted `qs ipc` verbs and reads
   // the package cache the shell writes — tokens never enter Komble.
   import { onMount, onDestroy } from "svelte";
-  import { route, aurReview, trackedPkgs, toast, settings } from "../stores";
-  import { installPackage, installFromItem } from "../api";
+  import { route, aurReview, aurQueue, trackedPkgs, toast, settings } from "../stores";
+  import { installPackage, installPackages, installFromItem } from "../api";
   import { get } from "svelte/store";
   import { refreshPkgs } from "../actions";
   import * as api from "../api";
@@ -19,6 +19,10 @@
   let checking = false;
   let syncing = false;
   let busyPkg = "";
+  let skipped = 0; // first-party entries (Komble, ewe-settings): part of ewe, never "missing"
+  let installError = ""; // the last install failure, kept on screen (toasts vanish)
+  let installNote = ""; // what the restore is doing right now (updates first, then apps)
+  let current = false; // this session already made sure the system is current
   let timer;
 
   async function refreshStatus() {
@@ -43,6 +47,7 @@
         return;
       }
       backupReason = "";
+      skipped = m.skipped || 0;
       const apps = [
         ...(m.packages || []).map((p) => ({
           name: p.package, installed: !!p.installed, aur: p.source === "aur",
@@ -121,7 +126,29 @@
     setTimeout(refreshStatus, 1500);
   }
 
+  /** A fresh install carries the sync databases of its install day; the
+   *  mirrors have long moved on, so `pacman -S` of anything they list 404s.
+   *  The only correct move on Arch is the full upgrade first — one prompt,
+   *  once per session. */
+  async function ensureCurrent() {
+    if (current) return;
+    let pending = [];
+    try {
+      pending = (await api.listUpgradable()).filter((u) => u.source === "repo");
+    } catch {
+      // cannot tell — go ahead; pacman's own error will say if the db is stale
+    }
+    if (pending.length) {
+      installNote = `${pending.length} update${pending.length === 1 ? "" : "s"} pending — bringing the system up to date first, so pacman can fetch the apps (authentication may be required)…`;
+      toast(installNote, "info", 6000);
+      await api.systemUpgrade();
+      refreshPkgs();
+    }
+    current = true;
+  }
+
   async function install(a) {
+    installError = "";
     if (a.appimage) {
       if (!a.github) {
         // no release source in the manifest (a local .AppImage install) —
@@ -145,30 +172,60 @@
       return;
     }
     if (a.aur) {
-      // AUR builds go through the PKGBUILD review gate, same as everywhere
-      aurReview.set(a.name);
-      route.set("aur");
+      // AUR builds go through the PKGBUILD review gate, same as everywhere;
+      // the rest of the backup's AUR list queues up behind it (Review next)
+      reviewAur(a.name);
       return;
     }
     busyPkg = a.name;
     try {
-      toast(`Installing ${a.name} — authentication may be required…`, "info");
+      await ensureCurrent();
+      installNote = `Installing ${a.name} — authentication may be required…`;
       await installPackage(a.name);
       toast(`${a.name} installed`, "success");
       a.installed = true;
       backup = backup;
       refreshPkgs();
     } catch (e) {
+      installError = `${a.name}: ${e}`;
       toast(e, "error");
     }
+    installNote = "";
     busyPkg = "";
   }
 
+  /** Open the PKGBUILD review for one AUR app and queue the other missing
+   *  AUR apps behind it — the AUR view opens the next one after each build. */
+  function reviewAur(first) {
+    const rest = missing.filter((x) => x.aur && x.name !== first).map((x) => x.name);
+    aurQueue.set(rest);
+    aurReview.set(first);
+    route.set("aur");
+  }
+
   async function installAllMissing() {
-    for (const a of missing.filter((x) => !x.aur)) await install(a);
+    installError = "";
+    const repo = missing.filter((x) => !x.aur && !x.appimage).map((x) => x.name);
     const aurLeft = missing.filter((x) => x.aur);
+    if (repo.length) {
+      busyPkg = "*";
+      try {
+        await ensureCurrent();
+        installNote = `Installing ${repo.length} app${repo.length === 1 ? "" : "s"} from the repositories in one go — authentication may be required…`;
+        await installPackages(repo);
+        toast(`${repo.length} app${repo.length === 1 ? "" : "s"} installed`, "success");
+        for (const a of backup.apps) if (repo.includes(a.name)) a.installed = true;
+        backup = backup;
+        refreshPkgs();
+      } catch (e) {
+        installError = String(e);
+        toast(e, "error");
+      }
+      installNote = "";
+      busyPkg = "";
+    }
     if (aurLeft.length)
-      toast(`${aurLeft.length} AUR package${aurLeft.length === 1 ? "" : "s"} left — each needs its PKGBUILD reviewed in the AUR view.`, "info", 6000);
+      toast(`${aurLeft.length} AUR package${aurLeft.length === 1 ? "" : "s"} left — “Review AUR apps” walks you through each PKGBUILD.`, "info", 6000);
   }
 
   // ewe-conf's push guard codes → words a person can act on
@@ -183,6 +240,8 @@
 
   $: missing = (backup?.apps || []).filter((a) => !a.installed);
   $: present = (backup?.apps || []).filter((a) => a.installed);
+  $: missingAur = missing.filter((a) => a.aur);
+  $: missingRepo = missing.filter((a) => !a.aur && !a.appimage);
   const fmt = (iso) => {
     if (!iso) return "";
     try {
@@ -251,9 +310,31 @@
           Everything from your backup is installed here ✓
         </div>
       {:else}
-        <div class="mb-2 flex justify-end">
-          <button class="btn-ghost !py-1 text-xs" on:click={installAllMissing}>Install all repo apps</button>
+        <div class="mb-2 flex flex-wrap items-center justify-end gap-2">
+          {#if missingAur.length}
+            <button class="btn-ghost !py-1 text-xs" disabled={busyPkg !== ""} on:click={() => reviewAur(missingAur[0].name)}>
+              Review AUR apps ({missingAur.length})
+            </button>
+          {/if}
+          {#if missingRepo.length}
+            <button class="btn-ghost !py-1 text-xs" disabled={busyPkg !== ""} on:click={installAllMissing}>
+              {busyPkg === "*" ? "Installing…" : `Install all repo apps (${missingRepo.length})`}
+            </button>
+          {/if}
         </div>
+        {#if installNote}
+          <div class="mb-2 rounded-lg border border-sky-400/40 bg-sky-500/5 px-3 py-2 text-xs text-sky-700 dark:text-sky-300">{installNote}</div>
+        {/if}
+        {#if installError}
+          <!-- the toast lives eight seconds; the reason stays here -->
+          <div class="mb-2 rounded-lg border border-red-400/40 bg-red-500/5 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-medium">Install failed</span>
+              <button class="btn-ghost !py-0.5 text-[11px]" on:click={() => (installError = "")}>Dismiss</button>
+            </div>
+            <pre class="mt-1 max-h-40 overflow-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{installError}</pre>
+          </div>
+        {/if}
         <div class="flex flex-col gap-2">
           {#each missing as a (a.name)}
             <div class="card flex items-center gap-3.5 px-4 py-3">
@@ -266,10 +347,10 @@
                   <span class="ml-2 rounded-full bg-orange-500/15 px-2 py-0.5 text-[11px] font-medium text-orange-600 dark:text-orange-400">AUR</span>
                 {/if}
               </div>
-              {#if busyPkg === a.name}
+              {#if busyPkg === a.name || (busyPkg === "*" && !a.aur && !a.appimage)}
                 <span class="text-xs text-zinc-400">Installing…</span>
               {:else}
-                <button class="btn-primary !py-1 text-xs" on:click={() => install(a)}>
+                <button class="btn-primary !py-1 text-xs" disabled={busyPkg !== ""} on:click={() => install(a)}>
                   {a.aur ? "Review…" : "Install"}
                 </button>
               {/if}
@@ -283,6 +364,11 @@
         {#each present as a (a.name)}
           <span class="rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-500 dark:bg-zinc-700/70 dark:text-zinc-300">{a.name}</span>
         {/each}
+        {#if skipped}
+          <span class="rounded-full bg-zinc-100/60 px-2.5 py-1 text-xs text-zinc-400 dark:bg-zinc-800/60 dark:text-zinc-500" title="Komble and ewe-settings come with the desktop">
+            + {skipped} part of ewe
+          </span>
+        {/if}
       </div>
     {:else if checking}
       <div class="card p-6 text-center text-sm text-zinc-400">Fetching your backup from Drive…</div>
