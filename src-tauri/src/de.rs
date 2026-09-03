@@ -162,7 +162,9 @@ fn ewe_conf_bin() -> Option<std::path::PathBuf> {
 pub async fn theme_tokens(theme: String) -> Result<serde_json::Value, String> {
     if theme.is_empty()
         || theme.len() > 64
-        || !theme.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        || !theme
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
     {
         return Err("bad theme name".into());
     }
