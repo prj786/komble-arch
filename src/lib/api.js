@@ -129,3 +129,6 @@ export async function installFromItem(item, settings) {
 // write, for support
 export const appManifest = () => invoke("app_manifest");
 export const manifestDump = () => invoke("manifest_dump");
+
+/** the generated look, from ewe-theme.conf — injected at runtime by App.svelte */
+export const themeTokens = (theme) => invoke("theme_tokens", { theme });

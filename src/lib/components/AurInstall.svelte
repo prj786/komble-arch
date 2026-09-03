@@ -178,7 +178,7 @@
 <div class="mx-auto h-full w-full max-w-4xl space-y-6 overflow-y-auto p-4 sm:p-6">
   <div>
     <h1 class="text-xl font-semibold">AUR</h1>
-    <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+    <p class="mt-1 text-sm text-dim">
       Build packages from the Arch User Repository. Komble clones the package,
       runs <code>makepkg</code> as you (never as root), then installs the result
       with pacman.
@@ -188,7 +188,7 @@
   <!-- The review gate. A PKGBUILD is a shell script that runs with your
        privileges at build time and can do anything you can, so it is shown in
        full before anything executes. This is the security model, not a nicety. -->
-  <div class="card border-amber-400/40 p-4 text-xs text-amber-700 dark:text-amber-400">
+  <div class="card border-[var(--warning)] p-4 text-xs text-warning dark:text-warning">
     AUR packages are user-submitted and unreviewed. Komble shows you the
     PKGBUILD before it builds anything — read it. It executes on your machine.
   </div>
@@ -201,20 +201,20 @@
       on:input={onQuery}
     />
     {#if searching}
-      <p class="mt-3 text-xs text-zinc-400">Searching…</p>
+      <p class="mt-3 text-xs text-dim">Searching…</p>
     {:else if results.length}
       <div class="mt-3 flex flex-col gap-2">
         {#each results.slice(0, 40) as p (p.name)}
-          <div class="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+          <div class="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-elevated dark:hover:bg-elevated">
             <div class="min-w-0 flex-1">
               <div class="truncate font-medium">
                 {p.name}
-                <span class="ml-1 text-xs font-normal text-zinc-400">{p.version}</span>
+                <span class="ml-1 text-xs font-normal text-dim">{p.version}</span>
               </div>
-              <div class="truncate text-xs text-zinc-400">{p.summary}</div>
+              <div class="truncate text-xs text-dim">{p.summary}</div>
             </div>
             {#if p.installed}
-              <span class="text-xs text-zinc-400">Installed</span>
+              <span class="text-xs text-dim">Installed</span>
             {:else}
               <button class="btn-ghost !py-1 text-xs" on:click={() => review(p.name)}>
                 Review PKGBUILD
@@ -227,10 +227,10 @@
   </div>
 
   {#if $aurQueue.length && !building}
-    <div class="card flex flex-wrap items-center justify-between gap-2 border-sky-400/40 px-4 py-2.5 text-xs">
-      <span class="text-sky-700 dark:text-sky-300">
+    <div class="card flex flex-wrap items-center justify-between gap-2 border-[var(--link)] px-4 py-2.5 text-xs">
+      <span class="text-link dark:text-link">
         From your ewe.conf: {$aurQueue.length} more AUR app{$aurQueue.length === 1 ? "" : "s"} to review after this one
-        <span class="text-zinc-400">({$aurQueue.slice(0, 4).join(", ")}{$aurQueue.length > 4 ? ", …" : ""})</span>
+        <span class="text-dim">({$aurQueue.slice(0, 4).join(", ")}{$aurQueue.length > 4 ? ", …" : ""})</span>
       </span>
       <span class="flex gap-2">
         <button class="btn-ghost !py-0.5 text-[11px]" on:click={reviewNext}>{reviewing ? "Skip to next" : "Review next"}</button>
@@ -246,30 +246,30 @@
         <button class="btn-ghost !py-1 text-xs" on:click={() => (reviewing = null)}>Close</button>
       </div>
       {#if loadingPkgbuild}
-        <p class="text-xs text-zinc-400">Fetching…</p>
+        <p class="text-xs text-dim">Fetching…</p>
       {:else}
         {#if meta?.validpgpkeys?.length}
           <!-- makepkg verifies signed sources against these keys and refuses
                to build without them; a fresh keyring has none, so Komble
                fetches them first (never --skippgpcheck by default). -->
-          <div class="mb-2 rounded-lg border border-sky-400/40 bg-sky-500/5 px-3 py-2 text-xs text-sky-700 dark:text-sky-300">
+          <div class="mb-2 rounded-lg border border-[var(--link)] bg-[color-mix(in_srgb,var(--link)_14%,transparent)]0/5 px-3 py-2 text-xs text-link dark:text-link">
             Sources are PGP-signed by key
             {#each meta.validpgpkeys as k, i}
               <code class="font-mono" title={k}>{shortKey(k)}</code>{i < meta.validpgpkeys.length - 1 ? ", " : ""}
             {/each}.
             Komble will import {meta.validpgpkeys.length === 1 ? "it" : "them"} into your GPG keyring
             (<code>gpg --recv-keys</code>) before building.
-            <label class="mt-1.5 flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+            <label class="mt-1.5 flex items-center gap-1.5 text-[11px] text-dim">
               <input type="checkbox" bind:checked={skipPgp} disabled={building} />
               Skip signature check (unsafe — only if the key cannot be fetched)
             </label>
           </div>
         {/if}
-        <pre class="max-h-96 overflow-auto rounded-lg bg-zinc-100 p-3 text-[11px] leading-relaxed dark:bg-zinc-900">{pkgbuild}</pre>
+        <pre class="max-h-96 overflow-auto rounded-lg bg-elevated p-3 text-[11px] leading-relaxed dark:bg-[var(--bg)]">{pkgbuild}</pre>
         {#if buildError}
           <!-- the toast lives eight seconds; the reason stays here until the
                card is closed or the next attempt starts -->
-          <div class="mt-3 rounded-lg border border-red-400/40 bg-red-500/5 p-3 text-xs text-red-700 dark:text-red-300">
+          <div class="mt-3 rounded-lg border border-[var(--danger)] bg-[color-mix(in_srgb,var(--danger)_14%,transparent)]0/5 p-3 text-xs text-danger dark:text-danger">
             <div class="flex items-center justify-between gap-2">
               <span class="font-medium">Build failed</span>
               {#if buildLog}
@@ -283,7 +283,7 @@
         {/if}
         <div class="mt-3 flex items-center justify-end gap-2">
           {#if building}
-            <span class="text-xs text-zinc-400">{stage}…</span>
+            <span class="text-xs text-dim">{stage}…</span>
           {:else}
             <button class="btn-primary !py-1 text-xs" on:click={build}>
               {buildError ? "Try again" : "I have read this — build and install"}
@@ -296,7 +296,7 @@
 
   <div class="card p-4">
     <div class="mb-2 font-medium">Install a package file</div>
-    <p class="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
+    <p class="mb-3 text-xs text-dim">
       A local <code>*.pkg.tar.zst</code> — something you built yourself, or dropped
       onto this window.
     </p>

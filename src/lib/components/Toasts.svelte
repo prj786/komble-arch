@@ -1,9 +1,9 @@
 <script>
   import { toasts, dismissToast } from "../stores";
   const styles = {
-    success: "border-green-500/40 bg-green-50 text-green-800 dark:bg-green-900/40 dark:text-green-200",
-    error: "border-red-500/40 bg-red-50 text-red-800 dark:bg-red-900/40 dark:text-red-200",
-    info: "border-zinc-300 bg-white text-zinc-700 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200"
+    success: "border-[var(--success)] bg-[color-mix(in_srgb,var(--success)_14%,transparent)] text-success dark:bg-[color-mix(in_srgb,var(--success)_14%,transparent)] dark:text-success",
+    error: "border-[var(--danger)] bg-[color-mix(in_srgb,var(--danger)_14%,transparent)] text-danger dark:bg-[color-mix(in_srgb,var(--danger)_14%,transparent)] dark:text-danger",
+    info: "border-hairline bg-white text-muted "
   };
 </script>
 

@@ -266,6 +266,7 @@ pub fn run() {
             pacman::aur_install,
             system::system_check,
             de::de_prefs,
+            de::theme_tokens,
             de::poke_shell_updates,
             system::install_fuse2,
             system::install_pacman_contrib,

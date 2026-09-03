@@ -41,13 +41,13 @@
 
 <div class="h-full overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
   <h1 class="text-xl font-bold tracking-tight">Installed</h1>
-  <p class="mb-4 text-sm text-zinc-400 dark:text-zinc-500">
+  <p class="mb-4 text-sm text-dim dark:text-dim">
     Apps managed by Komble on this machine
   </p>
 
   <div class="section-title">AppImages · {$installed.length}</div>
   {#if $installed.length === 0}
-    <div class="card p-6 text-center text-sm text-zinc-400">
+    <div class="card p-6 text-center text-sm text-dim">
       No AppImages yet — install something from Discover.
     </div>
   {:else}
@@ -64,16 +64,16 @@
           <div class="min-w-0 flex-1">
             <div class="flex items-baseline gap-2">
               <span class="truncate font-medium">{entry.name}</span>
-              <span class="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-500 dark:bg-zinc-700/70 dark:text-zinc-300">
+              <span class="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-dim /70 ">
                 {entry.version}
               </span>
             </div>
-            <div class="truncate text-xs text-zinc-400 dark:text-zinc-500">
+            <div class="truncate text-xs text-dim dark:text-dim">
               {entry.path} · {formatDate(entry.installedAt)}
             </div>
           </div>
           {#if $progress[entry.id]}
-            <span class="text-xs text-zinc-400">updating…</span>
+            <span class="text-xs text-dim">updating…</span>
           {:else}
             <button
               class="{confirming === `ai:${entry.id}` ? 'btn-danger' : 'btn-ghost'} !py-1 text-xs"
@@ -89,24 +89,24 @@
 
   <div class="section-title">Packages installed via Komble · {$trackedPkgs.length}</div>
   {#if $trackedPkgs.length === 0}
-    <div class="card p-6 text-center text-sm text-zinc-400">
+    <div class="card p-6 text-center text-sm text-dim">
       Packages you install through Komble will appear here.
     </div>
   {:else}
     <div class="flex flex-col gap-2">
       {#each $trackedPkgs as d (d.package)}
         <div class="card flex items-center gap-3.5 px-4 py-3">
-          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-200 text-sm font-bold text-zinc-500 dark:bg-zinc-700 dark:text-zinc-300">
+          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-elevated text-sm font-bold text-dim">
             {d.package.slice(0, 1).toUpperCase()}
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex items-baseline gap-2">
               <span class="truncate font-medium">{d.package}</span>
-              <span class="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-500 dark:bg-zinc-700/70 dark:text-zinc-300">
+              <span class="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-dim /70 ">
                 {d.version}
               </span>
             </div>
-            <div class="truncate text-xs text-zinc-400 dark:text-zinc-500">
+            <div class="truncate text-xs text-dim dark:text-dim">
               {d.description || d.source} · {formatDate(d.installedAt)}
             </div>
           </div>

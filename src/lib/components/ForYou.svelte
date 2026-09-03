@@ -175,7 +175,7 @@
   <div class="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
     <div>
       <h1 class="text-xl font-bold tracking-tight">For you</h1>
-      <p class="text-sm text-zinc-400 dark:text-zinc-500">Apps from your ewe.conf — installed on another machine, recorded in the one file</p>
+      <p class="text-sm text-dim dark:text-dim">Apps from your ewe.conf — installed on another machine, recorded in the one file</p>
     </div>
     <button class="btn-ghost !py-1 text-xs" disabled={busyPkg !== ""} on:click={readManifest} title="Re-read [apps.installed] from ewe.conf">
       Re-read
@@ -185,7 +185,7 @@
   {#if manifest?.apps?.length}
     <div class="section-title">Apps missing from this machine · {missing.length}</div>
     {#if missing.length === 0}
-      <div class="card p-5 text-center text-sm text-zinc-400">
+      <div class="card p-5 text-center text-sm text-dim">
         Everything in your ewe.conf is installed here ✓
       </div>
     {:else}
@@ -202,11 +202,11 @@
         {/if}
       </div>
       {#if installNote}
-        <div class="mb-2 rounded-lg border border-sky-400/40 bg-sky-500/5 px-3 py-2 text-xs text-sky-700 dark:text-sky-300">{installNote}</div>
+        <div class="mb-2 rounded-lg border border-[var(--link)] bg-[color-mix(in_srgb,var(--link)_14%,transparent)]0/5 px-3 py-2 text-xs text-link dark:text-link">{installNote}</div>
       {/if}
       {#if installError}
         <!-- the toast lives eight seconds; the reason stays here -->
-        <div class="mb-2 rounded-lg border border-red-400/40 bg-red-500/5 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+        <div class="mb-2 rounded-lg border border-[var(--danger)] bg-[color-mix(in_srgb,var(--danger)_14%,transparent)]0/5 px-3 py-2 text-xs text-danger dark:text-danger">
           <div class="flex items-center justify-between gap-2">
             <span class="font-medium">Install failed</span>
             <button class="btn-ghost !py-0.5 text-[11px]" on:click={() => (installError = "")}>Dismiss</button>
@@ -217,7 +217,7 @@
       <div class="flex flex-col gap-2">
         {#each missing as a (a.name)}
           <div class="card flex items-center gap-3.5 px-4 py-3">
-            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-200 text-sm font-bold text-zinc-500 dark:bg-zinc-700 dark:text-zinc-300">
+            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-elevated text-sm font-bold text-dim">
               {a.name.slice(0, 1).toUpperCase()}
             </div>
             <div class="min-w-0 flex-1">
@@ -227,7 +227,7 @@
               {/if}
             </div>
             {#if busyPkg === a.name || (busyPkg === "*" && !a.aur && !a.appimage)}
-              <span class="text-xs text-zinc-400">Installing…</span>
+              <span class="text-xs text-dim">Installing…</span>
             {:else}
               <button class="btn-primary !py-1 text-xs" disabled={busyPkg !== ""} on:click={() => install(a)}>
                 {a.aur ? "Review…" : "Install"}
@@ -241,39 +241,39 @@
     <div class="section-title">Already installed · {present.length}</div>
     <div class="card flex flex-wrap gap-1.5 p-3">
       {#each present as a (a.name)}
-        <span class="rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-500 dark:bg-zinc-700/70 dark:text-zinc-300">{a.name}</span>
+        <span class="rounded-full bg-elevated px-2.5 py-1 text-xs text-dim /70 ">{a.name}</span>
       {/each}
       {#if skipped}
-        <span class="rounded-full bg-zinc-100/60 px-2.5 py-1 text-xs text-zinc-400 dark:bg-zinc-800/60 dark:text-zinc-500" title="Komble and ewe-settings come with the desktop">
+        <span class="rounded-full bg-elevated/60 px-2.5 py-1 text-xs text-dim  dark:text-dim" title="Komble and ewe-settings come with the desktop">
           + {skipped} part of ewe
         </span>
       {/if}
     </div>
   {:else if !loaded}
-    <div class="card p-6 text-center text-sm text-zinc-400">Reading your ewe.conf…</div>
+    <div class="card p-6 text-center text-sm text-dim">Reading your ewe.conf…</div>
   {:else if reason === "no-ewe-conf"}
-    <div class="card p-6 text-center text-sm text-zinc-400">
-      <span class="text-zinc-300">ewe-conf</span> is not installed here, so there is no
+    <div class="card p-6 text-center text-sm text-dim">
+      <span class="text-muted">ewe-conf</span> is not installed here, so there is no
       app list to read — this needs the ewe desktop (0.9 or newer).
     </div>
   {:else if manifest && manifest.apps.length === 0}
-    <div class="card p-6 text-center text-sm text-zinc-400">
+    <div class="card p-6 text-center text-sm text-dim">
       The app list in your ewe.conf is empty — nothing Komble knows about has
       been installed yet. Every install from here on is recorded there.
     </div>
   {:else}
     <!-- no [apps.installed] at all: a fresh file, or an old backup that never
          carried one. Restoring is not Komble's job — say where it lives. -->
-    <div class="card p-6 text-center text-sm text-zinc-400">
+    <div class="card p-6 text-center text-sm text-dim">
       Your ewe.conf has no app list yet. Every app you install here is recorded
       in it from now on. To bring the apps from another ewe machine, restore
       that machine's file from
-      <span class="text-zinc-300">Settings → Account</span> — the list appears
+      <span class="text-muted">Settings → Account</span> — the list appears
       here by itself.
     </div>
   {/if}
 
-  <p class="mt-4 text-xs text-zinc-400 dark:text-zinc-500">
+  <p class="mt-4 text-xs text-dim dark:text-dim">
     Only applications are listed — packages that ship a launcher. Kernels, drivers and
     libraries are restored the usual way (dependencies come along automatically).
   </p>

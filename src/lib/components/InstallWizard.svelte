@@ -66,16 +66,16 @@
 
 {#if $wizardFile && info}
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm">
-    <div class="card w-full max-w-md overflow-hidden !bg-white text-center shadow-2xl dark:!bg-zinc-900">
+    <div class="card w-full max-w-md overflow-hidden !bg-white text-center shadow-2xl dark:!bg-[var(--bg)]">
       {#if step === "done"}
         <div class="p-8">
-          <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-500/15">
-            <svg viewBox="0 0 24 24" class="h-8 w-8 text-green-500" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--success)_14%,transparent)]0/15">
+            <svg viewBox="0 0 24 24" class="h-8 w-8 text-success" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20 6L9 17l-5-5" />
             </svg>
           </div>
           <h2 class="mt-4 text-lg font-bold">{name} installed</h2>
-          <p class="mt-1 text-sm text-zinc-400">
+          <p class="mt-1 text-sm text-dim">
             You'll find it in your application menu. Komble will keep it in the
             Installed list.
           </p>
@@ -90,8 +90,8 @@
             {name.slice(0, 1).toUpperCase()}
           </div>
           <h2 class="mt-4 text-lg font-bold">Installing {name}…</h2>
-          <p class="mt-1 text-sm text-zinc-400">{phaseLabel}</p>
-          <div class="mt-5 h-1 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+          <p class="mt-1 text-sm text-dim">{phaseLabel}</p>
+          <div class="mt-5 h-1 w-full overflow-hidden rounded-full bg-elevated">
             <div class="h-full w-1/3 animate-pulse rounded-full" style="background: var(--accent)"></div>
           </div>
         </div>
@@ -104,23 +104,23 @@
             {(name || "?").slice(0, 1).toUpperCase()}
           </div>
           <h2 class="mt-4 text-lg font-bold">Install this AppImage?</h2>
-          <p class="mx-auto mt-1 max-w-xs truncate text-xs text-zinc-400" title={info.path}>
+          <p class="mx-auto mt-1 max-w-xs truncate text-xs text-dim" title={info.path}>
             {info.path}{info.size ? ` · ${formatBytes(info.size)}` : ""}
           </p>
 
           <div class="mt-5 space-y-3 text-left">
             <label class="block">
-              <span class="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Name</span>
+              <span class="mb-1 block text-xs font-medium text-dim">Name</span>
               <input class="input" bind:value={name} />
             </label>
             <label class="block">
-              <span class="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Version</span>
+              <span class="mb-1 block text-xs font-medium text-dim">Version</span>
               <input class="input" bind:value={version} placeholder="local" />
             </label>
           </div>
 
           {#if error}
-            <p class="mt-3 text-xs text-red-500">{error}</p>
+            <p class="mt-3 text-xs text-danger">{error}</p>
           {/if}
 
           <div class="mt-6 flex gap-2">
@@ -129,7 +129,7 @@
               Install
             </button>
           </div>
-          <p class="mt-4 text-[11px] leading-relaxed text-zinc-400">
+          <p class="mt-4 text-[11px] leading-relaxed text-dim">
             The file is copied to your AppImage folder, made executable, and gets
             a menu entry + icon. No root needed.
           </p>

@@ -137,14 +137,44 @@ pub fn poke_updates() {
 // never silently install software. How the file got here (Nextcloud restore,
 // a manual copy) is not Komble's business — RFC-005.
 
-fn ewe_conf_bin() -> Option<std::path::PathBuf> {
+fn ewe_bin(name: &str) -> Option<std::path::PathBuf> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".into());
-    let farm = std::path::PathBuf::from(&home).join(".config/quickshell/../../bin/ewe-conf");
+    let farm = std::path::PathBuf::from(&home)
+        .join(".config/quickshell/../../bin")
+        .join(name);
     if farm.exists() {
         return Some(farm);
     }
-    let usr = std::path::PathBuf::from("/usr/bin/ewe-conf");
+    let usr = std::path::PathBuf::from("/usr/bin").join(name);
     usr.exists().then_some(usr)
+}
+
+fn ewe_conf_bin() -> Option<std::path::PathBuf> {
+    ewe_bin("ewe-conf")
+}
+
+/// The generated theme tokens for one look, from `ewe-theme show` — which
+/// reads ewe-theme.conf, the single source of truth for every colour and shape
+/// in ewe. tokens.css is compiled in as the fallback; this is what lets an
+/// edit to the conf recolour the app WITHOUT rebuilding it. The generator is
+/// reused rather than reimplemented, so the mapping lives in one place.
+#[tauri::command]
+pub async fn theme_tokens(theme: String) -> Result<serde_json::Value, String> {
+    if theme.is_empty()
+        || theme.len() > 64
+        || !theme.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err("bad theme name".into());
+    }
+    let Some(bin) = ewe_bin("ewe-theme") else {
+        return Err("ewe-theme not installed".into());
+    };
+    let out = tokio::process::Command::new(bin)
+        .args(["show", theme.as_str()])
+        .output()
+        .await
+        .map_err(crate::util::estr)?;
+    serde_json::from_slice(&out.stdout).map_err(|_| "ewe-theme: unreadable reply".to_string())
 }
 
 #[tauri::command]

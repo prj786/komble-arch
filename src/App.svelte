@@ -1,4 +1,23 @@
 <script>
+  // The look, live. tokens.css is compiled in as the fallback; these values
+  // come from ewe-theme.conf via `ewe-theme show`, so editing the conf
+  // recolours the app with no rebuild. Re-injected only when the theme name
+  // actually changes.
+  let injectedTheme = "";
+  async function applyThemeTokens(name) {
+    if (!name || name === injectedTheme) return;
+    try {
+      const t = await api.themeTokens(name);
+      if (!t || !t.css_vars) return;
+      for (const [k, v] of Object.entries(t.css_vars)) {
+        document.documentElement.style.setProperty(k, v);
+      }
+      injectedTheme = name;
+    } catch {
+      /* ewe-theme absent — the compiled-in tokens already carry this look */
+    }
+  }
+
   import { onMount } from "svelte";
   import { get } from "svelte/store";
   import { listen } from "@tauri-apps/api/event";
@@ -64,6 +83,7 @@
             deScheme = p.colorScheme || "";
             document.documentElement.style.setProperty("--accent", p.accent);
             document.documentElement.classList.toggle("blacksheep", (p.themeName || "flock") === "blacksheep");
+            applyThemeTokens(p.themeName || "flock");
             applyTheme(get(settings).theme);
           })
           .catch(() => {});
@@ -78,16 +98,16 @@
           systemInfo.set(info);
           if (info.gnome && !info.appindicatorOk && !get(settings).hintShown) {
             toast(
-              "Heads up: tray icons on GNOME need the “AppIndicator and KStatusNotifier Support” extension (sudo pacman -S gnome-shell-extension-appindicator, then re-log).",
-              "info",
+            "Heads up: tray icons on GNOME need the “AppIndicator and KStatusNotifier Support” extension (sudo pacman -S gnome-shell-extension-appindicator, then re-log).",
+            "info",
               15000
             );
             saveSettings({ hintShown: true });
           }
           if (!info.fuse2) {
             toast(
-              "fuse2 is missing — AppImages may not launch. See Settings → System to fix.",
-              "info",
+            "fuse2 is missing — AppImages may not launch. See Settings → System to fix.",
+            "info",
               10000
             );
           }

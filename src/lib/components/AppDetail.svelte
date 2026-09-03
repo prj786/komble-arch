@@ -143,10 +143,10 @@
     on:click|self={close}
     on:keydown={() => {}}
   >
-    <div class="card flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden !bg-white shadow-2xl dark:!bg-zinc-900">
-      <div class="flex items-start gap-3 border-b border-zinc-200 p-4 sm:gap-4 sm:p-5 dark:border-zinc-700/60">
+    <div class="card flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden !bg-white shadow-2xl dark:!bg-[var(--bg)]">
+      <div class="flex items-start gap-3 border-b border-hairline p-4 sm:gap-4 sm:p-5 ">
         {#if isPkg}
-          <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-zinc-200 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-300">
+          <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-elevated text-dim">
             <svg viewBox="0 0 24 24" class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20 7l-8-4-8 4v10l8 4 8-4V7zM4 7l8 4m0 0l8-4m-8 4v10" />
             </svg>
@@ -160,18 +160,18 @@
         {/if}
         <div class="min-w-0 flex-1">
           <h2 class="truncate text-lg font-bold">{item.name}</h2>
-          <div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-zinc-400 dark:text-zinc-500">
+          <div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-dim dark:text-dim">
             {#if isPkg}
               <span class="font-medium text-orange-600 dark:text-orange-400">{isAur ? "AUR package" : isEwe ? "ewe first-party app" : "repository package"}</span>
               {#if pkgInfo?.section && !isAur}<span>{pkgInfo.section}</span>{/if}
               {#if loading}
                 <span>loading details…</span>
               {:else if pkgInfo}
-                <span class="font-medium text-zinc-500 dark:text-zinc-400">
+                <span class="font-medium text-dim">
                   {pkgInfo.version}{#if pkgInfo.installedSizeKb}&nbsp;· {formatBytes(pkgInfo.installedSizeKb * 1024)} installed{/if}
                 </span>
               {:else if item.version}
-                <span class="font-medium text-zinc-500 dark:text-zinc-400">{item.version}</span>
+                <span class="font-medium text-dim">{item.version}</span>
               {/if}
             {:else}
               {#if item.authors?.[0]?.name}<span>by {item.authors[0].name}</span>{/if}
@@ -179,7 +179,7 @@
               {#if loading}
                 <span>checking latest version…</span>
               {:else if release}
-                <span class="font-medium text-zinc-500 dark:text-zinc-400">
+                <span class="font-medium text-dim">
                   v{release.version}{#if release.assets?.[0]?.size}&nbsp;· {formatBytes(release.assets[0].size)}{/if}
                 </span>
               {/if}
@@ -187,14 +187,14 @@
           </div>
           <div class="mt-2.5 flex flex-wrap items-center gap-2">
             {#if isInstalled}
-              <span class="text-sm font-medium text-green-600 dark:text-green-400">✓ Installed</span>
+              <span class="text-sm font-medium text-success dark:text-success">✓ Installed</span>
               <button class="btn-danger !py-1 text-xs" disabled={pkgBusy} on:click={remove}>
                 {confirming ? "Really remove?" : "Remove"}
               </button>
             {:else if pkgBusy}
-              <span class="text-sm text-zinc-400">Installing…</span>
+              <span class="text-sm text-dim">Installing…</span>
             {:else if prog}
-              <span class="text-sm tabular-nums text-zinc-400">
+              <span class="text-sm tabular-nums text-dim">
                 {prog.phase === "integrating" ? "Integrating…" : pct !== null ? `Downloading ${pct}%` : "Downloading…"}
               </span>
             {:else}
@@ -211,7 +211,7 @@
             {/if}
           </div>
           {#if relError}
-            <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">{relError}</p>
+            <p class="mt-2 text-xs text-warning dark:text-warning">{relError}</p>
           {/if}
         </div>
         <button class="btn-ghost !px-2.5 !py-1" on:click={close}>✕</button>
@@ -224,13 +224,13 @@
               <img
                 src={shot}
                 alt="Screenshot"
-                class="h-44 shrink-0 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700"
+                class="h-44 shrink-0 rounded-lg border border-hairline object-cover "
                 on:error={(e) => e.currentTarget.remove()}
               />
             {/each}
           </div>
         {/if}
-        <p class="whitespace-pre-line text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+        <p class="whitespace-pre-line text-sm leading-relaxed text-dim ">
           {#if isPkg}
             {pkgInfo?.description || item.plainDesc || "No description available."}
           {:else}
@@ -240,12 +240,12 @@
         {#if !isPkg && item.categories?.length}
           <div class="mt-4 flex flex-wrap gap-1.5">
             {#each item.categories as cat}
-              <span class="rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-500 dark:bg-zinc-700/70 dark:text-zinc-300">{cat}</span>
+              <span class="rounded-full bg-elevated px-2.5 py-1 text-xs text-dim /70 ">{cat}</span>
             {/each}
           </div>
         {/if}
         {#if isPkg && pkgInfo?.installedVersion && pkgInfo.installedVersion !== pkgInfo.version}
-          <p class="mt-4 text-xs text-zinc-400">
+          <p class="mt-4 text-xs text-dim">
             Installed: {pkgInfo.installedVersion} · Available: {pkgInfo.version}
           </p>
         {/if}

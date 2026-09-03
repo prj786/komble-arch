@@ -141,7 +141,7 @@
   <div class="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
     <div class="min-w-0">
       <h1 class="text-xl font-bold tracking-tight">Discover</h1>
-      <p class="text-sm text-zinc-400 dark:text-zinc-500">
+      <p class="text-sm text-dim dark:text-dim">
         {#if source === "pkg"}
           {#if pkgSearching && !indexReady}
             Building package index…
@@ -224,7 +224,7 @@
         class="rounded-full px-3 py-1 text-xs font-medium transition-colors
           {source === id
           ? 'text-white'
-          : 'bg-zinc-200/70 text-zinc-500 hover:bg-zinc-300/70 dark:bg-zinc-700/60 dark:text-zinc-300 dark:hover:bg-zinc-600/60'}"
+          : 'bg-elevated/70 text-dim hover:bg-hover /60  dark:hover:bg-hover'}"
         style={source === id ? "background: var(--accent)" : ""}
         on:click={() => (source = id)}
       >
@@ -238,15 +238,15 @@
       {#each Array(9) as _}
         <div class="card h-[168px] animate-pulse p-4">
           <div class="flex gap-3">
-            <div class="h-11 w-11 rounded-lg bg-zinc-200 dark:bg-zinc-700"></div>
+            <div class="h-11 w-11 rounded-lg bg-elevated"></div>
             <div class="flex-1 space-y-2 pt-1">
-              <div class="h-3.5 w-2/3 rounded bg-zinc-200 dark:bg-zinc-700"></div>
-              <div class="h-2.5 w-1/3 rounded bg-zinc-200 dark:bg-zinc-700"></div>
+              <div class="h-3.5 w-2/3 rounded bg-elevated"></div>
+              <div class="h-2.5 w-1/3 rounded bg-elevated"></div>
             </div>
           </div>
           <div class="mt-4 space-y-2">
-            <div class="h-2.5 w-full rounded bg-zinc-200 dark:bg-zinc-700"></div>
-            <div class="h-2.5 w-4/5 rounded bg-zinc-200 dark:bg-zinc-700"></div>
+            <div class="h-2.5 w-full rounded bg-elevated"></div>
+            <div class="h-2.5 w-4/5 rounded bg-elevated"></div>
           </div>
         </div>
       {/each}
@@ -254,14 +254,14 @@
   {:else if source !== "pkg" && source !== "aur" && $catalogError}
     <div class="flex flex-1 flex-col items-center justify-center gap-3 pb-16 text-center">
       <div class="text-3xl">⚠️</div>
-      <p class="max-w-md text-sm text-zinc-500">{$catalogError}</p>
+      <p class="max-w-md text-sm text-dim">{$catalogError}</p>
       <button class="btn-primary" on:click={() => loadCatalog(true)}>Try again</button>
     </div>
   {:else if merged.length === 0}
     <div class="flex flex-1 flex-col items-center justify-center gap-2 pb-16 text-center">
       {#if pkgSearching}
         <div class="text-3xl">📦</div>
-        <p class="text-sm text-zinc-500">
+        <p class="text-sm text-dim">
           {source === "aur"
             ? "Searching the AUR…"
             : indexReady
@@ -270,10 +270,10 @@
         </p>
       {:else if source === "aur" && query.trim().length < 2}
         <div class="text-3xl">📦</div>
-        <p class="text-sm text-zinc-500">Type at least two characters to search the AUR.</p>
+        <p class="text-sm text-dim">Type at least two characters to search the AUR.</p>
       {:else}
         <div class="text-3xl">🔍</div>
-        <p class="text-sm text-zinc-500">Nothing matches “{query}”.</p>
+        <p class="text-sm text-dim">Nothing matches “{query}”.</p>
       {/if}
     </div>
   {:else}

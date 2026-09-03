@@ -225,7 +225,7 @@
   <div class="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
     <div class="min-w-0">
       <h1 class="text-xl font-bold tracking-tight">Updates</h1>
-      <p class="text-sm text-zinc-400 dark:text-zinc-500">
+      <p class="text-sm text-dim dark:text-dim">
         {#if checking}Checking…{:else if total === 0}Everything is up to date ✓{:else}{total} update{total === 1 ? "" : "s"} available{/if}
       </p>
     </div>
@@ -248,22 +248,22 @@
         <div class="card flex items-center gap-3.5 px-4 py-3">
           <div class="min-w-0 flex-1">
             <div class="truncate font-medium">{r.name}</div>
-            <div class="truncate text-xs text-zinc-400">
+            <div class="truncate text-xs text-dim">
               {#if r.update}
                 {r.current} <span class="mx-1">→</span>
-                <span class="font-medium text-zinc-500 dark:text-zinc-300">{r.latest}</span>
+                <span class="font-medium text-dim ">{r.latest}</span>
               {:else}
                 {r.current}
               {/if}
-              {#if r.note}<span class="ml-2 text-amber-600 dark:text-amber-400">{r.note}</span>{/if}
+              {#if r.note}<span class="ml-2 text-warning dark:text-warning">{r.note}</span>{/if}
             </div>
           </div>
           {#if $progress[r.id]}
-            <span class="text-xs text-zinc-400">{$progress[r.id].stage || ""}…</span>
+            <span class="text-xs text-dim">{$progress[r.id].stage || ""}…</span>
           {:else if r.update}
-            <span class="rounded px-2 py-0.5 text-[11px] uppercase tracking-wide text-zinc-400">update</span>
+            <span class="rounded px-2 py-0.5 text-[11px] uppercase tracking-wide text-dim">update</span>
           {:else}
-            <span class="text-xs font-medium text-green-600 dark:text-green-400">✓</span>
+            <span class="text-xs font-medium text-success dark:text-success">✓</span>
           {/if}
         </div>
       {/each}
@@ -280,14 +280,14 @@
         </div>
       {/if}
       {#if eweLog.length}
-        <pre class="card max-h-48 overflow-y-auto whitespace-pre-wrap p-3 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{eweLog.join("\n")}</pre>
+        <pre class="card max-h-48 overflow-y-auto whitespace-pre-wrap p-3 text-[11px] leading-snug text-dim">{eweLog.join("\n")}</pre>
       {/if}
     </div>
   {/if}
 
   <div class="section-title">AppImages · {$updatesInfo.appimages.length}</div>
   {#if $updatesInfo.appimages.length === 0}
-    <div class="card p-5 text-center text-sm text-zinc-400">
+    <div class="card p-5 text-center text-sm text-dim">
       {checking ? "Checking…" : "All AppImages are current."}
     </div>
   {:else}
@@ -296,13 +296,13 @@
         <div class="card flex items-center gap-3.5 px-4 py-3">
           <div class="min-w-0 flex-1">
             <div class="truncate font-medium">{u.name}</div>
-            <div class="text-xs text-zinc-400">
+            <div class="text-xs text-dim">
               {u.current} <span class="mx-1">→</span>
-              <span class="font-medium text-zinc-500 dark:text-zinc-300">{u.latest}</span>
+              <span class="font-medium text-dim ">{u.latest}</span>
             </div>
           </div>
           {#if $progress[u.id]}
-            <span class="text-xs tabular-nums text-zinc-400">
+            <span class="text-xs tabular-nums text-dim">
               {$progress[u.id].phase === "integrating"
                 ? "Integrating…"
                 : $progress[u.id].total > 0
@@ -319,10 +319,10 @@
 
   <div class="section-title">System packages · {$updatesInfo.packages.length}</div>
   {#if contribMissing}
-    <div class="card mb-2 flex items-center gap-3 border-amber-400/40 px-4 py-3">
+    <div class="card mb-2 flex items-center gap-3 border-[var(--warning)] px-4 py-3">
       <div class="min-w-0 flex-1 text-sm">
         <span class="font-medium">Full system updates need pacman-contrib.</span>
-        <span class="text-zinc-400">
+        <span class="text-dim">
           It provides checkupdates, the only safe way to list pending repo updates — without it
           only AUR and AppImage updates appear here.</span>
       </div>
@@ -332,12 +332,12 @@
     </div>
   {/if}
   {#if $updatesInfo.packages.length === 0}
-    <div class="card p-5 text-center text-sm text-zinc-400">
+    <div class="card p-5 text-center text-sm text-dim">
       {checking ? "Checking…" : contribMissing ? "Repo updates unknown — install pacman-contrib above." : "Everything is up to date."}
     </div>
   {:else}
     <div class="mb-2 flex items-center justify-between gap-3">
-      <p class="text-xs text-zinc-400">
+      <p class="text-xs text-dim">
         Arch upgrades as a whole. Updating individual packages against a newer
         database is a partial upgrade and is unsupported.
       </p>
@@ -350,15 +350,15 @@
         <div class="card flex items-center gap-3.5 px-4 py-3">
           <div class="min-w-0 flex-1">
             <div class="truncate font-medium">{p.name}</div>
-            <div class="truncate text-xs text-zinc-400">
+            <div class="truncate text-xs text-dim">
               {p.current} <span class="mx-1">→</span>
-              <span class="font-medium text-zinc-500 dark:text-zinc-300">{p.latest}</span>
+              <span class="font-medium text-dim ">{p.latest}</span>
             </div>
           </div>
           {#if $progress[p.name]}
-            <span class="text-xs text-zinc-400">{$progress[p.name].stage || ""}…</span>
+            <span class="text-xs text-dim">{$progress[p.name].stage || ""}…</span>
           {:else}
-            <span class="rounded px-2 py-0.5 text-[11px] uppercase tracking-wide text-zinc-400">
+            <span class="rounded px-2 py-0.5 text-[11px] uppercase tracking-wide text-dim">
               {p.source}
             </span>
           {/if}
@@ -369,7 +369,7 @@
 
   {#if $updatesInfo.errors.length}
     <div class="section-title">Warnings</div>
-    <div class="card space-y-1 border-amber-400/40 p-4 text-xs text-amber-700 dark:text-amber-400">
+    <div class="card space-y-1 border-[var(--warning)] p-4 text-xs text-warning dark:text-warning">
       {#each $updatesInfo.errors as err}
         <div>{err}</div>
       {/each}
