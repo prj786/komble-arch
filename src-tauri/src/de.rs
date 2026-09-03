@@ -31,7 +31,9 @@ pub async fn de_prefs() -> Result<Value, String> {
         return Ok(Value::Null);
     }
     let theme_name = j["themeName"].as_str().unwrap_or("flock").to_string();
-    let accent = j["accent"].as_str().unwrap_or("#0a84ff").to_string();
+    // "" = never chosen; the app then keeps the theme default from
+    // tokens.css rather than overriding it with an invented colour
+    let accent = j["accent"].as_str().unwrap_or("").to_string();
     Ok(json!({
         "accent": accent,
         "themeName": theme_name,

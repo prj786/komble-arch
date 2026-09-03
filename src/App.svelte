@@ -81,7 +81,9 @@
           .then((p) => {
             if (!p) return;
             deScheme = p.colorScheme || "";
-            document.documentElement.style.setProperty("--accent", p.accent);
+            // "" = never picked, so the theme default in tokens.css stands
+      if (p.accent) document.documentElement.style.setProperty("--accent", p.accent);
+      else document.documentElement.style.removeProperty("--accent");
             document.documentElement.classList.toggle("blacksheep", (p.themeName || "flock") === "blacksheep");
             applyThemeTokens(p.themeName || "flock");
             applyTheme(get(settings).theme);
