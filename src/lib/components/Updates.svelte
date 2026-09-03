@@ -10,10 +10,10 @@
   let updatingAll = false;
   let fixingContrib = false;
 
-  // ── the ewe desktop: the DE itself + Komble + ewe-settings, updated from
+  // ── the ewe desktop: the DE itself + Komble + ewe-settings + ewe-sync,
   // here so nobody ever hand-downloads a .tar.zst or .pkg.tar.zst again
   let ewe = null; // ewe_status() result
-  let fp = []; // first_party_status() rows (komble-arch, ewe-settings)
+  let fp = []; // first_party_status() rows — whatever DISCOVER lists
   let eweWorking = false;
   let eweNeedsTerminal = false;
   let eweLog = []; // streamed update.sh events while an in-app update runs
@@ -240,7 +240,7 @@
     </div>
   </div>
 
-  <!-- ── the ewe desktop: DE + Komble + ewe-settings, one Update button ── -->
+  <!-- ── the ewe desktop: DE + every first-party app, one Update button ── -->
   {#if desktopRows.length}
     <div class="section-title">ewe Desktop · {desktopUpdates > 0 ? `${desktopUpdates} update${desktopUpdates === 1 ? "" : "s"}` : "up to date"}</div>
     <div class="mb-2 flex flex-col gap-2">

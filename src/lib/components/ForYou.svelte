@@ -16,7 +16,7 @@
   let reason = ""; // why there is none: "no-manifest" | "no-ewe-conf" | …
   let loaded = false; // first read done (so the empty states can tell "loading" apart)
   let busyPkg = "";
-  let skipped = 0; // first-party entries (Komble, ewe-settings): part of ewe, never "missing"
+  let skipped = 0; // first-party entries: part of ewe, never "missing"
   let installError = ""; // the last install failure, kept on screen (toasts vanish)
   let installNote = ""; // what the restore is doing right now (updates first, then apps)
   let current = false; // this session already made sure the system is current
@@ -244,7 +244,7 @@
         <span class="rounded-full bg-elevated px-2.5 py-1 text-xs text-dim /70 ">{a.name}</span>
       {/each}
       {#if skipped}
-        <span class="rounded-full bg-elevated/60 px-2.5 py-1 text-xs text-dim  dark:text-dim" title="Komble and ewe-settings come with the desktop">
+        <span class="rounded-full bg-elevated/60 px-2.5 py-1 text-xs text-dim  dark:text-dim" title="Komble, ewe-settings and ewe-sync come with the desktop">
           + {skipped} part of ewe
         </span>
       {/if}

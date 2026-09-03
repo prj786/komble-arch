@@ -358,14 +358,23 @@ pub async fn browse_packages(
         })
         .collect();
 
-    // First-party ewe apps are installed from GitHub releases, never from the
-    // sync DBs, so the index above can't surface them — inject them at the top
-    // whenever the query matches (section "ewe"; the frontend routes their
-    // install through install_first_party instead of pacman -S).
+    // First-party ewe apps get a branded card at the top of a matching search
+    // (section "ewe"), and the frontend routes their install through
+    // install_first_party rather than pacman -S.
+    //
+    // They USED to be invisible to the index above — release-only, never in a
+    // sync DB. That stopped being true once [ewe] started carrying them, so
+    // without the dedup below a search for "komble" returned the app twice:
+    // once from the sync DB, once injected. The branded card wins and the
+    // sync-DB row is dropped.
     let mut total = total;
     if !q.is_empty() && repo.is_none() {
         for (name, _, summary) in crate::first_party::DISCOVER.iter().rev() {
             if name.contains(&q) || summary.to_lowercase().contains(&q) {
+                if let Some(dup) = items.iter().position(|i| i.name == *name) {
+                    items.remove(dup);
+                    total = total.saturating_sub(1);
+                }
                 let ver = installed_version(name).await.unwrap_or_default();
                 items.insert(
                     0,

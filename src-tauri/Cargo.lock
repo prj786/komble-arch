@@ -2091,7 +2091,7 @@ dependencies = [
 
 [[package]]
 name = "komble-arch"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "anyhow",
  "reqwest 0.12.28",

@@ -207,8 +207,9 @@ pub async fn app_manifest(app: tauri::AppHandle) -> Result<serde_json::Value, St
     // every manifest entry, flagged with whether it exists HERE, and with a
     // NORMALISED source: older Komble versions wrote the built package's file
     // path into `source`, so a backup may say `/…/aur/foo/foo-1-1.pkg.tar.zst`
-    // where it means "aur". First-party apps (Komble, ewe-settings) come with
-    // the desktop and are never "missing" — they are skipped and counted.
+    // where it means "aur". First-party apps (whatever first_party::DISCOVER
+    // lists — Komble, ewe-settings, ewe-sync) come with the desktop and are
+    // never "missing": they are skipped and counted.
     let mut pkgs = Vec::new();
     let mut skipped = 0;
     for p in manifest

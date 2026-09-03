@@ -1,4 +1,5 @@
-//! First-party ewe apps (Komble itself, ewe-settings) and the desktop update.
+//! First-party ewe apps (Komble itself, ewe-settings, ewe-sync) and the
+//! desktop update.
 //!
 //! These are not repo or AUR packages: the ewe installer takes each app's
 //! prebuilt .pkg.tar.zst straight from its GitHub release, so the store's
@@ -35,6 +36,11 @@ pub const DISCOVER: &[(&str, &str, &str)] = &[
         "ewe-settings",
         "prj786/ewe-settings",
         "Settings for the ewe desktop — displays, input, theme, animations",
+    ),
+    (
+        "ewe-sync",
+        "prj786/ewe-sync",
+        "Your ewe account — the one file, your machines, your folders",
     ),
 ];
 
