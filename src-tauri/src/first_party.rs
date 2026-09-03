@@ -1,5 +1,5 @@
-//! First-party ewe apps (Komble itself, ewe-settings, ewe-sync) and the
-//! desktop update.
+//! First-party ewe apps (Komble itself, ewe-settings, ewe-sync, ewe-cast)
+//! and the desktop update.
 //!
 //! These are not repo or AUR packages: the ewe installer takes each app's
 //! prebuilt .pkg.tar.zst straight from its GitHub release, so the store's
@@ -41,6 +41,14 @@ pub const DISCOVER: &[(&str, &str, &str)] = &[
         "ewe-sync",
         "prj786/ewe-sync",
         "Your ewe account — the one file, your machines, your folders",
+    ),
+    // Headless on purpose (RFC-004): the shell's Cast card is the UI, this is
+    // the daemon behind it. Listed anyway — it is a first-party package a user
+    // can install, update and remove like any other.
+    (
+        "ewe-cast",
+        "prj786/ewe-cast",
+        "Cast the ewe desktop to a TV — Miracast and Chromecast (daemon)",
     ),
 ];
 
