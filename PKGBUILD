@@ -5,7 +5,7 @@
 # privileged helper, which on the Debian build were carried inside the .deb.
 
 pkgname=komble-arch
-pkgver=0.11.2
+pkgver=0.12.0beta
 pkgrel=1
 pkgdesc="App store for Arch — pacman, the AUR and AppImages"
 arch=('x86_64' 'aarch64')

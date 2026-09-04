@@ -1,6 +1,6 @@
 [package]
 name = "komble-arch"
-version = "0.11.2"
+version = "0.12.0-beta"
 description = "A modern app store for Arch Linux — pacman, the AUR and AppImages"
 authors = ["scubba"]
 license = "MIT"
