@@ -1,7 +1,7 @@
 <script>
 	import { DropdownMenu as DropdownMenuPrimitive } from "bits-ui";
-	import PhIcon from "../PhIcon.svelte";
-	import { PH } from "../ph.js";
+	import Icon from "../Icon.svelte";
+	import { ICONS } from "../icons.js";
 	import { cn } from "$lib/utils.js";
 	let {
 		ref = $bindable(null),
@@ -32,7 +32,7 @@
 			{#if indeterminate}
 				<span class="block h-[1.5px] w-2.5 rounded-full bg-current"></span>
 			{:else if checked}
-				<PhIcon code={PH.check} size={12} />
+				<Icon code={ICONS.check} size={12} />
 			{/if}
 		</span>
 		{@render childrenProp?.()}

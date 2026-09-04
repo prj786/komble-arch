@@ -227,7 +227,7 @@
   </div>
 
   {#if $aurQueue.length && !building}
-    <div class="card flex flex-wrap items-center justify-between gap-2 border-[var(--link)] px-4 py-2.5 text-xs">
+    <div class="card flex flex-wrap items-center justify-between gap-2 border-[var(--brand-fg-link)] px-4 py-2.5 text-xs">
       <span class="text-link dark:text-link">
         From your ewe.conf: {$aurQueue.length} more AUR app{$aurQueue.length === 1 ? "" : "s"} to review after this one
         <span class="text-dim">({$aurQueue.slice(0, 4).join(", ")}{$aurQueue.length > 4 ? ", …" : ""})</span>
@@ -252,7 +252,7 @@
           <!-- makepkg verifies signed sources against these keys and refuses
                to build without them; a fresh keyring has none, so Komble
                fetches them first (never --skippgpcheck by default). -->
-          <div class="mb-2 rounded-lg border border-[var(--link)] bg-[color-mix(in_srgb,var(--link)_14%,transparent)]0/5 px-3 py-2 text-xs text-link dark:text-link">
+          <div class="mb-2 rounded-lg border border-[var(--brand-fg-link)] bg-[color-mix(in_srgb,var(--brand-fg-link)_14%,transparent)]0/5 px-3 py-2 text-xs text-link dark:text-link">
             Sources are PGP-signed by key
             {#each meta.validpgpkeys as k, i}
               <code class="font-mono" title={k}>{shortKey(k)}</code>{i < meta.validpgpkeys.length - 1 ? ", " : ""}
@@ -265,7 +265,7 @@
             </label>
           </div>
         {/if}
-        <pre class="max-h-96 overflow-auto rounded-lg bg-elevated p-3 text-[11px] leading-relaxed dark:bg-[var(--bg)]">{pkgbuild}</pre>
+        <pre class="max-h-96 overflow-auto rounded-lg bg-elevated p-3 text-[11px] leading-relaxed dark:bg-[var(--bg-3)]">{pkgbuild}</pre>
         {#if buildError}
           <!-- the toast lives eight seconds; the reason stays here until the
                card is closed or the next attempt starts -->

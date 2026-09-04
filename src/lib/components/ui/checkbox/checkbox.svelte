@@ -1,7 +1,7 @@
 <script>
 	import { Checkbox as CheckboxPrimitive } from "bits-ui";
-	import PhIcon from "../PhIcon.svelte";
-	import { PH } from "../ph.js";
+	import Icon from "../Icon.svelte";
+	import { ICONS } from "../icons.js";
 	import { cn } from "$lib/utils.js";
 
 	let {
@@ -30,11 +30,9 @@
 			class="grid place-content-center text-current transition-none"
 		>
 			{#if checked}
-				<PhIcon code={PH.check} size={11} />
+				<Icon code={ICONS.check} size={11} />
 			{:else if indeterminate}
-				<!-- Phosphor Fill has no verified codepoint for `minus` in the
-				     vendored subset, and a hand-drawn bar is pixel-identical. -->
-				<span class="block h-[1.5px] w-2.5 rounded-full bg-current"></span>
+				<Icon code={ICONS.minus} size={11} />
 			{/if}
 		</div>
 	{/snippet}

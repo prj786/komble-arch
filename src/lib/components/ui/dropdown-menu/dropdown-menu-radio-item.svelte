@@ -1,7 +1,7 @@
 <script>
 	import { DropdownMenu as DropdownMenuPrimitive } from "bits-ui";
-	import PhIcon from "../PhIcon.svelte";
-	import { PH } from "../ph.js";
+	import Icon from "../Icon.svelte";
+	import { ICONS } from "../icons.js";
 	import { cn } from "$lib/utils.js";
 
 	let {
@@ -27,7 +27,7 @@
 			data-slot="dropdown-menu-radio-item-indicator"
 		>
 			{#if checked}
-				<PhIcon code={PH.check} size={12} />
+				<Icon code={ICONS.check} size={12} />
 			{/if}
 		</span>
 		{@render childrenProp?.({ checked })}

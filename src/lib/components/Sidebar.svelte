@@ -13,14 +13,14 @@
     }
   });
 
-  // Phosphor Fill codepoints — same icon language as the ewe DE
+  // Lucide codepoints — same icon language as the ewe DE
   const items = [
-    { id: "discover", label: "Discover", icon: 0xE1C8 },   // compass
-    { id: "foryou", label: "For you", icon: 0xE4C2 },      // user
-    { id: "installed", label: "Installed", icon: 0xE390 }, // package
-    { id: "updates", label: "Updates", icon: 0xE094 },     // arrows-clockwise
-    { id: "aur", label: "AUR", icon: 0xE20C },             // download-simple
-    { id: "settings", label: "Settings", icon: 0xE228 }    // faders
+    { id: "discover", label: "Discover", icon: 0xE09B },   // compass
+    { id: "foryou", label: "For you", icon: 0xE19F },      // user
+    { id: "installed", label: "Installed", icon: 0xE129 }, // package
+    { id: "updates", label: "Updates", icon: 0xE145 },     // arrows-clockwise
+    { id: "aur", label: "AUR", icon: 0xE0B2 },             // download-simple
+    { id: "settings", label: "Settings", icon: 0xE29A }    // faders
   ];
 </script>
 
@@ -47,7 +47,7 @@
         class="rail-item {$route === it.id ? 'is-active' : ''}"
         on:click={() => route.set(it.id)}
       >
-        <span class="ph-i">{String.fromCodePoint(it.icon)}</span>
+        <span class="icon">{String.fromCodePoint(it.icon)}</span>
         <span class="rail-label">{it.label}</span>
         {#if it.id === "updates" && $updatesCount > 0}
           <span

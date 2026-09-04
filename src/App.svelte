@@ -1,20 +1,28 @@
 <script>
-  // The look, live. tokens.css is compiled in as the fallback; these values
-  // come from ewe-theme.conf via `ewe-theme show`, so editing the conf
-  // recolours the app with no rebuild. Re-injected only when the theme name
-  // actually changes.
-  let injectedTheme = "";
-  async function applyThemeTokens(name) {
-    if (!name || name === injectedTheme) return;
+  // The look, live. tokens.css is compiled in as the fallback, and it is built
+  // from the DEFAULT accent — so on its own the app wears the wrong greys the
+  // moment the user picks an accent. These values come from `ewe-theme show`,
+  // which reads THIS machine's ewe.conf, so the whole derived set lands:
+  // the brand ramp, and the neutrals carrying the accent's tint.
+  //
+  // Keyed on the ACCENT, not the theme name. There is one ewe look now — the
+  // name never changes, so keying on it meant injecting once at startup and
+  // never again, and every later accent change stopped at the app boundary.
+  let injectedKey = "";
+  async function applyThemeTokens(accent) {
+    const key = String(accent || "");
+    if (key === injectedKey) return;
+    injectedKey = key;
     try {
-      const t = await api.themeTokens(name);
+      const t = await api.themeTokens("ewe");
       if (!t || !t.css_vars) return;
       for (const [k, v] of Object.entries(t.css_vars)) {
         document.documentElement.style.setProperty(k, v);
       }
-      injectedTheme = name;
     } catch {
-      /* ewe-theme absent — the compiled-in tokens already carry this look */
+      injectedKey = "";   // let a later attempt retry
+      /* ewe-theme absent (dev, or ewe not deployed) — the compiled-in
+         tokens.css already carries the default look */
     }
   }
 
@@ -84,8 +92,8 @@
             // "" = never picked, so the theme default in tokens.css stands
       if (p.accent) document.documentElement.style.setProperty("--accent", p.accent);
       else document.documentElement.style.removeProperty("--accent");
-            document.documentElement.classList.toggle("blacksheep", (p.themeName || "flock") === "blacksheep");
-            applyThemeTokens(p.themeName || "flock");
+            // one look — the ACCENT is what the derived token set follows
+            applyThemeTokens(p.accent || "");
             applyTheme(get(settings).theme);
           })
           .catch(() => {});

@@ -1,7 +1,7 @@
 <script>
 	import { DropdownMenu as DropdownMenuPrimitive } from "bits-ui";
-	import PhIcon from "../PhIcon.svelte";
-	import { PH } from "../ph.js";
+	import Icon from "../Icon.svelte";
+	import { ICONS } from "../icons.js";
 	import { cn } from "$lib/utils.js";
 
 	let {
@@ -24,5 +24,5 @@
 	{...restProps}
 >
 	{@render children?.()}
-	<PhIcon code={PH.caretRight} size={12} class="ml-auto" />
+	<Icon code={ICONS.caretRight} size={12} class="ml-auto" />
 </DropdownMenuPrimitive.SubTrigger>

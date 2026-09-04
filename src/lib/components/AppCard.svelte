@@ -116,7 +116,7 @@
         AUR
       </span>
     {:else if isPkg}
-      <span class="rounded-full bg-[color-mix(in_srgb,var(--link)_14%,transparent)]0/15 px-2 py-0.5 text-[11px] font-medium text-link dark:text-link">
+      <span class="rounded-full bg-[color-mix(in_srgb,var(--brand-fg-link)_14%,transparent)]0/15 px-2 py-0.5 text-[11px] font-medium text-link dark:text-link">
         {item.section || "pacman"}
       </span>
     {:else}

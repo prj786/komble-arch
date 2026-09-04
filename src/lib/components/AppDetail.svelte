@@ -143,7 +143,7 @@
     on:click|self={close}
     on:keydown={() => {}}
   >
-    <div class="card flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden !bg-white shadow-2xl dark:!bg-[var(--bg)]">
+    <div class="card flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden !bg-white shadow-2xl dark:!bg-[var(--bg-3)]">
       <div class="flex items-start gap-3 border-b border-hairline p-4 sm:gap-4 sm:p-5 ">
         {#if isPkg}
           <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-elevated text-dim">

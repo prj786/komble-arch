@@ -1,7 +1,7 @@
 <script>
 	import { Select as SelectPrimitive } from "bits-ui";
-	import PhIcon from "../PhIcon.svelte";
-	import { PH } from "../ph.js";
+	import Icon from "../Icon.svelte";
+	import { ICONS } from "../icons.js";
 	import { cn } from "$lib/utils.js";
 
 	let {
@@ -24,5 +24,5 @@
 	{...restProps}
 >
 	{@render children?.()}
-	<PhIcon code={PH.caretDown} size={12} class="pointer-events-none text-muted-foreground" />
+	<Icon code={ICONS.caretDown} size={12} class="pointer-events-none text-muted-foreground" />
 </SelectPrimitive.Trigger>

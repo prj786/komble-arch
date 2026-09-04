@@ -202,7 +202,7 @@
         {/if}
       </div>
       {#if installNote}
-        <div class="mb-2 rounded-lg border border-[var(--link)] bg-[color-mix(in_srgb,var(--link)_14%,transparent)]0/5 px-3 py-2 text-xs text-link dark:text-link">{installNote}</div>
+        <div class="mb-2 rounded-lg border border-[var(--brand-fg-link)] bg-[color-mix(in_srgb,var(--brand-fg-link)_14%,transparent)]0/5 px-3 py-2 text-xs text-link dark:text-link">{installNote}</div>
       {/if}
       {#if installError}
         <!-- the toast lives eight seconds; the reason stays here -->

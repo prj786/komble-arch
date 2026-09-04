@@ -1,7 +1,7 @@
 <script>
 	import { Select as SelectPrimitive } from "bits-ui";
-	import PhIcon from "../PhIcon.svelte";
-	import { PH } from "../ph.js";
+	import Icon from "../Icon.svelte";
+	import { ICONS } from "../icons.js";
 	import { cn } from "$lib/utils.js";
 
 	let {
@@ -27,7 +27,7 @@
 	{#snippet children({ selected, highlighted })}
 		<span class="absolute end-2 flex size-3.5 items-center justify-center">
 			{#if selected}
-				<PhIcon code={PH.check} size={12} />
+				<Icon code={ICONS.check} size={12} />
 			{/if}
 		</span>
 		<span class="flex flex-1 gap-2 shrink-0 whitespace-nowrap">

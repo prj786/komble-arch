@@ -66,7 +66,7 @@
 
 {#if $wizardFile && info}
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm">
-    <div class="card w-full max-w-md overflow-hidden !bg-white text-center shadow-2xl dark:!bg-[var(--bg)]">
+    <div class="card w-full max-w-md overflow-hidden !bg-white text-center shadow-2xl dark:!bg-[var(--bg-3)]">
       {#if step === "done"}
         <div class="p-8">
           <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--success)_14%,transparent)]0/15">
