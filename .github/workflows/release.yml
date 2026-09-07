@@ -43,7 +43,15 @@ jobs:
           # checksum chicken-and-egg (the PKGBUILD inside a tag cannot pin the
           # hash of its own tarball). makepkg finds the file in the start dir
           # because the name matches the PKGBUILD's source entry.
-          git archive --format=tar.gz --prefix="komble-arch-$pkgver/" \
+          # Write the versions INTO the PKGBUILD. Computing them only in
+          # the shell left makepkg building whatever pkgver the file was
+          # committed with, and reaching for a tag that never existed:
+          # v0.12.0beta.tar.gz, 404. The local tarball below is only
+          # picked up instead of the download when its name matches.
+          sed -i "s/^_tag=.*/_tag=$GITHUB_REF_NAME/" PKGBUILD
+          sed -i "s/^pkgver=.*/pkgver=$pkgver/" PKGBUILD
+          grep -E '^(_tag|pkgver)=' PKGBUILD
+          git archive --format=tar.gz --prefix="komble-arch-${GITHUB_REF_NAME#v}/" \
             -o "komble-arch-$pkgver.tar.gz" HEAD
           # makepkg refuses to run as root; deps are preinstalled above, and
           # -d skips the dependency resolution that would otherwise want sudo.

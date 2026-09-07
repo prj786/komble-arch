@@ -5,7 +5,15 @@
 # privileged helper, which on the Debian build were carried inside the .deb.
 
 pkgname=komble-arch
-pkgver=0.12.0beta
+# The git TAG and the pacman pkgver are different strings and always
+# will be: a tag may carry -beta, an Arch pkgver may not contain a
+# hyphen. Of the legal spellings only 0.12.1beta sorts BELOW the
+# eventual 0.12.1 under vercmp. The archive is addressed by the TAG and
+# extracts to <repo>-<tag without the leading v>, so the source URL and
+# the directory below follow _tag, never pkgver. The release workflow
+# rewrites both.
+_tag=v0.12.1-beta
+pkgver=0.12.1beta
 pkgrel=1
 pkgdesc="App store for Arch — pacman, the AUR and AppImages"
 arch=('x86_64' 'aarch64')
@@ -39,11 +47,11 @@ makedepends=('rust' 'cargo' 'nodejs' 'npm')
 # disables makepkg's *C* LTO — no loss in the resulting binary.
 options=(!lto !debug)
 
-source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/$_tag.tar.gz")
 sha256sums=('fd481aa3eba462a3f5d9c1cafaf5a03f5cd0f34a9760d15f1fc7a3c247b874d7')
 
 build() {
-  cd "$srcdir/$pkgname-$pkgver"
+  cd "$srcdir/$pkgname-${_tag#v}"
   npm ci
   # Build through the Tauri CLI, NOT bare `cargo build`.
   #
@@ -59,7 +67,7 @@ build() {
 }
 
 package() {
-  cd "$srcdir/$pkgname-$pkgver"
+  cd "$srcdir/$pkgname-${_tag#v}"
 
   install -Dm755 src-tauri/target/release/komble-arch "$pkgdir/usr/bin/komble"
 
