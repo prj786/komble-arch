@@ -5,12 +5,14 @@
   // which reads THIS machine's ewe.conf, so the whole derived set lands:
   // the brand ramp, and the neutrals carrying the accent's tint.
   //
-  // Keyed on the ACCENT, not the theme name. There is one ewe look now — the
-  // name never changes, so keying on it meant injecting once at startup and
-  // never again, and every later accent change stopped at the app boundary.
+  // Keyed on the whole THEME INPUT — accent, corner, density, stroke and
+  // neutral tint — not on the accent alone. Keying on the accent meant that
+  // changing the corner radius or the density rewrote ewe.conf and moved the
+  // shell, then hit this guard, returned early, and never reached the app:
+  // "shape and density need a restart" was this one comparison.
   let injectedKey = "";
-  async function applyThemeTokens(accent) {
-    const key = String(accent || "");
+  async function applyThemeTokens(themeKey) {
+    const key = String(themeKey || "");
     if (key === injectedKey) return;
     injectedKey = key;
     try {
@@ -57,24 +59,23 @@
   import InstallWizard from "./lib/components/InstallWizard.svelte";
   import Toasts from "./lib/components/Toasts.svelte";
 
-  const media = window.matchMedia("(prefers-color-scheme: dark)");
-  // Inside ewe, "System" follows the DE's app colour scheme (the shell
-  // itself is always dark) and the accent follows the DE accent — Komble should
-  // look like a part of the desktop, not a visitor. Outside it, the old
-  // prefers-color-scheme behaviour stands.
-  let deScheme = "";
-  function applyTheme(theme) {
-    const dark =
-      theme === "dark" ||
-      (theme === "system" && (deScheme ? deScheme === "dark" : media.matches));
-    document.documentElement.classList.toggle("dark", dark);
-  }
-  $: applyTheme($settings.theme);
-  media.addEventListener("change", () => applyTheme(get(settings).theme));
+  // Always dark. ewe is dark-only by decision (2026-09-01) and Komble paints
+  // itself from the DE's tokens, so a light mode was a look nothing else on
+  // the system had — half-themed, and the Settings picker that offered it has
+  // gone with it. Set once here, like ewe-settings does.
+  document.documentElement.classList.add("dark");
 
   onMount(() => {
     let unlisteners = [];
     (async () => {
+      // "Start at login" is gone: Komble is part of the desktop, not an app
+      // you opt into, and the bar's Komble indicator is there whether or not
+      // this process is. Clear anything a previous version enabled — leaving
+      // it would be a setting with no UI left to turn it off.
+      import("@tauri-apps/plugin-autostart")
+        .then((m) => m.disable())
+        .catch(() => {});
+
       await initSettings();
       loadCatalog();
       refreshInstalled();
@@ -88,13 +89,17 @@
           .dePrefs()
           .then((p) => {
             if (!p) return;
-            deScheme = p.colorScheme || "";
             // "" = never picked, so the theme default in tokens.css stands
-      if (p.accent) document.documentElement.style.setProperty("--accent", p.accent);
-      else document.documentElement.style.removeProperty("--accent");
-            // one look — the ACCENT is what the derived token set follows
-            applyThemeTokens(p.accent || "");
-            applyTheme(get(settings).theme);
+            if (p.accent) document.documentElement.style.setProperty("--accent", p.accent);
+            else document.documentElement.style.removeProperty("--accent");
+            // everything ewe-theme derives its token set FROM, as one key
+            applyThemeTokens([
+              p.accent || "",
+              p.themeCorner || "",
+              p.themeDensity || "",
+              p.themeStroke || "",
+              p.neutralTint === undefined ? "" : String(p.neutralTint)
+            ].join("|"));
           })
           .catch(() => {});
       applyDePrefs();

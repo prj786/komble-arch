@@ -2,15 +2,7 @@
   import { settings, systemInfo, toast } from "../stores";
   import { saveSettings } from "../persist";
   import * as api from "../api";
-  import { enable, disable } from "@tauri-apps/plugin-autostart";
-  import SelectRow from "./ui/SelectRow.svelte";
   import ToggleRow from "./ui/ToggleRow.svelte";
-
-  const themes = [
-    { label: "System", value: "system" },
-    { label: "Light", value: "light" },
-    { label: "Dark", value: "dark" }
-  ];
 
   // Local editable copy; re-synced whenever the store changes (load/save).
   let s = { ...$settings };
@@ -29,12 +21,6 @@
 
   async function save() {
     try {
-      try {
-        if (s.autostart) await enable();
-        else await disable();
-      } catch {
-        // autostart plugin may be unavailable in dev; not fatal
-      }
       await saveSettings({ ...s });
       toast("Settings saved", "success");
     } catch (e) {
@@ -65,20 +51,10 @@
 <div class="h-full overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
   <h1 class="mb-4 text-xl font-bold tracking-tight">Settings</h1>
   <div class="max-w-2xl">
-    <div class="section-title">Appearance</div>
-    <div class="card divide-y divide-hairline">
-      <SelectRow
-        label="Theme"
-        options={themes}
-        value={s.theme}
-        width="w-40"
-        picked={(v) => {
-          s.theme = v;
-          saveSettings({ theme: v });
-        }}
-      />
-    </div>
-
+    <!-- No Appearance section. ewe is dark-only by decision (2026-09-01) and
+         Komble follows the DE's tokens, so a Light option offered a look the
+         desktop does not have — half-themed, and nothing else on the system
+         would have followed it. -->
     <div class="section-title">Behavior</div>
     <div class="card divide-y divide-hairline">
       <ToggleRow
@@ -86,12 +62,6 @@
         sub="Closing the window keeps Komble running in the tray"
         on={!!s.minimizeToTray}
         toggled={() => (s.minimizeToTray = !s.minimizeToTray)}
-      />
-      <ToggleRow
-        title="Start at login"
-        sub="Launch Komble automatically when you log in"
-        on={!!s.autostart}
-        toggled={() => (s.autostart = !s.autostart)}
       />
       <ToggleRow
         title="Notify about updates"

@@ -84,8 +84,8 @@
       {:else if step === "installing"}
         <div class="p-8">
           <div
-            class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-bold text-white"
-            style="background: var(--accent)"
+            class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-bold text-[var(--fg-on-brand)]"
+            style="background: var(--brand-bg)"
           >
             {name.slice(0, 1).toUpperCase()}
           </div>
@@ -98,8 +98,8 @@
       {:else}
         <div class="p-8 pb-6">
           <div
-            class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-bold text-white"
-            style="background: var(--accent)"
+            class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-bold text-[var(--fg-on-brand)]"
+            style="background: var(--brand-bg)"
           >
             {(name || "?").slice(0, 1).toUpperCase()}
           </div>

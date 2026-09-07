@@ -57,7 +57,7 @@
           {#if entry.iconUrl}
             <img src={entry.iconUrl} alt="" class="h-9 w-9 rounded-lg object-contain" on:error={(e) => (e.currentTarget.style.display = "none")} />
           {:else}
-            <div class="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold text-white" style="background: var(--accent)">
+            <div class="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold text-[var(--fg-on-brand)]" style="background: var(--brand-bg)">
               {(entry.name || "?").slice(0, 1).toUpperCase()}
             </div>
           {/if}

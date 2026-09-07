@@ -32,11 +32,16 @@
   --font-sans: Ubuntu, "Noto Sans Georgian", Cantarell, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
-/* v4 opts into class-based dark mode explicitly. */
+/* v4 opts into class-based dark mode explicitly. The `.dark` class is set
+   unconditionally in App.svelte — ewe is dark-only — so the variant is kept
+   only because shadcn's components are written against it. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  color-scheme: light;
+  /* dark, not light: this decides what the BROWSER paints — scrollbars, form
+     controls, the canvas behind the app — and a light one under a dark UI is
+     where the stray white flashes came from. */
+  color-scheme: dark;
 }
 /* --accent is NOT set here: tokens.css chains it to the theme's
    --accent-default, and the user's own pick is injected inline at

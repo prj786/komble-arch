@@ -223,9 +223,9 @@
       <button
         class="rounded-full px-3 py-1 text-xs font-medium transition-colors
           {source === id
-          ? 'text-white'
+          ? 'text-[var(--fg-on-brand)]'
           : 'bg-elevated/70 text-dim hover:bg-hover /60  dark:hover:bg-hover'}"
-        style={source === id ? "background: var(--accent)" : ""}
+        style={source === id ? "background: var(--brand-bg)" : ""}
         on:click={() => (source = id)}
       >
         {label}

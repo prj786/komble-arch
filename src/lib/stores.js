@@ -14,7 +14,9 @@ export const trackedPkgs = writable([]);
 export const DEFAULT_SETTINGS = {
   theme: "system",
   minimizeToTray: true,
-  autostart: false,
+  // autostart: removed with the "Start at login" toggle. Kept out of the
+  // defaults so it stops being written back; App.svelte clears any entry a
+  // previous version created.
   githubToken: "",
   appimageDir: "",
   notifyUpdates: true,

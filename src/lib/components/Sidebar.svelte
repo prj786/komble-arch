@@ -52,16 +52,18 @@
         {#if it.id === "updates" && $updatesCount > 0}
           <span
             class="hidden rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none md:inline
-              {$route === it.id ? 'bg-white/25 text-white' : 'text-white'}"
-            style={$route === it.id ? "" : "background: var(--accent)"}
+              {$route === it.id
+                ? 'bg-[color-mix(in_srgb,var(--fg-on-brand)_25%,transparent)] text-[var(--fg-on-brand)]'
+                : 'text-[var(--fg-on-brand)]'}"
+            style={$route === it.id ? "" : "background: var(--brand-bg)"}
           >
             {$updatesCount}
           </span>
           <!-- icon-rail equivalent of the count badge -->
           <span
             class="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full md:hidden
-              {$route === it.id ? 'bg-white' : ''}"
-            style={$route === it.id ? "" : "background: var(--accent)"}
+              {$route === it.id ? 'bg-[var(--fg-on-brand)]' : ''}"
+            style={$route === it.id ? "" : "background: var(--brand-bg)"}
           ></span>
         {/if}
       </button>

@@ -154,7 +154,7 @@
         {:else if item.icon && !iconError}
           <img src={item.icon} alt="" class="h-16 w-16 rounded-xl object-contain" on:error={() => (iconError = true)} />
         {:else}
-          <div class="flex h-16 w-16 items-center justify-center rounded-xl text-2xl font-bold text-white" style="background: var(--accent)">
+          <div class="flex h-16 w-16 items-center justify-center rounded-xl text-2xl font-bold text-[var(--fg-on-brand)]" style="background: var(--brand-bg)">
             {item.name.slice(0, 1).toUpperCase()}
           </div>
         {/if}

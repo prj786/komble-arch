@@ -86,8 +86,8 @@
       />
     {:else}
       <div
-        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-lg font-bold text-white"
-        style="background: var(--accent)"
+        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-lg font-bold text-[var(--fg-on-brand)]"
+        style="background: var(--brand-bg)"
       >
         {item.name.slice(0, 1).toUpperCase()}
       </div>

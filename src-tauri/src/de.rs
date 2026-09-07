@@ -34,10 +34,18 @@ pub async fn de_prefs() -> Result<Value, String> {
     // "" = never chosen; the app then keeps the theme default from
     // tokens.css rather than overriding it with an invented colour
     let accent = j["accent"].as_str().unwrap_or("").to_string();
+    // The SHAPE half travels too. The front end keys its token injection on
+    // this object, and keying on the accent alone meant a corner or density
+    // change moved the shell and stopped at the app boundary — "shape and
+    // density need a restart" was that missing key, not a caching bug.
     Ok(json!({
         "accent": accent,
         "themeName": theme_name,
         "colorScheme": j["colorScheme"].as_str().unwrap_or("dark"),
+        "themeCorner": j["themeCorner"].as_str().unwrap_or(""),
+        "themeDensity": j["themeDensity"].as_str().unwrap_or(""),
+        "themeStroke": j["themeStroke"].as_str().unwrap_or(""),
+        "neutralTint": j["neutralTint"].as_i64().unwrap_or(-1),
     }))
 }
 
