@@ -25,6 +25,11 @@
   // concurrent upgrade outright).
   $: busyAny = working || eweWorking || updatingAll || checking;
 
+  // viaRepo: the [ewe] pacman repo delivers this one, so its update IS the
+  // system upgrade (Arch never upgrades a single package) — the row still
+  // lives up here, but it is taken out of the system list below so the same
+  // package is not counted twice, and never shown green up here while it
+  // waits down there.
   $: desktopRows = [
     ...(ewe && ewe.installed
       ? [
@@ -38,6 +43,7 @@
                 : ewe.version
               : ewe.latest || ewe.version,
             update: !!ewe.updateAvailable,
+            viaRepo: !!ewe.packaged,
             note: ewe.dirty ? "working tree has local changes" : ""
           }
         ]
@@ -48,10 +54,16 @@
       current: f.installed || "not installed",
       latest: f.latest || "?",
       update: !!f.updateAvailable,
+      viaRepo: f.managed === "repo",
       note: f.error || ""
     }))
   ];
   $: desktopUpdates = desktopRows.filter((r) => r.update).length;
+  $: desktopViaRepo = desktopRows.some((r) => r.update && r.viaRepo);
+  $: desktopOnlyViaRepo = desktopViaRepo && desktopRows.every((r) => !r.update || r.viaRepo);
+  // system packages minus the ones the desktop section already shows
+  $: desktopNames = new Set(desktopRows.filter((r) => r.viaRepo).map((r) => r.id));
+  $: systemPkgs = $updatesInfo.packages.filter((p) => !desktopNames.has(p.name));
 
   onMount(async () => {
     unlistenEwe = await listen("ewe-update", (e) => {
@@ -103,15 +115,23 @@
     } catch (e) {
       res.errors.push(String(e));
     }
-    // the desktop and its two apps, checked in parallel with each other
+    // the desktop and its apps, checked in parallel with each other — handed
+    // the repo updates above, so a package the [ewe] repo carries reads the
+    // same here as in the system list
+    const repoUpdates = res.packages
+      .filter((p) => p.source === "repo")
+      .map((p) => ({ name: p.name, latest: p.latest }));
     const [st, rows] = await Promise.all([
-      api.eweStatus($settings.githubToken).catch(() => null),
-      api.firstPartyStatus($settings.githubToken).catch(() => [])
+      api.eweStatus($settings.githubToken, repoUpdates).catch(() => null),
+      api.firstPartyStatus($settings.githubToken, repoUpdates).catch(() => [])
     ]);
     ewe = st;
     fp = rows;
+    // count only what the system list does not already count (a repo-
+    // delivered row is one of res.packages already)
     res.desktop =
-      (st && st.updateAvailable ? 1 : 0) + rows.filter((r) => r.updateAvailable).length;
+      (st && st.updateAvailable && !st.packaged ? 1 : 0) +
+      rows.filter((r) => r.updateAvailable && r.managed !== "repo").length;
     updatesInfo.set(res);
     checking = false;
     // nudge the bar to re-probe now, so its count moves with this one
@@ -161,6 +181,8 @@
     updatingAll = true;
     try {
       for (const u of [...$updatesInfo.appimages]) await updateOne(u);
+      // updateDesktop re-checks when done, so a system upgrade it ran for a
+      // repo-delivered row is not run a second time here
       if (desktopUpdates > 0) await updateDesktop();
       if ($updatesInfo.packages.length) await systemUpgradeAll();
     } finally {
@@ -168,23 +190,27 @@
     }
   }
 
-  // ── one button for the whole desktop: the two apps first (pkexec pacman -U
-  // from their GitHub releases), then the DE itself via its update.sh contract.
+  // ── one button for the whole desktop: release-delivered apps first (pkexec
+  // pacman -U from their GitHub releases), then a git/tarball DE via its
+  // update.sh contract — and whatever the [ewe] repo delivers goes with the
+  // system upgrade, which is the only way a repo package moves on Arch.
   async function updateDesktop() {
     eweWorking = true;
     eweNeedsTerminal = false;
     eweLog = [];
+    let viaRepo = false;
     try {
-      for (const f of fp.filter((x) => x.updateAvailable)) {
+      for (const f of fp.filter((x) => x.updateAvailable && x.managed !== "repo")) {
         toast(`Updating ${f.pkg} ${f.installed || ""} → ${f.latest}…`, "info");
         await api.installFirstParty(f.pkg, $settings.githubToken);
         toast(`${f.pkg} updated to ${f.latest}`, "success");
       }
-      if (ewe && ewe.updateAvailable) {
+      if (ewe && ewe.updateAvailable && !ewe.packaged) {
         toast("Updating the ewe desktop…", "info");
         await api.eweUpdate();
         toast("ewe desktop updated — the shell restarts itself", "success");
       }
+      viaRepo = desktopViaRepo;
     } catch (e) {
       if (String(e) === "needs-terminal") {
         eweNeedsTerminal = true;
@@ -193,8 +219,9 @@
         toast(e, "error");
       }
     }
-    await check();
     eweWorking = false;
+    if (viaRepo) await systemUpgradeAll(); // re-checks on its own
+    else await check();
   }
 
   async function updateInTerminal() {
@@ -218,7 +245,7 @@
     working = false;
   }
 
-  $: total = $updatesInfo.appimages.length + $updatesInfo.packages.length + desktopUpdates;
+  $: total = $updatesInfo.appimages.length + systemPkgs.length + desktopUpdates;
 </script>
 
 <div class="h-full overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
@@ -269,13 +296,16 @@
       {/each}
       {#if desktopUpdates > 0}
         <div class="flex items-center justify-end gap-2">
+          {#if desktopViaRepo}
+            <span class="mr-auto text-xs text-dim">Delivered by the [ewe] repo — updates with the system.</span>
+          {/if}
           {#if eweNeedsTerminal}
             <button class="btn-primary !py-1 whitespace-nowrap text-xs" on:click={updateInTerminal}>
               Update in a terminal…
             </button>
           {/if}
           <button class="btn-primary !py-1 whitespace-nowrap text-xs" disabled={busyAny} on:click={updateDesktop}>
-            {eweWorking ? "Updating…" : "Update desktop"}
+            {eweWorking || (working && desktopViaRepo) ? "Updating…" : desktopOnlyViaRepo ? "Upgrade system" : "Update desktop"}
           </button>
         </div>
       {/if}
@@ -317,7 +347,7 @@
     </div>
   {/if}
 
-  <div class="section-title">System packages · {$updatesInfo.packages.length}</div>
+  <div class="section-title">System packages · {systemPkgs.length}</div>
   {#if contribMissing}
     <div class="card mb-2 flex items-center gap-3 border-[var(--warning)] px-4 py-3">
       <div class="min-w-0 flex-1 text-sm">
@@ -331,7 +361,7 @@
       </button>
     </div>
   {/if}
-  {#if $updatesInfo.packages.length === 0}
+  {#if systemPkgs.length === 0}
     <div class="card p-5 text-center text-sm text-dim">
       {checking ? "Checking…" : contribMissing ? "Repo updates unknown — install pacman-contrib above." : "Everything is up to date."}
     </div>
@@ -346,7 +376,7 @@
       </button>
     </div>
     <div class="flex flex-col gap-2">
-      {#each $updatesInfo.packages as p (p.name)}
+      {#each systemPkgs as p (p.name)}
         <div class="card flex items-center gap-3.5 px-4 py-3">
           <div class="min-w-0 flex-1">
             <div class="truncate font-medium">{p.name}</div>

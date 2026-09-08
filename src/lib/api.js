@@ -44,11 +44,16 @@ export const systemUpgrade = () => invoke("system_upgrade");
 export const aurUpgrade = () => invoke("aur_upgrade");
 
 // first-party ewe apps (Komble, ewe-settings) + the desktop itself
-export const firstPartyStatus = (token) =>
-  invoke("first_party_status", { token: token || null });
+// repoUpdates: the pending repo updates checkupdates already reported
+// ([{name, latest}]) — the [ewe] repo carries the desktop and its apps, so
+// their status comes from that one list rather than a second check that
+// could disagree with it.
+export const firstPartyStatus = (token, repoUpdates = []) =>
+  invoke("first_party_status", { token: token || null, repoUpdates });
 export const installFirstParty = (pkg, token) =>
   invoke("install_first_party", { pkg, token: token || null });
-export const eweStatus = (token) => invoke("ewe_status", { token: token || null });
+export const eweStatus = (token, repoUpdates = []) =>
+  invoke("ewe_status", { token: token || null, repoUpdates });
 export const eweUpdate = () => invoke("ewe_update");
 export const eweUpdateTerminal = () => invoke("ewe_update_terminal");
 export const takePendingRoute = () => invoke("take_pending_route");

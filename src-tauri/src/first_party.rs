@@ -101,14 +101,22 @@ async fn version_newer(candidate: &str, current: &str) -> bool {
     candidate != current
 }
 
-/// tag + the machine-matching .pkg.tar.zst asset URL from a repo's latest
+/// tag + the machine-matching .pkg.tar.zst asset URL from a repo's NEWEST
 /// GitHub release (same selection rule as the installer: skip -debug-, take
 /// this arch or -any).
+///
+/// Newest, not GitHub's "Latest": /releases/latest skips prereleases, so for
+/// as long as every release carries -beta it answered with the last stable
+/// tag (v0.11.2) — nothing was ever newer than the installed 0.12.x beta and
+/// every row sat on a green tick while the [ewe] repo, which tracks the most
+/// recent release like ewe-repo's publish does, listed the same package as
+/// a pending system update. The release list is date-ordered; drafts are
+/// skipped.
 async fn latest_release(
     repo: &str,
     token: Option<&str>,
 ) -> Result<(String, Option<String>), String> {
-    let url = format!("https://api.github.com/repos/{repo}/releases/latest");
+    let url = format!("https://api.github.com/repos/{repo}/releases?per_page=10");
     let mut req = crate::util::client().get(&url);
     if let Some(t) = token {
         req = req.bearer_auth(t);
@@ -118,13 +126,16 @@ async fn latest_release(
         return Err(format!("{repo}: GitHub API HTTP {}", res.status()));
     }
     let j: Value = res.json().await.map_err(estr)?;
-    let tag = j["tag_name"].as_str().unwrap_or_default();
+    let rel = j
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|r| r["draft"] != true && !r["tag_name"].as_str().unwrap_or("").is_empty())
+        .ok_or_else(|| format!("{repo}: no release found"))?;
+    let tag = rel["tag_name"].as_str().unwrap_or_default();
     let version = tag.trim_start_matches('v').to_string();
-    if version.is_empty() {
-        return Err(format!("{repo}: release has no tag"));
-    }
     let arch = std::env::consts::ARCH; // x86_64 / aarch64 — matches uname -m
-    let asset = j["assets"]
+    let asset = rel["assets"]
         .as_array()
         .into_iter()
         .flatten()
@@ -135,43 +146,115 @@ async fn latest_release(
     Ok((version, asset))
 }
 
+/// A pending repo update as the frontend already learned it from
+/// checkupdates (`list_upgradable`) — passed in rather than re-run here, so
+/// the two views can never disagree and no second checkupdates races the
+/// first on the private sync DB.
+#[derive(serde::Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoUpdate {
+    pub name: String,
+    #[serde(default)]
+    pub latest: String,
+}
+
+/// "0.12.1beta-1" → "0.12.1beta": pacman's pkgrel is noise next to a release
+/// tag, and the desktop's own row reads without it.
+fn strip_pkgrel(v: &str) -> String {
+    match v.rsplit_once('-') {
+        Some((base, rel))
+            if !rel.is_empty() && rel.chars().all(|c| c.is_ascii_digit() || c == '.') =>
+        {
+            base.to_string()
+        }
+        _ => v.to_string(),
+    }
+}
+
+/// The version a sync repo ([ewe]) offers for this package, None when no
+/// enabled repo carries it. When it does, pacman owns the package: `pacman
+/// -S` installs it, `-Syu` updates it, and a GitHub asset dropped on top
+/// with `pacman -U` would be a partial upgrade — so the release is never
+/// consulted. Reads the local sync DB only (no network, no -Sy).
+async fn sync_version(pkg: &str) -> Option<String> {
+    let out = Command::new("pacman")
+        .args(["-Si", pkg])
+        .env("LANG", "C")
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .output()
+        .await
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&out.stdout);
+    text.lines()
+        .find_map(|l| l.strip_prefix("Version"))
+        .and_then(|l| l.split(':').nth(1))
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+}
+
 /// One row per first-party app: installed version (None = not installed),
-/// latest release, and whether an installable prebuilt asset exists.
+/// what is available, and whether an update is pending.
+///
+/// `managed` says who delivers it: "repo" — a sync repo carries the package
+/// and the pending version comes from the checkupdates list the frontend
+/// passes in (the update IS the system upgrade); "release" — no repo knows
+/// it (a get.sh / developer install), so the newest GitHub release is the
+/// reference and `pacman -U` of its asset is the update.
 #[tauri::command]
-pub async fn first_party_status(token: Option<String>) -> Result<Vec<Value>, String> {
+pub async fn first_party_status(
+    token: Option<String>,
+    repo_updates: Option<Vec<RepoUpdate>>,
+) -> Result<Vec<Value>, String> {
+    let updates = repo_updates.unwrap_or_default();
     let mut rows = Vec::new();
     for (pkg, repo, summary) in DISCOVER {
         // display without the pacman pkgrel: the row reads "0.9.2" like the
         // desktop's own row, not "0.9.2-1" (comparisons still use vercmp on
         // full strings elsewhere)
-        let installed =
-            crate::pacman::installed_version(pkg)
-                .await
-                .map(|v| match v.rsplit_once('-') {
-                    Some((base, rel)) if rel.chars().all(|c| c.is_ascii_digit()) => {
-                        base.to_string()
-                    }
-                    _ => v,
-                });
+        let installed = crate::pacman::installed_version(pkg)
+            .await
+            .map(|v| strip_pkgrel(&v));
+
+        if let Some(sync) = sync_version(pkg).await {
+            let pending = updates.iter().find(|u| u.name == *pkg);
+            let latest = pending
+                .map(|u| strip_pkgrel(&u.latest))
+                .or_else(|| installed.clone())
+                .unwrap_or_else(|| strip_pkgrel(&sync));
+            rows.push(json!({
+                "pkg": pkg, "repo": repo, "summary": summary,
+                "installed": installed,
+                "latest": latest,
+                "hasAsset": true,
+                "managed": "repo",
+                "updateAvailable": installed.is_some() && pending.is_some(),
+            }));
+            continue;
+        }
+
         let (latest, asset) = match latest_release(repo, token.as_deref()).await {
             Ok(x) => x,
             Err(e) => {
                 rows.push(json!({
                     "pkg": pkg, "repo": repo, "summary": summary,
                     "installed": installed, "latest": Value::Null,
+                    "managed": "release",
                     "updateAvailable": false, "error": e,
                 }));
                 continue;
             }
         };
-        // pacman versions carry a -relno suffix the release tag doesn't have
-        let cur = installed.clone().unwrap_or_default();
-        let cur_base = cur.split('-').next().unwrap_or("").to_string();
+        let cur_base = installed.clone().unwrap_or_default();
         rows.push(json!({
             "pkg": pkg, "repo": repo, "summary": summary,
             "installed": installed,
             "latest": latest,
             "hasAsset": asset.is_some(),
+            "managed": "release",
             "updateAvailable": !cur_base.is_empty() && version_newer(&latest, &cur_base).await,
         }));
     }
@@ -203,6 +286,13 @@ async fn install_first_party_inner(
         .iter()
         .find(|(p, _, _)| *p == pkg)
         .ok_or_else(|| format!("{pkg}: not a first-party app"))?;
+
+    // a sync repo carries it: install it like any other repo package, never
+    // a release asset on top of what pacman already tracks
+    if sync_version(&pkg).await.is_some() {
+        let _ = app.emit("install-progress", json!({ "id": pkg, "stage": "install" }));
+        return crate::pacman::install_package(app.clone(), pkg.clone()).await;
+    }
 
     let _ = app.emit("install-progress", json!({ "id": pkg, "stage": "resolve" }));
     let (version, asset) = latest_release(repo, token.as_deref()).await?;
@@ -246,18 +336,53 @@ async fn install_first_party_inner(
 /// The desktop itself: where it lives, what version it is, and whether the
 /// repo's update.sh says there is anything to pull. `git: false` means a
 /// tarball (get.sh) install — update then means "re-run get.sh".
+///
+/// `packaged: true` means the `ewe` pacman package (the [ewe] repo, what the
+/// ISO installs): the version is the payload's, the pending one comes from
+/// the checkupdates list the frontend passes in, and the update is the
+/// system upgrade — there is nothing to pull and nothing to re-run.
 #[tauri::command]
-pub async fn ewe_status(token: Option<String>) -> Result<Value, String> {
+pub async fn ewe_status(
+    token: Option<String>,
+    repo_updates: Option<Vec<RepoUpdate>>,
+) -> Result<Value, String> {
     let dir = ewe_dir();
+    let is_git = dir.join(".git").is_dir() && dir.join("update.sh").is_file();
+
+    if !is_git {
+        if let Some(pkgver) = crate::pacman::installed_version("ewe").await {
+            let payload = PathBuf::from("/usr/share/ewe");
+            let version = std::fs::read_to_string(payload.join("VERSION"))
+                .map(|s| s.trim().to_string())
+                .ok()
+                .filter(|v| !v.is_empty())
+                .unwrap_or_else(|| strip_pkgrel(&pkgver));
+            let pending = repo_updates
+                .unwrap_or_default()
+                .into_iter()
+                .find(|u| u.name == "ewe");
+            let latest = pending
+                .as_ref()
+                .map(|u| strip_pkgrel(&u.latest))
+                .unwrap_or_else(|| version.clone());
+            return Ok(json!({
+                "installed": true, "packaged": true, "git": false,
+                "dir": payload.to_string_lossy(),
+                "version": version, "latest": latest,
+                "updateAvailable": pending.is_some(),
+                "dirty": false,
+            }));
+        }
+    }
+
     let version = std::fs::read_to_string(dir.join("VERSION"))
         .map(|s| s.trim().to_string())
         .unwrap_or_default();
     if version.is_empty() {
         return Ok(json!({ "installed": false }));
     }
-    let is_git = dir.join(".git").is_dir();
 
-    if is_git && dir.join("update.sh").is_file() {
+    if is_git {
         // the repo's own contract: one JSON "check" event on stdout
         let out = run_out(
             "bash",
@@ -314,6 +439,11 @@ pub async fn ewe_status(token: Option<String>) -> Result<Value, String> {
 #[tauri::command]
 pub async fn ewe_update(app: AppHandle) -> Result<String, String> {
     let dir = ewe_dir();
+    if !dir.join(".git").is_dir() && crate::pacman::installed_version("ewe").await.is_some() {
+        return Err(
+            "The desktop is a pacman package here — it updates with the system upgrade.".into(),
+        );
+    }
     if !dir.join("update.sh").is_file() {
         return Err(
             "This ewe install has no update.sh (tarball install) — use the terminal update.".into(),
@@ -370,6 +500,9 @@ pub async fn ewe_update_terminal() -> Result<(), String> {
     let dir = ewe_dir();
     let inner = if dir.join(".git").is_dir() && dir.join("update.sh").is_file() {
         format!("cd '{}' && ./update.sh", dir.to_string_lossy())
+    } else if crate::pacman::installed_version("ewe").await.is_some() {
+        // the [ewe] repo delivers the desktop: a system upgrade is the update
+        "sudo pacman -Syu".to_string()
     } else {
         // get.sh re-downloads the latest artefact and re-runs the installer
         "bash <(curl -fsSL https://raw.githubusercontent.com/prj786/ewe/main/get.sh) --yes"
