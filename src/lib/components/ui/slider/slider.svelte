@@ -45,7 +45,7 @@ get along, so we shut typescript up by casting `value` to `never`.
 			<SliderPrimitive.Thumb
 				data-slot="slider-thumb"
 				index={thumb.index}
-				class="size-4 rounded-full border border-primary bg-white shadow-sm ring-ring/50 transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden block shrink-0 select-none disabled:pointer-events-none disabled:opacity-50"
+				class="size-4 rounded-full bg-foreground transition-[background-color,box-shadow] duration-150 hover:bg-[var(--fg-2)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden block shrink-0 select-none disabled:pointer-events-none disabled:opacity-50"
 			/>
 		{/each}
 	{/snippet}

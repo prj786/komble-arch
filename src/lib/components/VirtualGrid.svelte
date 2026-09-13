@@ -2,9 +2,9 @@
   // Windowed responsive grid: only rows near the viewport are rendered,
   // so the ~1600-item catalog scrolls smoothly.
   export let items = [];
-  export let itemHeight = 168;
-  export let gap = 14;
-  export let minCol = 260;
+  export let itemHeight = 220;
+  export let gap = 24;
+  export let minCol = 280;
 
   let viewport;
   let scrollTop = 0;

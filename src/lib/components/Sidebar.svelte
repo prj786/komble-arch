@@ -30,8 +30,8 @@
   <div class="rail-brand">
     <!-- the kombali — a shepherd's crook; Komble herds your apps -->
     <div
-      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white"
-      style="background: linear-gradient(135deg, #f0a65c, #744664)"
+      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-[var(--fg-on-brand)]"
+      style="background: linear-gradient(135deg, var(--komble-mark-a), var(--komble-mark-b))"
     >
       <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M14.5 21V8a3.5 3.5 0 0 0-7 0v1.5" />
