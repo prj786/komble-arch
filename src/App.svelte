@@ -200,7 +200,9 @@
 
 <div class="surface flex h-full">
   <Sidebar />
-  <main class="min-w-0 flex-1 overflow-hidden">
+  <!-- .pane: the content well recessed into the frame; overflow stays hidden
+       because every page scrolls itself (Discover's grid is windowed). -->
+  <main class="pane overflow-hidden">
     {#if $route === "discover"}
       <Discover />
     {:else if $route === "foryou"}
@@ -218,16 +220,16 @@
 </div>
 
 {#if $dragHover}
-  <div class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-8 backdrop-blur-sm">
+  <div class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-[color-mix(in_srgb,var(--bg-5)_50%,transparent)] p-8 backdrop-blur-sm">
+    <!-- the drop zone is a brand-tinted fill, not a dashed outline -->
     <div
-      class="flex h-full w-full flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed"
-      style="border-color: var(--accent)"
+      class="flex h-full w-full flex-col items-center justify-center gap-3 rounded-[var(--radius-panel)] bg-[color-mix(in_srgb,var(--brand-bg)_40%,transparent)]"
     >
-      <svg viewBox="0 0 24 24" class="h-12 w-12 text-white" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <svg viewBox="0 0 24 24" class="h-12 w-12 text-fg" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
       </svg>
-      <p class="text-lg font-semibold text-white">Drop to install</p>
-      <p class="text-sm text-white/70">.AppImage → install wizard · *.pkg.tar.zst → package installer</p>
+      <p class="text-lg font-semibold text-fg">Drop to install</p>
+      <p class="text-sm text-muted">.AppImage → install wizard · *.pkg.tar.zst → package installer</p>
     </div>
   </div>
 {/if}

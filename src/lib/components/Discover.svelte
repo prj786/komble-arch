@@ -140,8 +140,8 @@
 <div class="flex h-full flex-col px-4 pt-5 sm:px-6 sm:pt-6">
   <div class="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
     <div class="min-w-0">
-      <h1 class="text-xl font-bold tracking-tight">Discover</h1>
-      <p class="text-sm text-dim dark:text-dim">
+      <h1 class="text-[length:var(--fs-title)] font-semibold leading-tight text-fg">Discover</h1>
+      <p class="text-sm text-dim">
         {#if source === "pkg"}
           {#if pkgSearching && !indexReady}
             Building package index…
@@ -182,7 +182,7 @@
     </button>
   </div>
 
-  <div class="mb-3 flex flex-col gap-2.5 sm:flex-row">
+  <div class="mb-4 flex flex-col gap-3 sm:flex-row">
     <input
       class="input flex-1"
       type="search"
@@ -218,14 +218,11 @@
     {/if}
   </div>
 
-  <div class="mb-4 flex flex-wrap gap-1.5">
+  <div class="mb-5 flex flex-wrap gap-1.5">
     {#each sources as [id, label]}
       <button
-        class="rounded-full px-3 py-1 text-xs font-medium transition-colors
-          {source === id
-          ? 'text-[var(--fg-on-brand)]'
-          : 'bg-elevated/70 text-dim hover:bg-hover /60  dark:hover:bg-hover'}"
-        style={source === id ? "background: var(--brand-bg)" : ""}
+        class="chip {source === id ? 'is-active' : ''}"
+        aria-pressed={source === id}
         on:click={() => (source = id)}
       >
         {label}
@@ -234,19 +231,19 @@
   </div>
 
   {#if source !== "pkg" && source !== "aur" && $catalogLoading}
-    <div class="grid flex-1 grid-cols-[repeat(auto-fill,minmax(260px,1fr))] content-start gap-3.5 overflow-hidden">
+    <div class="grid flex-1 grid-cols-[repeat(auto-fill,minmax(280px,1fr))] content-start gap-6 overflow-hidden">
       {#each Array(9) as _}
-        <div class="card h-[168px] animate-pulse p-4">
-          <div class="flex gap-3">
-            <div class="h-11 w-11 rounded-lg bg-elevated"></div>
+        <div class="card h-[220px] animate-pulse p-6">
+          <div class="flex gap-4">
+            <div class="h-16 w-16 rounded-[var(--radius-control)] bg-[var(--card-hover)]"></div>
             <div class="flex-1 space-y-2 pt-1">
-              <div class="h-3.5 w-2/3 rounded bg-elevated"></div>
-              <div class="h-2.5 w-1/3 rounded bg-elevated"></div>
+              <div class="h-4 w-2/3 rounded bg-[var(--card-hover)]"></div>
+              <div class="h-3 w-1/3 rounded bg-[var(--card-hover)]"></div>
             </div>
           </div>
-          <div class="mt-4 space-y-2">
-            <div class="h-2.5 w-full rounded bg-elevated"></div>
-            <div class="h-2.5 w-4/5 rounded bg-elevated"></div>
+          <div class="mt-5 space-y-2">
+            <div class="h-3 w-full rounded bg-[var(--card-hover)]"></div>
+            <div class="h-3 w-4/5 rounded bg-[var(--card-hover)]"></div>
           </div>
         </div>
       {/each}
@@ -278,7 +275,7 @@
     </div>
   {:else}
     <div class="min-h-0 flex-1">
-      <VirtualGrid items={merged} let:item>
+      <VirtualGrid items={merged} itemHeight={220} gap={24} minCol={280} let:item>
         <AppCard {item} />
       </VirtualGrid>
     </div>

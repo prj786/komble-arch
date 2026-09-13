@@ -8,6 +8,14 @@
 @import "shadcn-svelte/tailwind.css";
 @import "tw-animate-css";
 
+/* The ONE literal Komble owns: the brand mark's warm gradient — the kombali
+   tile in the rail. It is a MARK, not a role, so it does not follow the
+   accent; but it is named once here so no component carries a hex. */
+:root {
+  --komble-mark-a: #f0a65c;
+  --komble-mark-b: #744664;
+}
+
 /* Lucide 1.40.0 (ISC, vendored) — the DE's single icon language, the same
    face and the same codepoints the shell loads. Used via .icon spans with a
    literal glyph codepoint; the class is named for the ROLE, not the vendor,
@@ -29,7 +37,7 @@
 /* Tailwind 4 keeps theme tokens in CSS rather than tailwind.config.js. */
 @theme {
   --color-accent: var(--accent);
-  --font-sans: Ubuntu, "Noto Sans Georgian", Cantarell, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: Inter, "Noto Sans Georgian", Cantarell, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 /* v4 opts into class-based dark mode explicitly. The `.dark` class is set
@@ -115,9 +123,9 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: var(--radius-pill);
-  --radius-md: var(--radius-card);
-  --radius-lg: var(--radius-panel);
+  --radius-sm: var(--radius-control);
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-card);
   --radius-xl: var(--radius-panel);
 }
 /* ── end shadcn-svelte theme bridge ────────────────────────────────────────*/
@@ -141,6 +149,15 @@ textarea {
   user-select: text;
 }
 
-/* The surface, rail and control classes live in design/components.css, and
-   Black Sheep no longer needs a zinc remap — .dark.blacksheep in tokens.css
-   carries the whole Alexandria palette. */
+/* shadcn's input-shaped controls (select trigger, checkbox, switch) draw
+   their edge at the theme's outline width — 0 unless ewe.conf asks for
+   `stroke = thin` — so --input stays a COLOUR and the edge simply has no
+   width to show it in. The components carry the same rule in their classes;
+   this is the belt for a consumer that overrides them. */
+[data-slot="select-trigger"],
+[data-slot="checkbox"],
+[data-slot="switch"] {
+  border-width: var(--outline-width);
+}
+
+/* The surface, rail and control classes live in design/components.css. */
