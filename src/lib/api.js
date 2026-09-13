@@ -133,6 +133,14 @@ export async function installFromItem(item, settings) {
 // syncs it — the shell and Settings do); manifestDump is what Komble would
 // write, for support
 export const appManifest = () => invoke("app_manifest");
+
+// shell plugins — through ewe-plugin (ewe 0.14+); the CLI is the implementation
+export const pluginList = () => invoke("plugin_list");
+export const pluginAdd = (url, enable) => invoke("plugin_add", { url, enable });
+export const pluginSetEnabled = (id, on) => invoke("plugin_set_enabled", { id, on });
+export const pluginUpdate = (id) => invoke("plugin_update", { id: id || null });
+export const pluginRemove = (id) => invoke("plugin_remove", { id });
+export const pluginRestore = () => invoke("plugin_restore");
 export const manifestDump = () => invoke("manifest_dump");
 
 /** the generated look, from ewe-theme.conf — injected at runtime by App.svelte */

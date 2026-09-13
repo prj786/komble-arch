@@ -3,6 +3,7 @@ mod catalog;
 mod de;
 mod first_party;
 mod pacman;
+mod plugins;
 mod registry;
 mod system;
 mod util;
@@ -268,6 +269,13 @@ pub fn run() {
             de::de_prefs,
             de::theme_tokens,
             de::poke_shell_updates,
+            // shell plugins (ewe-plugin)
+            plugins::plugin_list,
+            plugins::plugin_add,
+            plugins::plugin_set_enabled,
+            plugins::plugin_update,
+            plugins::plugin_remove,
+            plugins::plugin_restore,
             system::install_fuse2,
             system::install_pacman_contrib,
             take_pending_open,

@@ -18,6 +18,7 @@
     { id: "discover", label: "Discover", icon: 0xE09B },   // compass
     { id: "foryou", label: "For you", icon: 0xE19F },      // user
     { id: "installed", label: "Installed", icon: 0xE129 }, // package
+    { id: "plugins", label: "Plugins", icon: 0xE29C },     // puzzle
     { id: "updates", label: "Updates", icon: 0xE145 },     // arrows-clockwise
     { id: "aur", label: "AUR", icon: 0xE0B2 },             // download-simple
     { id: "settings", label: "Settings", icon: 0xE29A }    // faders
