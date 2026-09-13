@@ -52,6 +52,7 @@
   import Discover from "./lib/components/Discover.svelte";
   import ForYou from "./lib/components/ForYou.svelte";
   import Installed from "./lib/components/Installed.svelte";
+  import Plugins from "./lib/components/Plugins.svelte";
   import Updates from "./lib/components/Updates.svelte";
   import AurInstall from "./lib/components/AurInstall.svelte";
   import Settings from "./lib/components/Settings.svelte";
@@ -209,6 +210,8 @@
       <ForYou />
     {:else if $route === "installed"}
       <Installed />
+    {:else if $route === "plugins"}
+      <Plugins />
     {:else if $route === "updates"}
       <Updates />
     {:else if $route === "aur"}

@@ -147,7 +147,7 @@ pub fn poke_updates() {
 // never silently install software. How the file got here (Nextcloud restore,
 // a manual copy) is not Komble's business — RFC-005.
 
-fn ewe_bin(name: &str) -> Option<std::path::PathBuf> {
+pub(crate) fn ewe_bin(name: &str) -> Option<std::path::PathBuf> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".into());
     let farm = std::path::PathBuf::from(&home)
         .join(".config/quickshell/../../bin")
