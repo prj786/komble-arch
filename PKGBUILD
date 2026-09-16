@@ -12,8 +12,8 @@ pkgname=komble-arch
 # extracts to <repo>-<tag without the leading v>, so the source URL and
 # the directory below follow _tag, never pkgver. The release workflow
 # rewrites both.
-_tag=v0.16.0-beta
-pkgver=0.16.0beta
+_tag=v0.16.1-beta
+pkgver=0.16.1beta
 pkgrel=1
 pkgdesc="App store for Arch — pacman, the AUR and AppImages"
 arch=('x86_64' 'aarch64')

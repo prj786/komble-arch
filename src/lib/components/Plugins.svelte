@@ -101,7 +101,7 @@
   function remove(p) {
     if (confirming !== p.id) return askConfirm(p.id);
     confirming = null;
-    run(p.id, () => api.pluginRemove(p.id), `${p.name || p.id} removed`);
+    run(p.id, () => api.pluginRemove(p.id), p.bundled ? `${p.name || p.id} removed — ewe updates will leave it out (ewe-plugin seed --restore ${p.id} brings it back)` : `${p.name || p.id} removed`);
   }
 
   // re-read when the window comes back (the terminal, a restore in
@@ -207,7 +207,8 @@
                 <span class="truncate font-medium">{p.name || p.id}</span>
                 {#if p.version}<span class="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-dim">{p.version}</span>{/if}
                 {#each p.kinds as k}<span class="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-dim">{k}</span>{/each}
-                {#if !p.git}<span class="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-dim">hand-made</span>{/if}
+                {#if p.bundled}<span class="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-dim" title="Comes with ewe — removing it is remembered; a later ewe update will not bring it back">bundled</span>
+                {:else if !p.git}<span class="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-dim">hand-made</span>{/if}
               </div>
               <div class="truncate text-xs text-dim dark:text-dim">
                 {#if p.valid}{p.description || p.id}{:else}{p.problems[0]}{/if}
@@ -287,10 +288,10 @@
                 <span class="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-dim">{p.enabled ? "was on" : "was off"}</span>
               </div>
               <div class="truncate text-xs text-dim dark:text-dim">
-                {p.source === "local" ? "a local directory on that machine — nothing to fetch" : p.source}
+                {p.source === "local" ? "a local directory on that machine — nothing to fetch" : p.source === "bundled" ? "comes with ewe — installs with the ewe package" : p.source}
               </div>
             </div>
-            {#if p.source && p.source !== "local"}
+            {#if p.source && p.source !== "local" && p.source !== "bundled"}
               <button class="btn-ghost !py-1 text-xs" on:click={() => install(p)} disabled={busy === p.id}>
                 {busy === p.id ? "Cloning…" : "Install"}
               </button>
