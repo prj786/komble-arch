@@ -34,6 +34,7 @@
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import {
     route,
+    pendingSearch,
     installed,
     progress,
     settings,
@@ -59,6 +60,8 @@
   import AppDetail from "./lib/components/AppDetail.svelte";
   import InstallWizard from "./lib/components/InstallWizard.svelte";
   import Toasts from "./lib/components/Toasts.svelte";
+  import ConflictDialog from "./lib/components/ConflictDialog.svelte";
+  import RestartDialog from "./lib/components/RestartDialog.svelte";
 
   // Always dark. ewe is dark-only by decision (2026-09-01) and Komble paints
   // itself from the DE's tokens, so a light mode was a look nothing else on
@@ -151,7 +154,17 @@
           }
         })
       );
-      unlisteners.push(await listen("navigate", (e) => route.set(e.payload)));
+      // "search:<words>" is a route INTO Discover with the box pre-filled
+      // (the desktop's gnome-software stand-in: GTK's "Find New Applications")
+      const goRoute = (r) => {
+        if (typeof r === "string" && r.startsWith("search:")) {
+          pendingSearch.set(r.slice(7));
+          route.set("discover");
+        } else {
+          route.set(r);
+        }
+      };
+      unlisteners.push(await listen("navigate", (e) => goRoute(e.payload)));
 
       // Files opened WITH Komble (double-click / "Open with" in the file
       // manager) — same destinations as drag & drop.
@@ -168,7 +181,7 @@
       // cold start: the path was stashed before the webview existed
       api.takePendingOpen().then((p) => p && openPath(p)).catch(() => {});
       // `komble --updates` from the DE bar's indicator (cold start)
-      api.takePendingRoute().then((r) => r && route.set(r)).catch(() => {});
+      api.takePendingRoute().then((r) => r && goRoute(r)).catch(() => {});
 
       // Global drag & drop: .AppImage opens the install wizard,
       // a built/downloaded package file jumps to the install view.
@@ -242,3 +255,5 @@
 {/if}
 <InstallWizard />
 <Toasts />
+<ConflictDialog />
+<RestartDialog />

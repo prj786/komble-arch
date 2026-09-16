@@ -71,6 +71,16 @@ export const installedIds = derived(installed, (list) => new Set(list.map((e) =>
 
 // ---------- toasts ----------
 
+// ── after an upgrade ──
+// {level: reboot|logout|shell|komble, reasons: [...], packages: [...]} — the
+// RestartDialog shows it; Updates keeps a card until it is acted on
+export const restartNeed = writable(null);
+// {conflicts: [{keep, remove, reason}], resolve(bool)} — pacman's "Remove Y?"
+// question, asked of the person by ConflictDialog instead of failing quietly
+export const conflictPrompt = writable(null);
+// a search the app was opened INTO (`komble --search=pdf`); Discover consumes it
+export const pendingSearch = writable("");
+
 export const toasts = writable([]);
 let toastId = 0;
 

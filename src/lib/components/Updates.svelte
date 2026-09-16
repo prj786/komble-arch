@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import { listen } from "@tauri-apps/api/event";
-  import { updatesInfo, settings, progress, systemInfo, toast } from "../stores";
+  import { updatesInfo, settings, progress, systemInfo, toast, conflictPrompt, restartNeed } from "../stores";
   import { refreshInstalled } from "../actions";
   import * as api from "../api";
 
@@ -65,7 +65,25 @@
   $: desktopNames = new Set(desktopRows.filter((r) => r.viaRepo).map((r) => r.id));
   $: systemPkgs = $updatesInfo.packages.filter((p) => !desktopNames.has(p.name));
 
+  const restartTitles = {
+    reboot: "Restart the computer to finish updating",
+    logout: "Log out and back in to finish updating",
+    shell: "Restart the desktop shell to finish updating",
+    komble: "Relaunch Komble to run the new version"
+  };
+  const restartButtons = { reboot: "Restart now", logout: "Log out", shell: "Restart the shell", komble: "Relaunch" };
+  async function doRestart() {
+    try {
+      await api.restartAction($restartNeed.level);
+      if ($restartNeed.level === "shell") restartNeed.set(null);
+    } catch (e) {
+      toast(e, "error");
+    }
+  }
+
   onMount(async () => {
+    // a kernel updated by anyone (a terminal pacman, the ISO) still wants a restart
+    api.restartState().then((r) => r && r.level !== "none" && !$restartNeed && restartNeed.set(r)).catch(() => {});
     unlistenEwe = await listen("ewe-update", (e) => {
       const v = e.payload || {};
       const line =
@@ -155,6 +173,24 @@
   // Arch and the most common way to break an install. Repo packages go up as a
   // whole (-Syu) — and since -Syu never touches foreign packages, the AUR ones
   // are then rebuilt one by one, or they would sit in this list forever.
+  // pacman -Syu with its two questions answered by a person: a conflict it
+  // would have asked about becomes a dialog (and, on consent, a rerun that
+  // says yes to exactly that), and anything that is not live until a
+  // restart becomes the restart dialog.
+  async function runSystemUpgrade(acceptRemovals = false) {
+    const r = acceptRemovals ? await api.systemUpgradeAcceptRemovals() : await api.systemUpgrade();
+    if (!r.ok) {
+      if (r.conflicts && r.conflicts.length) {
+        const yes = await new Promise((resolve) => conflictPrompt.set({ conflicts: r.conflicts, resolve }));
+        if (yes) return runSystemUpgrade(true);
+        throw "Update cancelled — nothing was changed.";
+      }
+      throw r.error || "Upgrade failed";
+    }
+    if (r.restart && r.restart.level !== "none") restartNeed.set(r.restart);
+    return r;
+  }
+
   async function systemUpgradeAll() {
     working = true;
     const hasRepo = $updatesInfo.packages.some((p) => p.source === "repo");
@@ -162,7 +198,7 @@
     try {
       if (hasRepo) {
         toast("Upgrading system packages — authentication may be required…", "info");
-        await api.systemUpgrade();
+        await runSystemUpgrade();
       }
       if (hasAur) {
         toast("Rebuilding AUR packages (clone → build → install)…", "info");
@@ -266,6 +302,16 @@
       {/if}
     </div>
   </div>
+
+  {#if $restartNeed && $restartNeed.level !== "none"}
+    <div class="card mb-3 flex items-center gap-3.5 px-4 py-3" style="border-left: 3px solid var(--brand-bg)">
+      <div class="min-w-0 flex-1">
+        <div class="text-sm font-semibold">{restartTitles[$restartNeed.level]}</div>
+        <div class="truncate text-xs text-dim">{$restartNeed.reasons.join(" · ")}</div>
+      </div>
+      <button class="btn-primary !py-1 whitespace-nowrap text-xs" on:click={doRestart}>{restartButtons[$restartNeed.level]}</button>
+    </div>
+  {/if}
 
   <!-- ── the ewe desktop: DE + every first-party app, one Update button ── -->
   {#if desktopRows.length}

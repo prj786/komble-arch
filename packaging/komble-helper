@@ -67,6 +67,15 @@ case "$action" in
         [ $# -eq 0 ] || die "sysupgrade takes no arguments"
         exec pacman -Syu --noconfirm
         ;;
+    # The same upgrade after the person AGREED to the removals pacman asked
+    # about ("X and Y are in conflict. Remove Y?"): --noconfirm answers No to
+    # those and the transaction fails; --ask 4 answers Yes to exactly that
+    # question type (4 = conflict removal — the switch pamac and yay use) and
+    # nothing else. Komble only runs this after showing the list.
+    sysupgrade-remove-conflicts)
+        [ $# -eq 0 ] || die "sysupgrade-remove-conflicts takes no arguments"
+        exec pacman -Syu --noconfirm --ask 4
+        ;;
     *)
         die "unknown action: $action"
         ;;
