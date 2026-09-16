@@ -58,7 +58,9 @@ pub async fn plugin_list() -> Result<Value, String> {
 #[tauri::command]
 pub async fn plugin_add(url: String, enable: bool) -> Result<String, String> {
     let u = url.trim();
-    if !(u.starts_with("https://") || u.starts_with("ssh://") || u.starts_with("git@")) || u.len() > 512 {
+    if !(u.starts_with("https://") || u.starts_with("ssh://") || u.starts_with("git@"))
+        || u.len() > 512
+    {
         return Err("a git URL, please — https://… or git@…".into());
     }
     let mut args = vec!["add", u, "--yes"];

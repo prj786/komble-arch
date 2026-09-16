@@ -811,13 +811,387 @@ impl Drop for UpgradeGuard {
 /// unsupported by design — the Updates view says so rather than offering a
 /// button that quietly breaks the system.
 #[tauri::command]
-pub async fn system_upgrade() -> Result<String, String> {
+pub async fn system_upgrade() -> Result<UpgradeOutcome, String> {
+    run_system_upgrade(false).await
+}
+
+/// The same upgrade after the person agreed to the removals pacman asked
+/// about — see `Conflict`. Only the frontend's conflict dialog calls this.
+#[tauri::command]
+pub async fn system_upgrade_accept_removals() -> Result<UpgradeOutcome, String> {
+    run_system_upgrade(true).await
+}
+
+async fn run_system_upgrade(accept_removals: bool) -> Result<UpgradeOutcome, String> {
     let _guard = UpgradeGuard::acquire()?;
     crate::de::poke_working_now(true).await;
-    let r = run_privileged(vec!["pacman", "-Syu", "--noconfirm"], vec!["sysupgrade"]).await;
+    let r = if accept_removals {
+        run_privileged(
+            vec!["pacman", "-Syu", "--noconfirm", "--ask", "4"],
+            vec!["sysupgrade-remove-conflicts"],
+        )
+        .await
+    } else {
+        run_privileged(vec!["pacman", "-Syu", "--noconfirm"], vec!["sysupgrade"]).await
+    };
     invalidate_index();
     crate::de::poke_working_now(false).await;
-    r
+    match r {
+        Ok(log) => Ok(UpgradeOutcome {
+            ok: true,
+            log,
+            conflicts: vec![],
+            error: String::new(),
+            restart: restart_needed_after_last_upgrade(),
+        }),
+        Err(e) => {
+            // pacman's questions never reach a person here (no terminal), so a
+            // conflict it would have ASKED about became a failed transaction —
+            // hand the question to the UI instead of a red toast of log tail
+            let conflicts = parse_conflicts(&e);
+            if conflicts.is_empty() {
+                return Err(e);
+            }
+            Ok(UpgradeOutcome {
+                ok: false,
+                log: e.clone(),
+                conflicts,
+                error: e,
+                restart: RestartNeed::default(),
+            })
+        }
+    }
+}
+
+// ── what an upgrade came back with ───────────────────────────────────────────
+
+#[derive(serde::Serialize, Clone)]
+pub struct UpgradeOutcome {
+    pub ok: bool,
+    pub log: String,
+    /// removals pacman wanted consent for; non-empty only when `ok` is false
+    pub conflicts: Vec<Conflict>,
+    pub error: String,
+    pub restart: RestartNeed,
+}
+
+/// One "X-1.0 and Y-2.0 are in conflict (reason). Remove Y?" that pacman
+/// would have asked. With --noconfirm the answer is No, the transaction fails
+/// and pacman prints the pairs again in its error output — parsed here.
+#[derive(serde::Serialize, Clone, PartialEq, Debug)]
+pub struct Conflict {
+    pub keep: String,
+    pub remove: String,
+    pub reason: String,
+}
+
+/// "name-1.2.3-1" → "name". Names may carry hyphens; a full version is the
+/// last two dash-separated fields (pkgver-pkgrel), with an optional epoch
+/// inside pkgver that carries no dash.
+fn strip_pkg_version(s: &str) -> String {
+    let s = s.trim();
+    let parts: Vec<&str> = s.rsplitn(3, '-').collect();
+    if parts.len() == 3 && parts[0].chars().all(|c| c.is_ascii_digit()) {
+        parts[2].to_string()
+    } else {
+        s.to_string()
+    }
+}
+
+pub fn parse_conflicts(log: &str) -> Vec<Conflict> {
+    let mut out: Vec<Conflict> = Vec::new();
+    for line in log.lines() {
+        let l = line.trim();
+        let l = l.strip_prefix(":: ").unwrap_or(l).trim();
+        let Some(idx) = l.find(" are in conflict") else {
+            continue;
+        };
+        let Some((a, b)) = l[..idx].split_once(" and ") else {
+            continue;
+        };
+        let rest = &l[idx + " are in conflict".len()..];
+        let reason = rest
+            .trim()
+            .strip_prefix('(')
+            .and_then(|r| r.split(')').next())
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        // pacman names the loser after "Remove "; in the error listing the
+        // second package is the installed one that would go
+        let loser = rest
+            .split("Remove ")
+            .nth(1)
+            .and_then(|r| r.split('?').next())
+            .map(strip_pkg_version)
+            .unwrap_or_else(|| strip_pkg_version(b));
+        let (a, b) = (strip_pkg_version(a), strip_pkg_version(b));
+        let keep = if loser == a { b } else { a };
+        if !out.iter().any(|c| c.remove == loser) {
+            out.push(Conflict {
+                keep,
+                remove: loser,
+                reason,
+            });
+        }
+    }
+    out
+}
+
+// ── after an upgrade: is anything not live until something restarts? ────────
+
+/// `level`: "reboot" > "logout" > "shell" > "komble" > "none". `reasons` are
+/// sentences for the dialog; `packages` the names that triggered them.
+#[derive(serde::Serialize, Clone, Default)]
+pub struct RestartNeed {
+    pub level: String,
+    pub reasons: Vec<String>,
+    pub packages: Vec<String>,
+}
+
+fn level_rank(l: &str) -> u8 {
+    match l {
+        "reboot" => 4,
+        "logout" => 3,
+        "shell" => 2,
+        "komble" => 1,
+        _ => 0,
+    }
+}
+
+/// The small table of what a package needs to become live. Everything else
+/// is picked up by the next launch of the app that uses it.
+fn restart_level_for(pkg: &str) -> Option<(&'static str, &'static str)> {
+    const REBOOT: &[&str] = &[
+        "linux",
+        "linux-lts",
+        "linux-zen",
+        "linux-hardened",
+        "linux-rt",
+        "linux-rt-lts",
+        "linux-firmware",
+        "systemd",
+        "systemd-libs",
+        "glibc",
+        "dbus",
+        "dbus-broker",
+        "intel-ucode",
+        "amd-ucode",
+        "plymouth",
+    ];
+    const LOGOUT: &[&str] = &[
+        "hyprland",
+        "aquamarine",
+        "hyprutils",
+        "hyprlang",
+        "hyprcursor",
+        "hyprgraphics",
+        "xdg-desktop-portal",
+        "xdg-desktop-portal-hyprland",
+        "xdg-desktop-portal-gtk",
+        "xorg-xwayland",
+        "wayland",
+        "libinput",
+        "seatd",
+        "pipewire",
+        "pipewire-pulse",
+        "wireplumber",
+        "mesa",
+        "libdrm",
+        "qt6-base",
+        "qt6-declarative",
+        "qt6-wayland",
+    ];
+    const SHELL: &[&str] = &["quickshell", "ewe"];
+    if REBOOT.contains(&pkg) || pkg.starts_with("nvidia") || pkg.starts_with("linux-firmware") {
+        Some((
+            "reboot",
+            "runs at boot — the running system still has the old one",
+        ))
+    } else if LOGOUT.contains(&pkg) || pkg.starts_with("vulkan-") {
+        Some(("logout", "is part of the running session"))
+    } else if SHELL.contains(&pkg) {
+        Some(("shell", "is the desktop shell"))
+    } else if pkg == "komble" {
+        Some(("komble", "is this app"))
+    } else {
+        None
+    }
+}
+
+fn os_release() -> String {
+    std::fs::read_to_string("/proc/sys/kernel/osrelease")
+        .unwrap_or_default()
+        .trim()
+        .to_string()
+}
+
+/// The kernel signal that does not depend on who ran the upgrade: the running
+/// kernel's module directory is gone once a newer kernel package replaced it.
+fn running_kernel_modules_missing() -> bool {
+    let r = os_release();
+    !r.is_empty() && !std::path::Path::new("/usr/lib/modules").join(&r).is_dir()
+}
+
+/// What the LAST full upgrade in pacman.log touched, judged against the
+/// table above; plus the kernel check. pacman.log is world-readable.
+pub fn restart_needed_after_last_upgrade() -> RestartNeed {
+    let log = std::fs::read_to_string("/var/log/pacman.log").unwrap_or_default();
+    // entries after the last "starting full system upgrade" line
+    let start = log
+        .rfind("[PACMAN] starting full system upgrade")
+        .unwrap_or(log.len());
+    let mut touched: Vec<String> = Vec::new();
+    for line in log[start..].lines() {
+        let Some(rest) = line.split("[ALPM] ").nth(1) else {
+            continue;
+        };
+        for verb in ["upgraded ", "installed ", "removed ", "reinstalled "] {
+            if let Some(r) = rest.strip_prefix(verb) {
+                if let Some(name) = r.split(' ').next() {
+                    if !touched.iter().any(|t| t == name) {
+                        touched.push(name.to_string());
+                    }
+                }
+            }
+        }
+    }
+    classify_restart(&touched, running_kernel_modules_missing())
+}
+
+pub fn classify_restart(touched: &[String], kernel_modules_missing: bool) -> RestartNeed {
+    let mut need = RestartNeed {
+        level: "none".into(),
+        reasons: vec![],
+        packages: vec![],
+    };
+    for p in touched {
+        if let Some((lvl, why)) = restart_level_for(p) {
+            if level_rank(lvl) > level_rank(&need.level) {
+                need.level = lvl.into();
+            }
+            need.reasons.push(format!("{p} {why}"));
+            need.packages.push(p.clone());
+        }
+    }
+    if kernel_modules_missing {
+        need.level = "reboot".into();
+        need.reasons.insert(
+            0,
+            "the running kernel's modules are gone — a newer kernel is installed".into(),
+        );
+    }
+    need
+}
+
+/// The state-only check for the Updates view on open: a kernel updated by
+/// anyone (a terminal `pacman -Syu`, the ISO) still wants a restart.
+#[tauri::command]
+pub async fn restart_state() -> RestartNeed {
+    classify_restart(&[], running_kernel_modules_missing())
+}
+
+/// The dialog's buttons. "shell" re-deploys the ewe payload (ewe-setup —
+/// what the ewe package's post-upgrade note asks for) and restarts the shell
+/// service; "logout" goes through the DE's own script when there is one,
+/// so the session ends the way the power menu ends it.
+#[tauri::command]
+pub async fn restart_action(app: tauri::AppHandle, kind: String) -> Result<(), String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    match kind.as_str() {
+        "reboot" => {
+            Command::new("systemctl")
+                .arg("reboot")
+                .spawn()
+                .map_err(estr)?;
+        }
+        "logout" => {
+            let power = format!("{home}/.config/hypr/scripts/power.sh");
+            if std::path::Path::new(&power).is_file() {
+                Command::new("bash")
+                    .arg(&power)
+                    .arg("logout")
+                    .spawn()
+                    .map_err(estr)?;
+            } else {
+                let sid = std::env::var("XDG_SESSION_ID").unwrap_or_default();
+                if sid.is_empty() {
+                    return Err("no session id — log out from the power menu".into());
+                }
+                Command::new("loginctl")
+                    .args(["terminate-session", &sid])
+                    .spawn()
+                    .map_err(estr)?;
+            }
+        }
+        "shell" => {
+            Command::new("sh")
+                .args([
+                    "-c",
+                    "command -v ewe-setup >/dev/null 2>&1 && ewe-setup >/dev/null 2>&1; \
+                     systemctl --user restart ewe.service 2>/dev/null; \
+                     command -v hyprctl >/dev/null 2>&1 && hyprctl reload >/dev/null 2>&1; exit 0",
+                ])
+                .spawn()
+                .map_err(estr)?;
+        }
+        "komble" => {
+            app.restart();
+        }
+        _ => return Err(format!("unknown restart action {kind:?}")),
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod restart_tests {
+    use super::*;
+
+    #[test]
+    fn conflicts_from_pacman_error_listing() {
+        let log = "resolving dependencies...\nlooking for conflicting packages...\n:: jack2-1.9.22-1 and pipewire-jack-1:1.4.7-1 are in conflict (jack). Remove pipewire-jack? [y/N] \nerror: unresolvable package conflicts detected\nerror: failed to prepare transaction (conflicting dependencies)\n:: jack2-1.9.22-1 and pipewire-jack-1:1.4.7-1 are in conflict (jack)\n";
+        let c = parse_conflicts(log);
+        assert_eq!(c.len(), 1);
+        assert_eq!(c[0].keep, "jack2");
+        assert_eq!(c[0].remove, "pipewire-jack");
+        assert_eq!(c[0].reason, "jack");
+    }
+
+    #[test]
+    fn conflicts_with_hyphenated_names() {
+        let c = parse_conflicts(":: xdg-desktop-portal-hyprland-1.4.1-2 and xdg-desktop-portal-wlr-0.7.1-1 are in conflict\n");
+        assert_eq!(c[0].keep, "xdg-desktop-portal-hyprland");
+        assert_eq!(c[0].remove, "xdg-desktop-portal-wlr");
+    }
+
+    #[test]
+    fn no_conflicts_in_plain_failure() {
+        assert!(parse_conflicts("error: failed retrieving file 'core.db'\n").is_empty());
+    }
+
+    #[test]
+    fn restart_levels() {
+        let t = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            classify_restart(&t(&["firefox", "vim"]), false).level,
+            "none"
+        );
+        assert_eq!(classify_restart(&t(&["quickshell"]), false).level, "shell");
+        assert_eq!(
+            classify_restart(&t(&["hyprland", "ewe"]), false).level,
+            "logout"
+        );
+        assert_eq!(
+            classify_restart(&t(&["linux", "hyprland"]), false).level,
+            "reboot"
+        );
+        assert_eq!(
+            classify_restart(&t(&["nvidia-utils"]), false).level,
+            "reboot"
+        );
+        assert_eq!(classify_restart(&t(&[]), true).level, "reboot");
+        assert_eq!(classify_restart(&t(&["komble"]), false).level, "komble");
+    }
 }
 
 /// Rebuild every outdated AUR package. `pacman -Syu` never touches foreign

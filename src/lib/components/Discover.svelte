@@ -1,5 +1,5 @@
 <script>
-  import { catalog, catalogLoading, catalogError } from "../stores";
+  import { catalog, catalogLoading, catalogError, pendingSearch } from "../stores";
   import { searchCatalog } from "../fuzzy";
   import { loadCatalog } from "../actions";
   import * as api from "../api";
@@ -14,6 +14,11 @@
   const dec = (v) => (v === ALL ? "" : v);
 
   let query = "";
+  // opened INTO a search (`komble --search=pdf`): fill the box once
+  $: if ($pendingSearch) {
+    query = $pendingSearch;
+    pendingSearch.set("");
+  }
   let category = "";
   let source = "all"; // all | appimage | pkg | aur
   let pkgRepo = "";

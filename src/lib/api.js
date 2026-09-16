@@ -39,6 +39,9 @@ export const refreshLists = () => invoke("refresh_lists");
 // There is no per-REPO-package upgrade on purpose — a partial upgrade is
 // unsupported on a rolling release. The only repo upgrade is the whole system.
 export const systemUpgrade = () => invoke("system_upgrade");
+export const systemUpgradeAcceptRemovals = () => invoke("system_upgrade_accept_removals");
+export const restartState = () => invoke("restart_state");
+export const restartAction = (kind) => invoke("restart_action", { kind });
 // -Syu never touches foreign packages: AUR ones are rebuilt separately, each
 // through the same clone → makepkg → pacman -U pipeline as an install.
 export const aurUpgrade = () => invoke("aur_upgrade");

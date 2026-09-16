@@ -25,8 +25,28 @@ fn route_arg(arg: &str) -> Option<String> {
     match arg {
         "--updates" => Some("updates".into()),
         "--settings" => Some("settings".into()),
-        _ => None,
+        // `komble --search=pdf` — the desktop's gnome-software stand-in sends
+        // GTK's "Find New Applications" here with the file/link type as words
+        _ => arg
+            .strip_prefix("--search=")
+            .map(|q| format!("search:{}", q.trim())),
     }
+}
+
+/// `--search=q` or `--search q` from an argv (the first route wins).
+fn route_from_args<I: IntoIterator<Item = String>>(args: I) -> Option<String> {
+    let v: Vec<String> = args.into_iter().collect();
+    let mut i = 0;
+    while i < v.len() {
+        if v[i] == "--search" && i + 1 < v.len() {
+            return Some(format!("search:{}", v[i + 1].trim()));
+        }
+        if let Some(r) = route_arg(&v[i]) {
+            return Some(r);
+        }
+        i += 1;
+    }
+    None
 }
 
 #[tauri::command]
@@ -165,7 +185,7 @@ pub fn run() {
             *g = Some(p);
         }
     }
-    if let Some(r) = std::env::args().skip(1).find_map(|a| route_arg(&a)) {
+    if let Some(r) = route_from_args(std::env::args().skip(1)) {
         if let Ok(mut g) = PENDING_ROUTE.lock() {
             *g = Some(r);
         }
@@ -180,8 +200,9 @@ pub fn run() {
             if let Some(p) = args.iter().skip(1).find_map(|a| openable_path(a)) {
                 let _ = app.emit("open-file", p);
             }
-            // `komble --updates` from the bar indicator while already running
-            if let Some(r) = args.iter().skip(1).find_map(|a| route_arg(a)) {
+            // `komble --updates` from the bar indicator, or `--search=…` from
+            // the desktop's store stand-in, while already running
+            if let Some(r) = route_from_args(args.iter().skip(1).cloned()) {
                 let _ = app.emit("navigate", r);
             }
         }))
@@ -250,6 +271,9 @@ pub fn run() {
             // aur_upgrade rebuilds foreign packages, which -Syu never touches.
             pacman::list_upgradable,
             pacman::system_upgrade,
+            pacman::system_upgrade_accept_removals,
+            pacman::restart_state,
+            pacman::restart_action,
             pacman::aur_upgrade,
             pacman::refresh_lists,
             // first-party ewe apps + the desktop itself
