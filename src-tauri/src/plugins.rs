@@ -99,3 +99,103 @@ pub async fn plugin_remove(id: String) -> Result<String, String> {
 pub async fn plugin_restore() -> Result<String, String> {
     run(&["restore", "--yes"]).await
 }
+
+/// `ewe-plugin create`: a new plugin repository (manifest, one working QML
+/// per kind, README, licence, git init) in `dir`. The UI's "New plugin…".
+#[tauri::command]
+pub async fn plugin_create(
+    id: String,
+    name: String,
+    kinds: Vec<String>,
+    dir: String,
+) -> Result<String, String> {
+    check_id(&id)?;
+    if !id.contains('.') {
+        return Err("id must be <namespace>.<name>".into());
+    }
+    const KINDS: &[&str] = &[
+        "service",
+        "panel",
+        "overlay",
+        "menu",
+        "bar-widget",
+        "desktop-widget",
+    ];
+    if kinds.is_empty() || kinds.iter().any(|k| !KINDS.contains(&k.as_str())) {
+        return Err("pick at least one kind".into());
+    }
+    let dir = dir.trim();
+    if dir.is_empty() || !dir.starts_with('/') || dir.len() > 512 {
+        return Err("an absolute folder to create it in, please".into());
+    }
+    let name = if name.trim().is_empty() {
+        id.clone()
+    } else {
+        name.trim().to_string()
+    };
+    let kinds = kinds.join(",");
+    let dest = format!("{}/{}", dir.trim_end_matches('/'), id);
+    run(&[
+        "create", &id, "--name", &name, "--kinds", &kinds, "--dir", &dest,
+    ])
+    .await?;
+    Ok(dest)
+}
+
+/// A declared setting's value (typed by the plugin's manifest; ewe-plugin
+/// refuses anything that does not fit). Live — the shell re-reads.
+#[tauri::command]
+pub async fn plugin_set(id: String, key: String, value: String) -> Result<String, String> {
+    check_id(&id)?;
+    if key.is_empty()
+        || key.len() > 32
+        || !key
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+    {
+        return Err("bad setting key".into());
+    }
+    if value.len() > 512 {
+        return Err("value too long".into());
+    }
+    run(&["set", &id, &key, &value]).await
+}
+
+/// A desktop widget's layer (desktop | top = sticky) or visibility. Live.
+#[tauri::command]
+pub async fn plugin_place(
+    id: String,
+    layer: Option<String>,
+    visible: Option<bool>,
+) -> Result<String, String> {
+    check_id(&id)?;
+    let mut args: Vec<String> = vec!["place".into(), id];
+    if let Some(l) = layer {
+        if l != "desktop" && l != "top" {
+            return Err("layer is desktop or top".into());
+        }
+        args.push("--layer".into());
+        args.push(l);
+    }
+    if let Some(v) = visible {
+        args.push("--visible".into());
+        args.push(if v { "on".into() } else { "off".into() });
+    }
+    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    run(&refs).await
+}
+
+/// Arrange mode on the desktop (drag widgets, sticky, hide) — the shell's
+/// `widgets arrange` IPC verb, same as Super+Shift+W.
+#[tauri::command]
+pub async fn plugin_arrange() -> Result<(), String> {
+    let out = tokio::process::Command::new("qs")
+        .args(["ipc", "call", "widgets", "arrange"])
+        .output()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !out.status.success() {
+        return Err("the desktop shell did not answer — is ewe 0.20+ running?".into());
+    }
+    Ok(())
+}

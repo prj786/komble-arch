@@ -6,7 +6,8 @@
   // so the warning stays on screen, not in a modal that gets clicked away.
   // A toggle restarts the shell for a second; Komble is left alone.
   import { onMount, onDestroy } from "svelte";
-  import { openUrl } from "@tauri-apps/plugin-opener";
+  import { openUrl, openPath } from "@tauri-apps/plugin-opener";
+  import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import { toast } from "../stores";
   import * as api from "../api";
   import Toggle from "./ui/Toggle.svelte";
@@ -19,6 +20,14 @@
   let error = "";         // why there is no list (an old desktop, mostly)
   let url = "";
   let enableNew = true;
+  // "New plugin…": ewe-plugin create in a folder of the user's choosing
+  let creating = false;
+  let newId = "";
+  let newName = "";
+  let newKinds = { "bar-widget": true, "desktop-widget": false, panel: false, service: false };
+  let newDir = "";
+  const KIND_LABELS = { "bar-widget": "Bar widget", "desktop-widget": "Desktop widget", panel: "Panel", service: "Service" };
+  let expanded = null;    // id whose settings form is open
   let busy = "";          // id (or "add" / "restore") with a command in flight
   let confirming = null;
   let timer;
@@ -52,6 +61,27 @@
       // the shell restart takes a second; a re-read right after is honest
       setTimeout(load, 1200);
     }
+  }
+
+  async function pickDir() {
+    const d = await openDialog({ directory: true, multiple: false, title: "Create the plugin in…" });
+    if (d) newDir = typeof d === "string" ? d : d.path;
+  }
+  async function create() {
+    const kinds = Object.keys(newKinds).filter((k) => newKinds[k]);
+    if (!newId.trim() || !kinds.length || !newDir) return;
+    await run("create", async () => {
+      const dest = await api.pluginCreate(newId.trim(), newName, kinds, newDir);
+      toast(`Created ${dest} — a git repo; edit the QML, then \`ewe-plugin dev\` it or push it`, "success", 9000);
+      try { await openPath(dest); } catch {}
+      creating = false; newId = ""; newName = "";
+    });
+  }
+  // settings: typed by the manifest; the CLI refuses what does not fit
+  let pending = {};
+  function setSetting(p, key, value) {
+    clearTimeout(pending[p.id + key]);
+    pending[p.id + key] = setTimeout(() => run(p.id, () => api.pluginSet(p.id, key, value), `${p.name || p.id}: ${key} saved`), 350);
   }
 
   function add() {
@@ -137,9 +167,32 @@
     </div>
 
     <div class="section-title">Installed · {installed.length}</div>
+    <div class="mb-3 flex justify-end">
+      <button class="btn-ghost !py-1 text-xs" on:click={() => (creating = !creating)}>{creating ? "Cancel" : "New plugin…"}</button>
+    </div>
+    {#if creating}
+      <div class="card mb-3 p-4">
+        <div class="mb-2 text-sm font-medium">A new plugin repository</div>
+        <p class="mb-3 text-xs text-dim">You get a working plugin per kind, a README that explains the contract, an MIT licence and a first commit. You write the QML; ewe places it, and shows its settings as a form here.</p>
+        <div class="grid gap-2 sm:grid-cols-2">
+          <input class="input" placeholder="id — namespace.name, e.g. acme.clock" bind:value={newId} />
+          <input class="input" placeholder="Name (optional)" bind:value={newName} />
+        </div>
+        <div class="mt-2 flex flex-wrap gap-3 text-sm">
+          {#each Object.keys(newKinds) as k}
+            <label class="flex items-center gap-1.5"><input type="checkbox" bind:checked={newKinds[k]} /> {KIND_LABELS[k]}</label>
+          {/each}
+        </div>
+        <div class="mt-2 flex items-center gap-2">
+          <button class="btn-ghost !py-1 text-xs" on:click={pickDir}>{newDir ? "Folder: " + newDir : "Choose a folder…"}</button>
+          <span class="flex-1"></span>
+          <button class="btn-primary !py-1 text-xs" disabled={busy === "create" || !newId.trim() || !newDir} on:click={create}>Create</button>
+        </div>
+      </div>
+    {/if}
     {#if installed.length === 0}
       <div class="card p-6 text-center text-sm text-dim">
-        No plugins yet — paste a git URL above, or start from the reference plugin.
+        No plugins yet — paste a git URL above, start from the reference plugin, or make one with New plugin…
       </div>
     {:else}
       <div class="flex flex-col gap-2">
@@ -172,9 +225,43 @@
               >
                 {confirming === p.id ? "Really remove?" : "Remove"}
               </button>
+              {#if (p.settingsSchema && p.settingsSchema.length) || p.widget}
+                <button class="btn-ghost !py-1 text-xs" on:click={() => (expanded = expanded === p.id ? null : p.id)}>{expanded === p.id ? "Close" : "Options"}</button>
+              {/if}
               <Toggle on={p.enabled} disabled={!p.valid} toggled={() => setEnabled(p, !p.enabled)} />
             {/if}
           </div>
+          {#if expanded === p.id}
+            <div class="card -mt-1 flex flex-col gap-3 px-4 py-3">
+              {#if p.widget}
+                <div class="flex flex-wrap items-center gap-3 text-sm">
+                  <span class="font-medium">On the desktop</span>
+                  <button class="btn-ghost !py-1 text-xs" on:click={() => run(p.id, () => api.pluginArrange(), "Arrange mode — drag on the desktop, Esc when done")}>Arrange…</button>
+                  <label class="flex items-center gap-2 text-xs"><span>Sticky (above windows)</span><Toggle on={p.widget.layer === "top"} toggled={() => run(p.id, () => api.pluginPlace(p.id, p.widget.layer === "top" ? "desktop" : "top", null), "Saved")} /></label>
+                  <label class="flex items-center gap-2 text-xs"><span>Shown</span><Toggle on={p.widget.visible !== false} toggled={() => run(p.id, () => api.pluginPlace(p.id, null, p.widget.visible === false), "Saved")} /></label>
+                  <span class="text-xs text-dim">at {p.widget.x}, {p.widget.y}{p.widget.output ? " on " + p.widget.output : ""}</span>
+                </div>
+              {/if}
+              {#each p.settingsSchema || [] as s (s.key)}
+                <label class="flex items-center gap-3 text-sm">
+                  <span class="min-w-0 flex-1 truncate">{s.label || s.key}</span>
+                  {#if s.type === "bool"}
+                    <Toggle on={!!p.settings[s.key]} toggled={() => setSetting(p, s.key, !p.settings[s.key])} />
+                  {:else if s.type === "int"}
+                    <input class="input w-24" type="number" min={s.min} max={s.max} value={p.settings[s.key]} on:change={(e) => setSetting(p, s.key, e.currentTarget.value)} />
+                  {:else if s.type === "choice"}
+                    <select class="input w-40" value={p.settings[s.key]} on:change={(e) => setSetting(p, s.key, e.currentTarget.value)}>
+                      {#each s.choices || [] as c}<option value={c}>{c}</option>{/each}
+                    </select>
+                  {:else if s.type === "color"}
+                    <input type="color" class="h-7 w-9 cursor-pointer rounded-md border-0 bg-transparent p-0" value={p.settings[s.key]} on:change={(e) => setSetting(p, s.key, e.currentTarget.value)} />
+                  {:else}
+                    <input class="input w-48" value={p.settings[s.key] ?? ""} on:change={(e) => setSetting(p, s.key, e.currentTarget.value)} />
+                  {/if}
+                </label>
+              {/each}
+            </div>
+          {/if}
         {/each}
       </div>
     {/if}
