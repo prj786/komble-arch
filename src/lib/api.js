@@ -144,6 +144,10 @@ export const pluginSetEnabled = (id, on) => invoke("plugin_set_enabled", { id, o
 export const pluginUpdate = (id) => invoke("plugin_update", { id: id || null });
 export const pluginRemove = (id) => invoke("plugin_remove", { id });
 export const pluginRestore = () => invoke("plugin_restore");
+export const pluginCreate = (id, name, kinds, dir) => invoke("plugin_create", { id, name, kinds, dir });
+export const pluginSet = (id, key, value) => invoke("plugin_set", { id, key, value: String(value) });
+export const pluginPlace = (id, layer = null, visible = null) => invoke("plugin_place", { id, layer, visible });
+export const pluginArrange = () => invoke("plugin_arrange");
 export const manifestDump = () => invoke("manifest_dump");
 
 /** the generated look, from ewe-theme.conf — injected at runtime by App.svelte */
