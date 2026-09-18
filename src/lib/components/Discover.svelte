@@ -6,6 +6,10 @@
   import VirtualGrid from "./VirtualGrid.svelte";
   import AppCard from "./AppCard.svelte";
   import * as Select from "./ui/select/index.js";
+  import Page from "./ui/Page.svelte";
+  import Seg from "./ui/Seg.svelte";
+  import SearchField from "./ui/SearchField.svelte";
+  import Icon from "./ui/Icon.svelte";
 
   // "" is a real value here (= no filter), but bits-ui reads "" as "nothing
   // selected" — so it travels under a sentinel, same as ui/SelectRow.svelte.
@@ -55,6 +59,26 @@
       : source === "pkg" || source === "aur"
         ? pkgResults
         : [...aiResults, ...pkgResults];
+
+  $: q2 = query.trim();
+  $: subtitle =
+    source === "pkg"
+      ? pkgSearching && !indexReady
+        ? "Building the package index…"
+        : pkgSearching
+          ? "Searching…"
+          : `${pkgTotal.toLocaleString()} packages${pkgResults.length < pkgTotal ? ` · showing the first ${pkgResults.length.toLocaleString()}` : ""}`
+      : source === "aur"
+        ? pkgSearching
+          ? "Searching the AUR…"
+          : q2.length >= 2
+            ? `${pkgTotal.toLocaleString()} AUR package${pkgTotal === 1 ? "" : "s"}`
+            : "User-submitted packages, built from source after you review them"
+        : $catalogLoading
+          ? "Loading the catalog…"
+          : q2
+            ? `${merged.length.toLocaleString()} result${merged.length === 1 ? "" : "s"}${pkgSearching ? " · searching the repositories…" : ""}`
+            : `${$catalog.length.toLocaleString()} AppImages from the AM catalog, plus the Arch repositories and the AUR`;
 
   async function loadSections() {
     sectionsLoaded = true;
@@ -142,68 +166,36 @@
   }
 </script>
 
-<div class="flex h-full flex-col px-4 pt-5 sm:px-6 sm:pt-6">
-  <div class="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-    <div class="min-w-0">
-      <h1 class="text-[length:var(--fs-title)] font-semibold leading-tight text-fg">Discover</h1>
-      <p class="text-sm text-dim">
-        {#if source === "pkg"}
-          {#if pkgSearching && !indexReady}
-            Building package index…
-          {:else if pkgSearching}
-            Searching…
-          {:else}
-            {pkgTotal.toLocaleString()} packages{pkgResults.length < pkgTotal
-              ? ` · showing first ${pkgResults.length.toLocaleString()}`
-              : ""}
-          {/if}
-        {:else if source === "aur"}
-          {#if pkgSearching}
-            Searching the AUR…
-          {:else if query.trim().length >= 2}
-            {pkgTotal.toLocaleString()} AUR package{pkgTotal === 1 ? "" : "s"}
-          {:else}
-            User-submitted packages, built from source after review
-          {/if}
-        {:else if $catalogLoading}
-          Loading catalog…
-        {:else if query.trim()}
-          {merged.length.toLocaleString()} result{merged.length === 1 ? "" : "s"}{pkgSearching ? " · searching the repos…" : ""}
-        {:else}
-          {$catalog.length.toLocaleString()} AppImages from the AM catalog · plus the Arch repositories and the AUR
-        {/if}
-      </p>
-    </div>
+<Page title="Discover" desc={subtitle} fill>
+  <svelte:fragment slot="actions">
+    <!-- Button, loading: a Spinner replaces the icon, the label says what runs -->
     <button
-      class="btn-ghost"
-      title="Refresh catalog"
+      class="ewe-btn ewe-btn--secondary"
       disabled={$catalogLoading}
+      aria-busy={$catalogLoading}
       on:click={() => loadCatalog(true)}
     >
-      <svg viewBox="0 0 24 24" class="h-4 w-4 {$catalogLoading ? 'animate-spin' : ''}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-      </svg>
-      Refresh
+      {#if $catalogLoading}
+        <span class="ewe-spinner ewe-spinner--sm ewe-spinner--neutral" aria-hidden="true"></span>Refreshing…
+      {:else}
+        <Icon name="refresh" />Refresh
+      {/if}
     </button>
-  </div>
+  </svelte:fragment>
 
-  <div class="mb-4 flex flex-col gap-3 sm:flex-row">
-    <input
-      class="input flex-1"
-      type="search"
-      placeholder={source === "pkg"
-        ? "Search the Arch repositories…"
-        : source === "aur"
-          ? "Search the AUR…"
-          : "Search AppImages and Arch packages…"}
+  <div class="toolbar">
+    <SearchField
       bind:value={query}
+      placeholder={source === "pkg"
+        ? "Search the Arch repositories"
+        : source === "aur"
+          ? "Search the AUR"
+          : "Search AppImages and Arch packages"}
     />
     {#if source === "pkg"}
       <Select.Root type="single" value={enc(pkgRepo)} onValueChange={(raw) => (pkgRepo = dec(raw))}>
-        <Select.Trigger size="sm" class="w-full sm:w-56">
-          <span data-slot="select-value" class="truncate">{repoLabel}</span>
-        </Select.Trigger>
-        <Select.Content class="max-h-72 p-1">
+        <Select.Trigger class="select-trigger" aria-label="Repository">{repoLabel}</Select.Trigger>
+        <Select.Content>
           {#each repoOpts as [value, label] (enc(value))}
             <Select.Item value={enc(value)} {label} />
           {/each}
@@ -211,78 +203,68 @@
       </Select.Root>
     {:else if source !== "aur"}
       <Select.Root type="single" value={enc(category)} onValueChange={(raw) => (category = dec(raw))}>
-        <Select.Trigger size="sm" class="w-full sm:w-56">
-          <span data-slot="select-value" class="truncate">{catLabel}</span>
-        </Select.Trigger>
-        <Select.Content class="max-h-72 p-1">
+        <Select.Trigger class="select-trigger" aria-label="Category">{catLabel}</Select.Trigger>
+        <Select.Content>
           {#each catOpts as [value, label] (enc(value))}
             <Select.Item value={enc(value)} {label} />
           {/each}
         </Select.Content>
       </Select.Root>
     {/if}
-  </div>
-
-  <div class="mb-5 flex flex-wrap gap-1.5">
-    {#each sources as [id, label]}
-      <button
-        class="chip {source === id ? 'is-active' : ''}"
-        aria-pressed={source === id}
-        on:click={() => (source = id)}
-      >
-        {label}
-      </button>
-    {/each}
+    <!-- the one primary filter of the view: the accent Segmented control -->
+    <Seg options={sources} value={source} label="Source" accent picked={(v) => (source = v)} />
   </div>
 
   {#if source !== "pkg" && source !== "aur" && $catalogLoading}
-    <div class="grid flex-1 grid-cols-[repeat(auto-fill,minmax(280px,1fr))] content-start gap-6 overflow-hidden">
+    <!-- Skeleton: the grid's own shape, nine App cards -->
+    <div class="grid-static" aria-busy="true" aria-label="Loading the catalog">
       {#each Array(9) as _}
-        <div class="card h-[220px] animate-pulse p-6">
-          <div class="flex gap-4">
-            <div class="h-16 w-16 rounded-[var(--radius-control)] bg-[var(--card-hover)]"></div>
-            <div class="flex-1 space-y-2 pt-1">
-              <div class="h-4 w-2/3 rounded bg-[var(--card-hover)]"></div>
-              <div class="h-3 w-1/3 rounded bg-[var(--card-hover)]"></div>
+        <div class="ewe-appcard" aria-hidden="true">
+          <div class="ewe-appcard__top">
+            <span class="ewe-skel ewe-skel--block appicon--lg"></span>
+            <div class="ewe-appcard__titles">
+              <span class="ewe-skel ewe-skel--title w-3/5"></span>
+              <span class="ewe-skel ewe-skel--text w-2/5"></span>
             </div>
           </div>
-          <div class="mt-5 space-y-2">
-            <div class="h-3 w-full rounded bg-[var(--card-hover)]"></div>
-            <div class="h-3 w-4/5 rounded bg-[var(--card-hover)]"></div>
+          <div class="ewe-appcard__summary">
+            <span class="ewe-skel ewe-skel--text"></span>
+            <span class="ewe-skel ewe-skel--text w-11/12"></span>
           </div>
+          <div class="ewe-appcard__foot"><span class="ewe-skel ewe-skel--text w-3/5"></span></div>
         </div>
       {/each}
     </div>
   {:else if source !== "pkg" && source !== "aur" && $catalogError}
-    <div class="flex flex-1 flex-col items-center justify-center gap-3 pb-16 text-center">
-      <div class="text-3xl">⚠️</div>
-      <p class="max-w-md text-sm text-dim">{$catalogError}</p>
-      <button class="btn-primary" on:click={() => loadCatalog(true)}>Try again</button>
+    <div class="ewe-empty" role="alert">
+      <span class="ewe-empty__icon"><Icon name="alert" /></span>
+      <div class="ewe-empty__title">Couldn’t load the catalog</div>
+      <div class="ewe-empty__desc">{$catalogError}</div>
+      <div class="ewe-empty__actions">
+        <button class="ewe-btn ewe-btn--secondary" on:click={() => loadCatalog(true)}>Try again</button>
+      </div>
     </div>
   {:else if merged.length === 0}
-    <div class="flex flex-1 flex-col items-center justify-center gap-2 pb-16 text-center">
+    <div class="ewe-empty" aria-live="polite">
       {#if pkgSearching}
-        <div class="text-3xl">📦</div>
-        <p class="text-sm text-dim">
-          {source === "aur"
-            ? "Searching the AUR…"
-            : indexReady
-              ? "Searching…"
-              : "Building the package index (first time only)…"}
-        </p>
+        <span class="ewe-empty__icon"><span class="ewe-spinner ewe-spinner--xl" aria-hidden="true"></span></span>
+        <div class="ewe-empty__title">
+          {source === "aur" ? "Searching the AUR…" : indexReady ? "Searching…" : "Building the package index…"}
+        </div>
+        {#if !indexReady && source !== "aur"}<div class="ewe-empty__desc">This happens only the first time.</div>{/if}
       {:else if source === "aur" && query.trim().length < 2}
-        <div class="text-3xl">📦</div>
-        <p class="text-sm text-dim">Type at least two characters to search the AUR.</p>
+        <span class="ewe-empty__icon"><Icon name="search" /></span>
+        <div class="ewe-empty__title">Search the AUR</div>
+        <div class="ewe-empty__desc">Type at least two characters.</div>
       {:else}
-        <div class="text-3xl">🔍</div>
-        <p class="text-sm text-dim">Nothing matches “{query}”.</p>
+        <span class="ewe-empty__icon"><Icon name="search" /></span>
+        <div class="ewe-empty__title">No apps match “{query}”</div>
+        <div class="ewe-empty__desc">Check the spelling, or search the AUR.</div>
       {/if}
     </div>
   {:else}
-    <div class="min-h-0 flex-1">
-      <VirtualGrid items={merged} itemHeight={220} gap={24} minCol={280} let:item>
-        <AppCard {item} />
-      </VirtualGrid>
-    </div>
+    <VirtualGrid items={merged} let:item>
+      <AppCard {item} />
+    </VirtualGrid>
   {/if}
-</div>
+</Page>
