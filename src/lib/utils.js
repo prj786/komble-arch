@@ -17,16 +17,18 @@ export function slugify(s) {
   return ((s || "").toLowerCase().match(/[a-z0-9]+/g) || ["app"]).join("-");
 }
 
+// Writing guide: decimal units, one decimal under 10 ("2.1 GB", "84 KB"),
+// a non-breaking space between number and unit.
 export function formatBytes(n) {
   if (!n || n <= 0) return "";
-  const units = ["B", "KB", "MB", "GB"];
+  const units = ["B", "KB", "MB", "GB", "TB"];
   let i = 0;
   let v = n;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
+  while (v >= 1000 && i < units.length - 1) {
+    v /= 1000;
     i++;
   }
-  return `${v.toFixed(v >= 100 || i === 0 ? 0 : 1)} ${units[i]}`;
+  return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)}\u00A0${units[i]}`;
 }
 
 export function formatDate(secs) {

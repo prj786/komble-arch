@@ -81,17 +81,23 @@ export const conflictPrompt = writable(null);
 // a search the app was opened INTO (`komble --search=pdf`); Discover consumes it
 export const pendingSearch = writable("");
 
-export const toasts = writable([]);
+// The Toast (design/system/components/Toast): one at a time, centered at the
+// bottom; a new one replaces the current one. 5 s, 8 s with an action or for
+// a failure, or `ms`; Toasts.svelte pauses the timer while it is hovered or
+// focused. `message` may name the thing in **bold**. The old type names are
+// kept at the call sites: "error" is the danger tone.
+export const currentToast = writable(null);
 let toastId = 0;
+const TONES = { error: "danger", danger: "danger", success: "success", warning: "warning", info: "info" };
 
-export function toast(message, type = "info", ms) {
+export function toast(message, type = "info", ms, action = null) {
   const id = ++toastId;
-  const timeout = ms ?? (type === "error" ? 8000 : 4000);
-  toasts.update((t) => [...t, { id, message: String(message), type }]);
-  setTimeout(() => dismissToast(id), timeout);
+  const tone = TONES[type] || "info";
+  const timeout = ms ?? (action || tone === "danger" ? 8000 : 5000);
+  currentToast.set({ id, message: String(message), tone, action, timeout });
   return id;
 }
 
 export function dismissToast(id) {
-  toasts.update((t) => t.filter((x) => x.id !== id));
+  currentToast.update((t) => (t && (id == null || t.id === id) ? null : t));
 }

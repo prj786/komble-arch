@@ -8,11 +8,6 @@
 	} = $props();
 </script>
 
-<div
-	bind:this={ref}
-	data-slot="select-label"
-	class={cn("px-2 py-1.5 text-xs text-muted-foreground", className)}
-	{...restProps}
->
+<div bind:this={ref} data-slot="select-label" class={cn("ewe-menu__group", className)} {...restProps}>
 	{@render children?.()}
 </div>

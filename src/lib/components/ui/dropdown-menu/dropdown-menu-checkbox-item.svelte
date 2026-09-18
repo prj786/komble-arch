@@ -18,21 +18,17 @@
 	bind:checked
 	bind:indeterminate
 	data-slot="dropdown-menu-checkbox-item"
-	class={cn(
-		"gap-2 rounded-[calc(var(--radius-control)-4px)] py-1.5 pr-8 pl-2 text-sm focus:bg-primary focus:text-primary-foreground focus:**:text-primary-foreground data-inset:pl-8 [&_svg:not([class*='size-'])]:size-4 relative flex cursor-default items-center outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
-		className
-	)}
+	class={cn("ewe-menu__item", className)}
 	{...restProps}
 >
 	{#snippet children({ checked, indeterminate })}
-		<span
-			class="absolute right-2 flex items-center justify-center pointer-events-none"
+		<span class="ewe-menu__check order-last ml-auto"
 			data-slot="dropdown-menu-checkbox-item-indicator"
 		>
 			{#if indeterminate}
-				<span class="block h-[1.5px] w-2.5 rounded-full bg-current"></span>
+				<Icon name="minus" />
 			{:else if checked}
-				<Icon code={ICONS.check} size={12} />
+				<Icon name="check" />
 			{/if}
 		</span>
 		{@render childrenProp?.()}

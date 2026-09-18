@@ -1,52 +1,33 @@
 <script>
+	// Slider (design/system/components/Slider): bits-ui for pointer, keyboard
+	// and ARIA; .ewe-slider__track / __fill / __thumb for the look. The root
+	// is a control-sm tall hit area around the 4px track, so the track is easy
+	// to grab. bits-ui positions the fill and thumb inline (left / right /
+	// translate), which is why the thumb only keeps its vertical centring here.
 	import { Slider as SliderPrimitive } from "bits-ui";
 	import { cn } from "$lib/utils.js";
 
 	let {
 		ref = $bindable(null),
 		value = $bindable(),
-		orientation = "horizontal",
 		class: className,
 		...restProps
 	} = $props();
 </script>
 
-<!--
-Discriminated Unions + Destructing (required for bindable) do not
-get along, so we shut typescript up by casting `value` to `never`.
--->
 <SliderPrimitive.Root
 	bind:ref
-	bind:value={value}
+	bind:value
 	data-slot="slider"
-	{orientation}
-	class={cn(
-		"data-vertical:min-h-40 relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-vertical:h-full data-vertical:w-auto data-vertical:flex-col",
-		className
-	)}
+	class={cn("slider-hit", className)}
 	{...restProps}
 >
 	{#snippet children({ thumbItems })}
-		<span
-			data-slot="slider-track"
-			data-orientation={orientation}
-			class={cn(
-				"rounded-full bg-muted data-horizontal:h-1.5 data-horizontal:w-full data-vertical:h-full data-vertical:w-1.5 relative grow overflow-hidden bg-muted data-horizontal:w-full data-vertical:h-full"
-			)}
-		>
-			<SliderPrimitive.Range
-				data-slot="slider-range"
-				class={cn(
-					"bg-primary absolute select-none data-horizontal:h-full data-vertical:w-full"
-				)}
-			/>
+		<span class="ewe-slider__track" data-slot="slider-track">
+			<SliderPrimitive.Range data-slot="slider-range" class="ewe-slider__fill" />
 		</span>
 		{#each thumbItems as thumb (thumb.index)}
-			<SliderPrimitive.Thumb
-				data-slot="slider-thumb"
-				index={thumb.index}
-				class="size-4 rounded-full bg-foreground transition-[background-color,box-shadow] duration-150 hover:bg-[var(--fg-2)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden block shrink-0 select-none disabled:pointer-events-none disabled:opacity-50"
-			/>
+			<SliderPrimitive.Thumb data-slot="slider-thumb" index={thumb.index} class="ewe-slider__thumb" />
 		{/each}
 	{/snippet}
 </SliderPrimitive.Root>

@@ -2,6 +2,8 @@
   import { onMount } from "svelte";
   import { getVersion } from "@tauri-apps/api/app";
   import { route, updatesCount } from "../stores";
+  import sheep from "../../assets/sheep.svg?raw";
+  import Icon from "./ui/Icon.svelte";
 
   // Real app version, not a hardcoded string that goes stale on release.
   let version = "";
@@ -13,65 +15,77 @@
     }
   });
 
-  // Lucide codepoints — same icon language as the ewe DE
+  // The side navigation (Side navigation card). Lucide glyphs from the same
+  // font the shell uses; sentence case.
   const items = [
-    { id: "discover", label: "Discover", icon: 0xE09B },   // compass
-    { id: "foryou", label: "For you", icon: 0xE19F },      // user
-    { id: "installed", label: "Installed", icon: 0xE129 }, // package
-    { id: "plugins", label: "Plugins", icon: 0xE29C },     // puzzle
-    { id: "updates", label: "Updates", icon: 0xE145 },     // arrows-clockwise
-    { id: "aur", label: "AUR", icon: 0xE0B2 },             // download-simple
-    { id: "settings", label: "Settings", icon: 0xE29A }    // faders
+    { id: "discover", label: "Discover", icon: "compass" },
+    { id: "foryou", label: "For you", icon: "user" },
+    { id: "installed", label: "Installed", icon: "package" },
+    { id: "plugins", label: "Plugins", icon: "puzzle" },
+    { id: "updates", label: "Updates", icon: "refresh" },
+    { id: "aur", label: "AUR", icon: "download" },
+    { id: "settings", label: "Settings", icon: "sliders" }
   ];
+
+  // Up and Down move between sections; Ctrl+1 … Ctrl+7 jump to them.
+  let navItems = [];
+  function navKey(e, i) {
+    const d = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+    if (!d) return;
+    e.preventDefault();
+    const n = (i + d + items.length) % items.length;
+    navItems[n]?.focus();
+    route.set(items[n].id);
+  }
+  function globalKey(e) {
+    if (e.ctrlKey && !e.altKey && !e.shiftKey && /^[1-9]$/.test(e.key)) {
+      const it = items[Number(e.key) - 1];
+      if (it) {
+        e.preventDefault();
+        route.set(it.id);
+      }
+    }
+  }
+  // "99+" above 99 (Badge card)
+  $: count = $updatesCount > 99 ? "99+" : String($updatesCount);
 </script>
 
-<!-- Collapses to an icon rail on narrow windows (tiled half/quarter screens). -->
-<!-- .rail / .rail-* — the chrome shared with ewe-settings and ewe-sync (app.css) -->
-<aside class="rail">
-  <div class="rail-brand">
-    <!-- the kombali — a shepherd's crook; Komble herds your apps -->
-    <div
-      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-[var(--fg-on-brand)]"
-      style="background: linear-gradient(135deg, var(--komble-mark-a), var(--komble-mark-b))"
-    >
-      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14.5 21V8a3.5 3.5 0 0 0-7 0v1.5" />
-      </svg>
-    </div>
-    <div class="rail-brand-name">Komble</div>
+<svelte:window on:keydown={globalKey} />
+
+<!-- the rail: the navigation landmark (App shell, Side navigation); below
+     720px of window width it collapses to icons -->
+<nav class="ewe-sidenav" aria-label="Komble sections">
+  <div class="ewe-sidenav__brand">
+    <span class="ewe-sidenav__logo" aria-hidden="true">{@html sheep}</span>
+    <span class="ewe-sidenav__name">Komble</span>
   </div>
 
-  <nav class="rail-nav">
-    {#each items as it}
+  <div class="ewe-sidenav__group">
+    {#each items as it, i (it.id)}
+      {@const n = it.id === "updates" ? $updatesCount : 0}
       <button
+        bind:this={navItems[i]}
+        class="ewe-navitem"
+        class:is-selected={$route === it.id}
+        aria-current={$route === it.id ? "page" : undefined}
+        aria-label={n ? `${it.label}, ${n} available` : undefined}
         title={it.label}
-        class="rail-item {$route === it.id ? 'is-active' : ''}"
         on:click={() => route.set(it.id)}
+        on:keydown={(e) => navKey(e, i)}
       >
-        <span class="icon">{String.fromCodePoint(it.icon)}</span>
-        <span class="rail-label">{it.label}</span>
-        {#if it.id === "updates" && $updatesCount > 0}
-          <span
-            class="hidden rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none md:inline
-              {$route === it.id
-                ? 'bg-[color-mix(in_srgb,var(--fg-on-brand)_25%,transparent)] text-[var(--fg-on-brand)]'
-                : 'text-[var(--fg-on-brand)]'}"
-            style={$route === it.id ? "" : "background: var(--brand-bg)"}
-          >
-            {$updatesCount}
-          </span>
-          <!-- icon-rail equivalent of the count badge -->
-          <span
-            class="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full md:hidden
-              {$route === it.id ? 'bg-[var(--fg-on-brand)]' : ''}"
-            style={$route === it.id ? "" : "background: var(--brand-bg)"}
-          ></span>
+        <Icon name={it.icon} />
+        <span class="ewe-navitem__label">{it.label}</span>
+        {#if n}
+          <!-- a count for updates is the solid accent Badge (Badge card) -->
+          <span class="ewe-badge ewe-badge--accent ewe-badge--solid"><span class="ewe-badge__label">{count}</span></span>
+          <span class="ewe-badge ewe-badge--accent ewe-badge--solid ewe-badge--dot ewe-badge--ring ewe-navitem__dot" aria-hidden="true"></span>
         {/if}
       </button>
     {/each}
-  </nav>
-
-  <div class="rail-foot">
-    Komble{version ? ` ${version}` : ""} · no snap, no flatpak
   </div>
-</aside>
+
+  <div class="ewe-sidenav__foot">
+    <div class="ewe-sidenav__version">Komble{version ? ` ${version}` : ""}</div>
+    <p class="ewe-sidenav__tagline">No snap, no flatpak</p>
+  </div>
+</nav>

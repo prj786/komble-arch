@@ -2,39 +2,58 @@
   // pacman's "X and Y are in conflict. Remove Y?" — the question it would have
   // asked in a terminal, asked here. Store-driven like AppDetail: the Updates
   // view puts {conflicts, resolve} in conflictPrompt and awaits the answer.
+  // Dialog card, destructive: a danger icon and button that name what goes,
+  // focus on Cancel, Esc cancels, a click on the scrim does nothing.
+  import { AlertDialog } from "bits-ui";
   import { conflictPrompt } from "../stores";
+  import Icon from "./ui/Icon.svelte";
   const answer = (yes) => {
     const p = $conflictPrompt;
     conflictPrompt.set(null);
     p && p.resolve(yes);
   };
+  $: n = $conflictPrompt ? $conflictPrompt.conflicts.length : 0;
+  let cancelBtn;
 </script>
 
-<svelte:window on:keydown={(e) => $conflictPrompt && e.key === "Escape" && answer(false)} />
-
 {#if $conflictPrompt}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true">
-    <div class="card flex w-full max-w-lg flex-col overflow-hidden !bg-white shadow-2xl dark:!bg-[var(--bg-3)]">
-      <div class="border-b border-hairline p-5">
-        <h2 class="text-base font-semibold">This update removes {$conflictPrompt.conflicts.length === 1 ? "a package" : `${$conflictPrompt.conflicts.length} packages`}</h2>
-        <p class="mt-1 text-sm text-dim">
-          A newer package replaces or conflicts with something installed. pacman would ask you in a terminal; nothing has been changed yet.
-        </p>
-      </div>
-      <div class="flex flex-col gap-2 p-5">
-        {#each $conflictPrompt.conflicts as c (c.remove)}
-          <div class="flex items-center gap-3 rounded-xl bg-elevated px-3 py-2 text-sm">
-            <span class="font-mono font-semibold">{c.remove}</span>
-            <span class="text-dim">→ removed, replaced by</span>
-            <span class="font-mono">{c.keep}</span>
-            {#if c.reason}<span class="ml-auto text-xs text-dim">{c.reason}</span>{/if}
+  <AlertDialog.Root open={true} onOpenChange={(v) => !v && answer(false)}>
+    <AlertDialog.Portal>
+      <AlertDialog.Overlay class="scrim" />
+      <AlertDialog.Content
+        class="ewe-dialog is-floating"
+        interactOutsideBehavior="ignore"
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          cancelBtn?.focus();
+        }}
+      >
+        <div class="ewe-dialog__head">
+          <span class="ewe-dialog__icon ewe-dialog__icon--danger"><Icon name="warning" /></span>
+          <div class="ewe-dialog__titles">
+            <AlertDialog.Title class="ewe-dialog__title">Remove {n === 1 ? "a package" : `${n} packages`} to finish the update?</AlertDialog.Title>
+            <AlertDialog.Description class="ewe-dialog__desc">
+              A newer package replaces or conflicts with something installed. pacman would ask in a terminal; nothing has changed yet.
+            </AlertDialog.Description>
           </div>
-        {/each}
-      </div>
-      <div class="flex justify-end gap-2 border-t border-hairline p-4">
-        <button class="btn-ghost" on:click={() => answer(false)}>Keep them, cancel update</button>
-        <button class="btn-primary" on:click={() => answer(true)}>Remove and update</button>
-      </div>
-    </div>
-  </div>
+        </div>
+        <div class="ewe-dialog__body">
+          {#each $conflictPrompt.conflicts as c (c.remove)}
+            <div class="ewe-dialog__who">
+              <span class="ewe-mono">{c.remove}</span>
+              <span>is replaced by</span>
+              <span class="ewe-mono">{c.keep}</span>
+              {#if c.reason}<span class="note">{c.reason}</span>{/if}
+            </div>
+          {/each}
+        </div>
+        <div class="ewe-dialog__foot">
+          <button bind:this={cancelBtn} class="ewe-btn ewe-btn--ghost" on:click={() => answer(false)}>Cancel the update</button>
+          <button class="ewe-btn ewe-btn--danger" on:click={() => answer(true)}>
+            Remove {n === 1 ? $conflictPrompt.conflicts[0].remove : `${n} packages`} and update
+          </button>
+        </div>
+      </AlertDialog.Content>
+    </AlertDialog.Portal>
+  </AlertDialog.Root>
 {/if}

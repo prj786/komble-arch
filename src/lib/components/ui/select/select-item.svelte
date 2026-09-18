@@ -1,7 +1,8 @@
 <script>
+	// A Menu row; the selected option carries a check in accent-text and its
+	// label in weight 500 (Select card).
 	import { Select as SelectPrimitive } from "bits-ui";
 	import Icon from "../Icon.svelte";
-	import { ICONS } from "../icons.js";
 	import { cn } from "$lib/utils.js";
 
 	let {
@@ -18,24 +19,21 @@
 	bind:ref
 	{value}
 	data-slot="select-item"
-	class={cn(
-		"gap-2 rounded-[calc(var(--radius-control)-4px)] py-1.5 pr-8 pl-2 text-sm focus:bg-primary focus:text-primary-foreground not-data-[variant=destructive]:focus:**:text-primary-foreground [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2 relative flex w-full cursor-default items-center outline-hidden select-none focus:bg-primary focus:text-primary-foreground data-highlighted:bg-primary data-highlighted:text-primary-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
-		className
-	)}
+	class={cn("ewe-menu__item", className)}
 	{...restProps}
 >
 	{#snippet children({ selected, highlighted })}
-		<span class="absolute end-2 flex size-3.5 items-center justify-center">
-			{#if selected}
-				<Icon code={ICONS.check} size={12} />
-			{/if}
-		</span>
-		<span class="flex flex-1 gap-2 shrink-0 whitespace-nowrap">
+		<span class="ewe-menu__label" class:font-medium={selected}>
 			{#if childrenProp}
 				{@render childrenProp({ selected, highlighted })}
 			{:else}
 				{label || value}
 			{/if}
 		</span>
+		{#if selected}
+			<Icon name="check" class="ewe-menu__check" />
+		{:else}
+			<span class="ewe-menu__spacer"></span>
+		{/if}
 	{/snippet}
 </SelectPrimitive.Item>

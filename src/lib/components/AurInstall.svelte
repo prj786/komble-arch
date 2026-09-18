@@ -5,6 +5,13 @@
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import { listen } from "@tauri-apps/api/event";
   import { onMount, onDestroy } from "svelte";
+  import Page from "./ui/Page.svelte";
+  import Group from "./ui/Group.svelte";
+  import Alert from "./ui/Alert.svelte";
+  import Icon from "./ui/Icon.svelte";
+  import IconBtn from "./ui/IconBtn.svelte";
+  import SearchField from "./ui/SearchField.svelte";
+  import { Checkbox } from "./ui/checkbox/index.js";
 
   let query = "";
   let results = [];
@@ -26,7 +33,7 @@
 
   const STAGES = {
     clone: "Cloning",
-    keys: "Importing signing key",
+    keys: "Importing the signing key",
     build: "Building",
     install: "Installing",
   };
@@ -66,6 +73,12 @@
   }
 
   let timer;
+  // the Search field binds `query`; every change schedules a search
+  let lastQuery = "";
+  $: if (query !== lastQuery) {
+    lastQuery = query;
+    onQuery();
+  }
   function onQuery() {
     clearTimeout(timer);
     timer = setTimeout(search, 300);
@@ -119,7 +132,7 @@
     showLog = false;
     try {
       await api.aurInstall(name, skipPgp);
-      toast(`${name} installed`, "success");
+      toast(`Installed **${name}**`, "success");
       reviewing = null;
       pkgbuild = "";
       meta = null;
@@ -165,7 +178,7 @@
     building = true;
     try {
       await api.installPackageFile(localPath);
-      toast("Package installed", "success");
+      toast("Installed the package", "success");
       localPath = "";
       await refreshPkgs();
     } catch (e) {
@@ -175,137 +188,117 @@
   }
 </script>
 
-<div class="mx-auto h-full w-full max-w-4xl space-y-6 overflow-y-auto p-4 sm:p-6">
-  <div>
-    <h1 class="text-xl font-semibold">AUR</h1>
-    <p class="mt-1 text-sm text-dim">
-      Build packages from the Arch User Repository. Komble clones the package,
-      runs <code>makepkg</code> as you (never as root), then installs the result
-      with pacman.
-    </p>
-  </div>
-
+<Page title="AUR" desc="Build packages from the Arch User Repository. Komble clones the package, runs makepkg as you (never as root), then installs the result with pacman.">
   <!-- The review gate. A PKGBUILD is a shell script that runs with your
        privileges at build time and can do anything you can, so it is shown in
        full before anything executes. This is the security model, not a nicety. -->
-  <div class="card border-[var(--warning)] p-4 text-xs text-warning dark:text-warning">
-    AUR packages are user-submitted and unreviewed. Komble shows you the
-    PKGBUILD before it builds anything — read it. It executes on your machine.
-  </div>
+  <Alert tone="warning" title="Read the PKGBUILD before you build">
+    AUR packages are user-submitted and unreviewed. Komble shows you the PKGBUILD before it builds anything, because it runs on your machine.
+  </Alert>
 
-  <div class="card p-4">
-    <input
-      class="input w-full"
-      placeholder="Search the AUR…"
-      bind:value={query}
-      on:input={onQuery}
-    />
+  <Group title="Search" well={false}>
+    <SearchField bind:value={query} placeholder="Search the AUR" />
     {#if searching}
-      <p class="mt-3 text-xs text-dim">Searching…</p>
+      <div class="ewe-list" aria-busy="true">
+        <div class="ewe-row"><span class="busy"><span class="ewe-spinner ewe-spinner--sm" aria-hidden="true"></span>Searching…</span></div>
+      </div>
     {:else if results.length}
-      <div class="mt-3 flex flex-col gap-2">
+      <div class="ewe-list">
         {#each results.slice(0, 40) as p (p.name)}
-          <div class="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-elevated dark:hover:bg-elevated">
-            <div class="min-w-0 flex-1">
-              <div class="truncate font-medium">
-                {p.name}
-                <span class="ml-1 text-xs font-normal text-dim">{p.version}</span>
+          <div class="ewe-row" class:is-selected={reviewing === p.name}>
+            <div class="ewe-row__text">
+              <div class="row-title">
+                <span class="ewe-row__title">{p.name}</span>
+                <span class="ewe-badge ver"><span class="ewe-badge__label">{p.version}</span></span>
               </div>
-              <div class="truncate text-xs text-dim">{p.summary}</div>
+              <div class="ewe-row__desc">{p.summary}</div>
             </div>
-            {#if p.installed}
-              <span class="text-xs text-dim">Installed</span>
-            {:else}
-              <button class="btn-ghost !py-1 text-xs" on:click={() => review(p.name)}>
-                Review PKGBUILD
-              </button>
-            {/if}
+            <div class="ewe-row__trail">
+              {#if p.installed}
+                <span class="ewe-badge ewe-badge--success"><span class="ewe-badge__label">Installed</span></span>
+              {:else}
+                <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" aria-label="Review the PKGBUILD of {p.name}" on:click={() => review(p.name)}>
+                  Review PKGBUILD
+                </button>
+              {/if}
+            </div>
           </div>
         {/each}
       </div>
     {/if}
-  </div>
+  </Group>
 
   {#if $aurQueue.length && !building}
-    <div class="card flex flex-wrap items-center justify-between gap-2 border-[var(--brand-fg-link)] px-4 py-2.5 text-xs">
-      <span class="text-link dark:text-link">
-        From your ewe.conf: {$aurQueue.length} more AUR app{$aurQueue.length === 1 ? "" : "s"} to review after this one
-        <span class="text-dim">({$aurQueue.slice(0, 4).join(", ")}{$aurQueue.length > 4 ? ", …" : ""})</span>
-      </span>
-      <span class="flex gap-2">
-        <button class="btn-ghost !py-0.5 text-[11px]" on:click={reviewNext}>{reviewing ? "Skip to next" : "Review next"}</button>
-        <button class="btn-ghost !py-0.5 text-[11px]" on:click={() => aurQueue.set([])}>Stop</button>
-      </span>
-    </div>
+    <Alert tone="accent" title="From your ewe.conf: {$aurQueue.length} more AUR app{$aurQueue.length === 1 ? '' : 's'} to review after this one">
+      {$aurQueue.slice(0, 4).join(", ")}{$aurQueue.length > 4 ? ", …" : ""}
+      <svelte:fragment slot="actions">
+        <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" on:click={reviewNext}>{reviewing ? "Skip to the next" : "Review the next"}</button>
+        <button class="ewe-btn ewe-btn--sm ewe-btn--ghost" on:click={() => aurQueue.set([])}>Stop</button>
+      </svelte:fragment>
+    </Alert>
   {/if}
 
   {#if reviewing}
-    <div class="card p-4">
-      <div class="mb-2 flex items-center justify-between">
-        <div class="font-medium">PKGBUILD — {reviewing}</div>
-        <button class="btn-ghost !py-1 text-xs" on:click={() => (reviewing = null)}>Close</button>
+    <section class="ewe-card" aria-label="PKGBUILD of {reviewing}">
+      <div class="ewe-card__head">
+        <span class="ewe-card__icon ewe-card__icon--accent"><Icon name="fileCode" /></span>
+        <div class="ewe-card__titles">
+          <div class="ewe-card__title">PKGBUILD of {reviewing}</div>
+        </div>
+        <IconBtn name="x" title="Close the review" go={() => (reviewing = null)} />
       </div>
       {#if loadingPkgbuild}
-        <p class="text-xs text-dim">Fetching…</p>
+        <div class="busy"><span class="ewe-spinner ewe-spinner--sm" aria-hidden="true"></span>Fetching…</div>
       {:else}
         {#if meta?.validpgpkeys?.length}
           <!-- makepkg verifies signed sources against these keys and refuses
                to build without them; a fresh keyring has none, so Komble
                fetches them first (never --skippgpcheck by default). -->
-          <div class="mb-2 rounded-lg border border-[var(--brand-fg-link)] bg-[color-mix(in_srgb,var(--brand-fg-link)_14%,transparent)]0/5 px-3 py-2 text-xs text-link dark:text-link">
-            Sources are PGP-signed by key
-            {#each meta.validpgpkeys as k, i}
-              <code class="font-mono" title={k}>{shortKey(k)}</code>{i < meta.validpgpkeys.length - 1 ? ", " : ""}
-            {/each}.
-            Komble will import {meta.validpgpkeys.length === 1 ? "it" : "them"} into your GPG keyring
-            (<code>gpg --recv-keys</code>) before building.
-            <label class="mt-1.5 flex items-center gap-1.5 text-[11px] text-dim">
-              <input type="checkbox" bind:checked={skipPgp} disabled={building} />
-              Skip signature check (unsafe — only if the key cannot be fetched)
-            </label>
-          </div>
+          <Alert tone="info" title="The sources are PGP-signed">
+            By key {#each meta.validpgpkeys as k, i}<code title={k}>{shortKey(k)}</code>{i < meta.validpgpkeys.length - 1 ? ", " : ""}{/each}.
+            Komble imports {meta.validpgpkeys.length === 1 ? "it" : "them"} into your GPG keyring (<code>gpg --recv-keys</code>) before building.
+            <svelte:fragment slot="actions">
+              <Checkbox bind:checked={skipPgp} disabled={building} label="Skip the signature check (unsafe: only if the key can’t be fetched)" />
+            </svelte:fragment>
+          </Alert>
         {/if}
-        <pre class="max-h-96 overflow-auto rounded-lg bg-elevated p-3 text-[11px] leading-relaxed dark:bg-[var(--bg-3)]">{pkgbuild}</pre>
+        <pre class="log log--tall" aria-label="PKGBUILD">{pkgbuild}</pre>
         {#if buildError}
           <!-- the toast lives eight seconds; the reason stays here until the
                card is closed or the next attempt starts -->
-          <div class="mt-3 rounded-lg border border-[var(--danger)] bg-[color-mix(in_srgb,var(--danger)_14%,transparent)]0/5 p-3 text-xs text-danger dark:text-danger">
-            <div class="flex items-center justify-between gap-2">
-              <span class="font-medium">Build failed</span>
+          <Alert tone="danger" title="Couldn’t build {reviewing}">
+            <pre class="log">{showLog && buildLog ? buildLog : buildError}</pre>
+            <svelte:fragment slot="actions">
               {#if buildLog}
-                <button class="btn-ghost !py-0.5 text-[11px]" on:click={() => (showLog = !showLog)}>
-                  {showLog ? "Hide full log" : "Show full log"}
+                <button class="ewe-btn ewe-btn--sm ewe-btn--ghost" on:click={() => (showLog = !showLog)}>
+                  {showLog ? "Hide the full log" : "Show the full log"}
                 </button>
               {/if}
-            </div>
-            <pre class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{showLog && buildLog ? buildLog : buildError}</pre>
-          </div>
+            </svelte:fragment>
+          </Alert>
         {/if}
-        <div class="mt-3 flex items-center justify-end gap-2">
+        <div class="ewe-card__foot">
           {#if building}
-            <span class="text-xs text-dim">{stage}…</span>
+            <span class="busy" role="status"><span class="ewe-spinner ewe-spinner--sm" aria-hidden="true"></span>{stage}…</span>
           {:else}
-            <button class="btn-primary !py-1 text-xs" on:click={build}>
-              {buildError ? "Try again" : "I have read this — build and install"}
+            <button class="ewe-btn ewe-btn--ghost" on:click={() => (reviewing = null)}>Cancel</button>
+            <button class="ewe-btn ewe-btn--primary" on:click={build}>
+              {buildError ? "Try again" : "I’ve read it, build and install"}
             </button>
           {/if}
         </div>
       {/if}
-    </div>
+    </section>
   {/if}
 
-  <div class="card p-4">
-    <div class="mb-2 font-medium">Install a package file</div>
-    <p class="mb-3 text-xs text-dim">
-      A local <code>*.pkg.tar.zst</code> — something you built yourself, or dropped
-      onto this window.
-    </p>
-    <div class="flex items-center gap-2">
-      <input class="input flex-1" placeholder="/path/to/package.pkg.tar.zst" bind:value={localPath} />
-      <button class="btn-ghost !py-1 text-xs" on:click={pickLocal}>Browse…</button>
-      <button class="btn-primary !py-1 text-xs" disabled={!localPath || building} on:click={installLocal}>
-        Install
-      </button>
+  <Group title="Install a package file" desc="A local .pkg.tar.zst: something you built yourself, or dropped onto this window." well={false}>
+    <div class="form-row">
+      <label class="ewe-input">
+        <Icon name="fileBox" />
+        <input class="field-text" aria-label="Package file" placeholder="/path/to/package.pkg.tar.zst" bind:value={localPath} />
+      </label>
+      <button class="ewe-btn ewe-btn--secondary" on:click={pickLocal}><Icon name="folderOpen" />Browse…</button>
+      <button class="ewe-btn ewe-btn--secondary" disabled={!localPath || building} on:click={installLocal}>Install</button>
     </div>
-  </div>
-</div>
+  </Group>
+</Page>

@@ -1,9 +1,13 @@
 <script>
   // "The update is installed but not running yet." Shown once after an
   // upgrade that touched the kernel / the session / the shell, with the one
-  // action that finishes it. Later = the Updates view keeps a card.
+  // action that finishes it. Later = the Updates view keeps an alert.
+  // Dialog card, confirm: the title is the question, the primary button
+  // repeats its verb, "Later" is the way out; Esc is Later.
+  import { Dialog } from "bits-ui";
   import { restartNeed, toast } from "../stores";
   import * as api from "../api";
+  import Icon from "./ui/Icon.svelte";
   let show = false;
   let last = null;
   $: if ($restartNeed && $restartNeed !== last) {
@@ -11,15 +15,15 @@
     show = $restartNeed.level !== "none";
   }
   const titles = {
-    reboot: "Restart the computer to finish updating",
-    logout: "Log out and back in to finish updating",
-    shell: "Restart the desktop shell to finish updating",
-    komble: "Komble was updated — relaunch it"
+    reboot: "Restart to finish updating?",
+    logout: "Sign out to finish updating?",
+    shell: "Restart the shell to finish updating?",
+    komble: "Relaunch Komble to finish updating?"
   };
   const buttons = {
     reboot: "Restart now",
-    logout: "Log out",
-    shell: "Restart the shell",
+    logout: "Sign out",
+    shell: "Restart shell",
     komble: "Relaunch Komble"
   };
   async function go() {
@@ -27,7 +31,7 @@
     try {
       await api.restartAction(kind);
       if (kind === "shell") {
-        toast("Desktop shell restarting…", "success");
+        toast("Restarting the shell…", "info");
         restartNeed.set(null);
       }
       show = false;
@@ -37,24 +41,30 @@
   }
 </script>
 
-<svelte:window on:keydown={(e) => show && e.key === "Escape" && (show = false)} />
-
 {#if show && $restartNeed}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true">
-    <div class="card flex w-full max-w-lg flex-col overflow-hidden !bg-white shadow-2xl dark:!bg-[var(--bg-3)]">
-      <div class="border-b border-hairline p-5">
-        <h2 class="text-base font-semibold">{titles[$restartNeed.level]}</h2>
-        <p class="mt-1 text-sm text-dim">The new files are on disk; what is running is still the old version.</p>
-      </div>
-      <ul class="flex flex-col gap-1 p-5 text-sm">
-        {#each $restartNeed.reasons as r}
-          <li class="flex gap-2"><span class="text-dim">•</span><span>{r}</span></li>
-        {/each}
-      </ul>
-      <div class="flex justify-end gap-2 border-t border-hairline p-4">
-        <button class="btn-ghost" on:click={() => (show = false)}>Later</button>
-        <button class="btn-primary" on:click={go}>{buttons[$restartNeed.level]}</button>
-      </div>
-    </div>
-  </div>
+  <Dialog.Root open={true} onOpenChange={(v) => !v && (show = false)}>
+    <Dialog.Portal>
+      <Dialog.Overlay class="scrim" />
+      <Dialog.Content class="ewe-dialog is-floating" interactOutsideBehavior="ignore">
+        <div class="ewe-dialog__head">
+          <span class="ewe-dialog__icon"><Icon name={$restartNeed.level === "logout" ? "logOut" : "rotate"} /></span>
+          <div class="ewe-dialog__titles">
+            <Dialog.Title class="ewe-dialog__title">{titles[$restartNeed.level]}</Dialog.Title>
+            <Dialog.Description class="ewe-dialog__desc">The new files are installed, but the old version is still running.</Dialog.Description>
+          </div>
+        </div>
+        {#if $restartNeed.reasons?.length}
+          <div class="ewe-dialog__body">
+            <ul class="reasons">
+              {#each $restartNeed.reasons as r}<li>{r}</li>{/each}
+            </ul>
+          </div>
+        {/if}
+        <div class="ewe-dialog__foot">
+          <button class="ewe-btn ewe-btn--ghost" on:click={() => (show = false)}>Later</button>
+          <button class="ewe-btn ewe-btn--primary" on:click={go}>{buttons[$restartNeed.level]}</button>
+        </div>
+      </Dialog.Content>
+    </Dialog.Portal>
+  </Dialog.Root>
 {/if}

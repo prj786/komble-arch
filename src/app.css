@@ -1,25 +1,123 @@
 @import "tailwindcss";
-/* the ONE colour + shape system, generated from ewe-theme.conf */
-@import "./tokens.css";
-@import "./components.css";
-/* shadcn-svelte ships its registry variants (data-open / data-checked /
-   data-horizontal …) and its popover animations as two plain CSS packages.
-   Both are stylesheet-only — no JavaScript from them reaches the bundle. */
-@import "shadcn-svelte/tailwind.css";
-@import "tw-animate-css";
+/* The Ewe design system, version 3: the token layer and the component
+   classes, both authored in ewe/design/ and copied verbatim (check-tokens.sh
+   holds the copies to the source). Layered so that Tailwind's own theme
+   defaults sit below the tokens and a utility on an element can still adjust
+   an ewe-* class (margins, widths), never the other way round. The same
+   frame as ewe-settings' app.css; the Komble rules follow it. */
+@import "./tokens.css" layer(base);
+@import "./components.css" layer(components);
 
-/* The ONE literal Komble owns: the brand mark's warm gradient — the kombali
-   tile in the rail. It is a MARK, not a role, so it does not follow the
-   accent; but it is named once here so no component carries a hex. */
-:root {
-  --komble-mark-a: #f0a65c;
-  --komble-mark-b: #744664;
+/* ── Tailwind's theme IS the token set ──────────────────────────────────────
+   Every scale Tailwind generates utilities from is reset and re-pointed at a
+   token, so `p-2`, `text-sm`, `rounded-lg` or `text-dim` can only land on an
+   Ewe value. The default palette, type ramp, radii and shadows are gone.
+   Spacing steps are multiples of space-xs (4px): p-1 = space-xs, p-2 =
+   space-s, p-4 = space-md, p-8 = space-lg. Type: text-xs = caption (11),
+   text-sm = body (13), text-base = 15, text-lg = 18, text-xl = 22. */
+@theme inline {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-fg: var(--text-primary);
+  --color-fg-2: var(--text-secondary);
+  --color-dim: var(--text-muted);
+  --color-disabled: var(--text-disabled);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-on-accent: var(--on-accent);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-info: var(--info);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-success-subtle: var(--success-subtle);
+  --color-info-subtle: var(--info-subtle);
+  --color-base: var(--surface-base);
+  --color-raised: var(--surface-raised);
+  --color-overlay: var(--surface-overlay);
+  --color-sunken: var(--surface-sunken);
+  --color-hover: var(--surface-hover);
+  --color-pressed: var(--surface-pressed);
+  --color-elevated: var(--surface-raised);
+  --color-hairline: var(--border-subtle);
+  --color-strong: var(--border-strong);
+  --color-focus: var(--focus-ring);
+
+  --spacing: var(--space-xs);
+
+  --text-*: initial;
+  --text-xs: var(--font-size-xs);
+  --text-xs--line-height: var(--line-height-xs);
+  --text-sm: var(--font-size-md);
+  --text-sm--line-height: var(--line-height-md);
+  --text-base: var(--font-size-lg);
+  --text-base--line-height: var(--line-height-lg);
+  --text-lg: var(--font-size-xl);
+  --text-lg--line-height: var(--line-height-xl);
+  --text-xl: var(--font-size-2xl);
+  --text-xl--line-height: var(--line-height-2xl);
+  --text-2xl: var(--font-size-3xl);
+  --text-2xl--line-height: var(--line-height-3xl);
+  --text-3xl: var(--font-size-4xl);
+  --text-3xl--line-height: var(--line-height-4xl);
+
+  --radius-*: initial;
+  --radius-xs: var(--slight);
+  --radius-sm: var(--slight);
+  --radius-md: var(--secondary);
+  --radius-lg: var(--primary);
+  --radius-xl: var(--rounded);
+  --radius-2xl: var(--rounded);
+
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+
+  --default-transition-duration: var(--dur-fast);
+  --default-transition-timing-function: var(--ease-out);
 }
 
-/* Lucide 1.40.0 (ISC, vendored) — the DE's single icon language, the same
-   face and the same codepoints the shell loads. Used via .icon spans with a
-   literal glyph codepoint; the class is named for the ROLE, not the vendor,
-   because the library has changed once and may again. */
+/* ── ground ─────────────────────────────────────────────────────────────── */
+html,
+body,
+#app {
+  height: 100%;
+}
+:root {
+  /* flipped to light by the theme runtime (lib/theme.js) with the scheme */
+  color-scheme: dark;
+}
+body {
+  margin: 0;
+  background: var(--surface-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-md);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  user-select: none;
+}
+input,
+textarea,
+pre {
+  user-select: text;
+}
+code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-s);
+}
+/* keyboard focus on anything the ewe-* classes do not cover: the same 1px
+   focus-ring, 1px outside the edge */
+:where(button, [role="button"], [role="radio"], [role="switch"], a, select, [tabindex]):focus-visible {
+  outline: var(--focus-width) solid var(--focus-ring);
+  outline-offset: var(--border-width-1);
+}
+
+/* Lucide 1.40.0 (ISC, vendored in assets/): the shell's own icon font */
 @font-face {
   font-family: "lucide";
   src: url("./assets/Lucide.ttf") format("truetype");
@@ -27,137 +125,874 @@
   font-style: normal;
   font-display: block;
 }
-.icon {
-  font-family: "lucide";
-  font-style: normal;
-  line-height: 1;
-  display: inline-block;
+
+@keyframes ewe-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--space-xs)));
+  }
+}
+@keyframes ewe-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-xs));
+  }
+}
+@keyframes ewe-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(var(--space-xs));
+  }
+}
+@keyframes ewe-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes toast-timer {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
 }
 
-/* Tailwind 4 keeps theme tokens in CSS rather than tailwind.config.js. */
-@theme {
-  --color-accent: var(--accent);
-  --font-sans: Inter, "Noto Sans Georgian", Cantarell, system-ui, -apple-system, "Segoe UI", sans-serif;
+/* App rules sit in the components layer beside the ewe-* classes, so a
+   state class (.is-selected, :hover) still wins over a plain adjustment by
+   specificity, and a Tailwind utility on an element still wins over both. */
+@layer components {
+  /* ── icons: the Lucide font, sized by the ewe-icon box ──────────────────────
+     Icon.svelte renders an .ewe-icon box (whose width and height every
+     component rule already sets) around the glyph; the box is a size
+     container, so the glyph always fills exactly the box it is given. */
+  .ewe-glyph {
+    container-type: size;
+    display: inline-grid;
+    place-items: center;
+    overflow: hidden;
+  }
+  .ewe-glyph > i {
+    font-family: "lucide";
+    font-style: normal;
+    font-weight: normal;
+    font-size: 100cqh;
+    line-height: 1;
+  }
+  .ewe-icon--xs {
+    width: var(--icon-xs);
+    height: var(--icon-xs);
+  }
+
+  /* ── app shell (App shell card): window, rail, pane ────────────────────── */
+  .ewe-appwin {
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+  }
+  .ewe-appwin .ewe-sidenav {
+    flex: none;
+    overflow-y: auto;
+  }
+  .ewe-appwin__pane {
+    position: relative;
+    overflow: hidden;
+  }
+  .ewe-appwin__scroll {
+    overflow-y: auto;
+    padding: 0;
+  }
+  .ewe-sidenav__logo {
+    display: inline-flex;
+    color: var(--text-primary);
+  }
+  .ewe-sidenav__logo > svg {
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+  }
+  .ewe-sidenav__group {
+    flex: 1 1 auto;
+  }
+  .ewe-navitem {
+    position: relative;
+    border: 0;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+  }
+  .ewe-navitem > .ewe-badge {
+    flex: none;
+  }
+  /* the collapsed rail keeps the count as a dot on the icon */
+  .ewe-navitem__dot {
+    display: none;
+    position: absolute;
+    top: var(--space-xxs);
+    right: var(--space-xxs);
+  }
+  /* Below 720px of window width the rail collapses to icons (Side navigation). */
+  @media (max-width: 720px) {
+    .ewe-appwin .ewe-sidenav {
+      width: var(--control-2xl);
+      padding-inline: var(--space-xs);
+    }
+    .ewe-sidenav__name,
+    .ewe-navitem__label,
+    .ewe-navitem > .ewe-badge:not(.ewe-navitem__dot),
+    .ewe-sidenav__version {
+      display: none;
+    }
+    .ewe-navitem__dot {
+      display: block;
+    }
+    .ewe-sidenav__brand,
+    .ewe-navitem {
+      justify-content: center;
+      padding-inline: 0;
+    }
+  }
+
+  /* ── the page (App shell: page-title Header bar, then content) ───────────
+     content at most 720px (panel-lg + 5 × space-lg), left-aligned; Discover's
+     grid is the one page that takes the whole pane (.page--fill) */
+  .page {
+    box-sizing: border-box;
+    max-width: calc(var(--panel-lg) + 5 * var(--space-lg) + 2 * (var(--space-md) + var(--space-s)));
+    padding: 0 calc(var(--space-md) + var(--space-s)) var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-s);
+  }
+  .page--fill {
+    max-width: none;
+    flex: 1;
+    min-height: 0;
+    padding-bottom: 0;
+  }
+  .page > .ewe-headerbar {
+    padding-bottom: calc(var(--space-s) + var(--space-xs));
+  }
+  /* a group: overline section header, 8px, then its list well; 24px above */
+  .group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-s);
+    margin-top: calc(var(--space-md) - var(--space-s));
+  }
+  .page > .ewe-headerbar + .group,
+  .page > .ewe-headerbar + * {
+    margin-top: 0;
+  }
+  .group > .ewe-section {
+    min-height: var(--control-sm);
+  }
+  .ewe-row--block {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-s);
+  }
+  .ewe-row.is-dim .ewe-row__title,
+  .ewe-row.is-dim .ewe-row__desc {
+    color: var(--text-disabled);
+  }
+  .ewe-list > .ewe-row + .ewe-row,
+  .ewe-list > * + .ewe-row {
+    margin-top: var(--space-xxs);
+  }
+  .ewe-row__trail {
+    color: var(--text-secondary);
+  }
+  .ewe-row__trail > .ewe-seg,
+  .ewe-row__trail > .ewe-select {
+    flex: none;
+  }
+  /* explanatory text under a group (help right where it is: UX value 10) */
+  .note {
+    margin: 0;
+    padding: 0 var(--space-s);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-xs);
+    color: var(--text-muted);
+  }
+  /* a native <select> or <input> that is an .ewe-input box */
+  select.ewe-input {
+    appearance: auto;
+    cursor: pointer;
+  }
+  input.ewe-input,
+  select.ewe-input {
+    font: inherit;
+    color: var(--text-primary);
+  }
+  input[type="color"].ewe-swatch {
+    appearance: none;
+    padding: 0;
+    background: transparent;
+  }
+  input[type="color"].ewe-swatch::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+  input[type="color"].ewe-swatch::-webkit-color-swatch {
+    border: 0;
+    border-radius: var(--fully-rounded);
+  }
+  /* a text field whose native input fills the box */
+  .field-text {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    outline: none;
+  }
+  .field-text::placeholder {
+    color: var(--text-muted);
+  }
+
+  /* ── overlays: open motion (README "Motion": base, fade + 4px slide) ───── */
+  .ewe-menu[data-state="open"],
+  .ewe-popover[data-state="open"] {
+    animation: ewe-in-down var(--dur-base) var(--ease-out);
+  }
+  .ewe-menu[data-side="top"][data-state="open"] {
+    animation-name: ewe-in-up;
+  }
+  .ewe-sheet[data-state="open"] {
+    animation: ewe-in-left var(--dur-base) var(--ease-out);
+  }
+  .ewe-dialog[data-state="open"],
+  .ewe-wizard[data-state="open"] {
+    animation: ewe-fade var(--dur-base) var(--ease-out);
+  }
+  .ewe-toast {
+    animation: ewe-in-up var(--dur-base) var(--ease-out);
+  }
+  .scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: var(--scrim);
+    animation: ewe-fade var(--dur-base) var(--ease-out);
+  }
+  .ewe-menu,
+  .ewe-popover {
+    z-index: 50;
+    outline: none;
+  }
+  .ewe-menu {
+    max-height: var(--bits-select-content-available-height, calc(10 * var(--control-lg)));
+    overflow-y: auto;
+  }
+  .ewe-sheet.is-floating {
+    position: fixed;
+    top: var(--window-gap);
+    right: var(--window-gap);
+    bottom: var(--window-gap);
+    z-index: 45;
+    max-width: calc(100vw - 2 * var(--window-gap));
+  }
+  .ewe-sheet__body {
+    overflow-y: auto;
+  }
+  .ewe-dialog.is-floating,
+  .ewe-wizard.is-floating {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    z-index: 50;
+    transform: translate(-50%, -50%);
+    max-width: calc(100vw - 2 * var(--space-md));
+    max-height: calc(100vh - 2 * var(--space-md));
+    outline: none;
+  }
+  .toasts {
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--space-s) + var(--space-xs));
+    z-index: 60;
+    transform: translateX(-50%);
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .toasts > .ewe-toast {
+    pointer-events: auto;
+    width: max-content;
+    max-width: min(var(--panel-lg), calc(100vw - 2 * var(--space-md)));
+  }
+  .ewe-toast__timer {
+    transform-origin: left;
+    width: 100%;
+    animation-name: toast-timer;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+  }
+  .ewe-toast:hover .ewe-toast__timer,
+  .ewe-toast:focus-within .ewe-toast__timer {
+    animation-play-state: paused;
+  }
+  .ewe-tooltip {
+    z-index: 70;
+  }
+
+  /* ── control details the cards leave to the build ───────────────────────── */
+  /* Icon button, destructive (Remove): the hover of a danger menu row */
+  .ewe-iconbtn.is-danger:hover:not(:disabled) {
+    background: var(--danger-subtle);
+    color: var(--danger);
+  }
+  /* Slider: bits-ui's root is a control-sm tall hit area around the track */
+  .slider-hit {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    height: var(--control-sm);
+    touch-action: none;
+    cursor: pointer;
+  }
+  .slider-hit .ewe-slider__track {
+    flex: 1;
+  }
+  .slider-hit .ewe-slider__fill {
+    width: auto;
+  }
+  .slider-hit .ewe-slider__thumb {
+    transform: translateY(-50%);
+  }
+  .slider-trail {
+    width: calc(8 * var(--control-md));
+  }
+  .slider-value {
+    white-space: nowrap;
+  }
+  /* Select trigger in a row: sized to its value, never narrower than a word */
+  .select-trigger {
+    min-width: calc(4 * var(--control-md));
+    max-width: calc(10 * var(--control-md));
+  }
+  .ewe-select {
+    text-align: left;
+    font: inherit;
+  }
+  .kv-value {
+    min-width: 0;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: right;
+  }
+  .kv-row {
+    min-height: var(--control-md);
+  }
+  .kv-row .ewe-row__text {
+    flex: none;
+  }
+  .kv-row .ewe-row__trail {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+  }
+  .error-text {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* search field: the native input fills the box */
+  .search-text {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    appearance: none;
+  }
+  .search-text::-webkit-search-cancel-button {
+    display: none;
+  }
+  button.ewe-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-weight: var(--font-weight-medium);
+  }
+  /* inside the pane, cards and wells sit on surface-overlay (App shell) */
+  .ewe-appwin__pane .ewe-card,
+  .ewe-appwin__pane .ewe-appcard {
+    background: var(--surface-overlay);
+  }
+  .ewe-appwin__pane .ewe-card--interactive:hover:not(:disabled),
+  .ewe-appwin__pane .ewe-appcard:hover {
+    background: var(--surface-hover);
+  }
+  .ewe-appwin__pane .ewe-card--interactive:active,
+  .ewe-appwin__pane .ewe-appcard:active {
+    background: var(--surface-pressed);
+  }
 }
 
-/* v4 opts into class-based dark mode explicitly. The `.dark` class is set
-   unconditionally in App.svelte — ewe is dark-only — so the variant is kept
-   only because shadcn's components are written against it. */
-@custom-variant dark (&:where(.dark, .dark *));
+/* ══ Komble ═══════════════════════════════════════════════════════════════ */
+@layer components {
+  /* ── Discover: toolbar, the windowed App card grid ─────────────────────── */
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-s);
+  }
+  .toolbar > .ewe-input:first-child {
+    flex: 1 1 calc(7 * var(--control-md));
+  }
+  .toolbar .select-trigger {
+    width: calc(7 * var(--control-md));
+  }
+  .vgrid {
+    /* the App card's width (App card: 208px) is the grid's column minimum */
+    --col: calc(6 * var(--control-lg) + var(--space-md));
+    --vgrid-gap: calc(var(--space-s) + var(--space-xs));
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: var(--space-md);
+  }
+  .vgrid__probe {
+    position: absolute;
+    visibility: hidden;
+    width: var(--col);
+    height: var(--vgrid-gap);
+    pointer-events: none;
+  }
+  .vgrid__cell {
+    position: absolute;
+    display: flex;
+  }
+  .vgrid__cell > * {
+    flex: 1;
+  }
+  .grid-static {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(calc(6 * var(--control-lg) + var(--space-md)), 1fr));
+    gap: calc(var(--space-s) + var(--space-xs));
+    align-content: start;
+    overflow: hidden;
+  }
 
-:root {
-  /* dark, not light: this decides what the BROWSER paints — scrollbars, form
-     controls, the canvas behind the app — and a light one under a dark UI is
-     where the stray white flashes came from. */
-  color-scheme: dark;
-}
-/* --accent is NOT set here: tokens.css chains it to the theme's
-   --accent-default, and the user's own pick is injected inline at
-   runtime, which beats both. */
-.dark {
-  color-scheme: dark;
+  /* ── App card: a full cell of the grid, the card's own anatomy ─────────── */
+  .ewe-appcard {
+    width: auto;
+    min-width: 0;
+    text-align: left;
+  }
+  .ewe-appcard__top .ewe-appicon,
+  .appicon--lg {
+    width: var(--icon-3xl);
+    height: var(--icon-3xl);
+  }
+  .appicon--xl {
+    width: var(--icon-4xl);
+    height: var(--icon-4xl);
+  }
+  .appicon--sm {
+    width: var(--control-lg);
+    height: var(--control-lg);
+    font-size: var(--font-size-s);
+  }
+  .ewe-appicon {
+    overflow: hidden;
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-lg);
+  }
+  .appicon--xl {
+    font-size: var(--font-size-2xl);
+  }
+  .ewe-appicon > img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .ewe-appicon--img {
+    background: transparent;
+    border-color: transparent;
+  }
+  .ewe-appcard__summary {
+    flex: 1;
+  }
+  .ewe-appcard__foot {
+    min-height: var(--control-sm);
+  }
+  .ewe-appcard__foot .ewe-meta > .ewe-badge {
+    flex: none;
+  }
+  .ewe-appcard__foot .ewe-meta > :last-child:not(.ewe-badge) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ewe-appcard__foot .ewe-progress__label {
+    font-weight: var(--font-weight-regular);
+    color: var(--text-muted);
+  }
+  .ewe-appcard .ewe-skel--circle,
+  .ewe-appcard .ewe-skel--block {
+    flex: none;
+  }
+
+  /* ── Featured banner (App card: one per page) ───────────────────────────── */
+  .ewe-hero .ewe-appicon > .ewe-icon {
+    width: var(--icon-xl);
+    height: var(--icon-xl);
+  }
+  .ewe-hero .ewe-btn {
+    flex: none;
+  }
+  .ewe-hero .ewe-btn:hover {
+    background: color-mix(in oklab, var(--on-accent) 88%, var(--accent));
+  }
+  .ewe-hero .ewe-btn:focus-visible {
+    outline-color: var(--on-accent);
+  }
+  .ewe-hero__sheep > svg {
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+  }
+
+  /* ── rows with app icons, badges beside a title ─────────────────────────── */
+  .row-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    min-width: 0;
+  }
+  .row-title > .ewe-row__title {
+    min-width: 0;
+  }
+  .row-title > .ewe-badge {
+    flex: none;
+  }
+  .row-arrow {
+    margin: 0 var(--space-xxs);
+    color: var(--text-muted);
+  }
+  .badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+  }
+  .badges--well {
+    padding: var(--space-s);
+  }
+  .ewe-row__trail .busy {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    color: var(--text-muted);
+    font-size: var(--font-size-s);
+  }
+  .group-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-s);
+  }
+  .group-foot > .note {
+    flex: 1 1 auto;
+    padding: 0;
+  }
+
+  /* ── logs and PKGBUILDs: Geist Mono on the sunken surface ─────────────── */
+  .log {
+    margin: 0;
+    padding: var(--space-s);
+    overflow: auto;
+    max-height: calc(8 * var(--control-lg));
+    border: var(--border-width-1) solid var(--border-subtle);
+    border-radius: var(--primary);
+    background: var(--surface-sunken);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-s);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .log--tall {
+    max-height: calc(12 * var(--control-lg));
+    white-space: pre;
+    word-break: normal;
+  }
+  .ewe-alert .log {
+    margin-top: var(--space-xs);
+    background: var(--surface-base);
+    color: var(--text-primary);
+  }
+
+  /* ── cards used as small forms (AUR review, local file, New plugin) ──── */
+  .ewe-card__head > .ewe-card__icon + .ewe-card__titles {
+    align-self: center;
+  }
+  .form-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-s);
+  }
+  .form-row > .ewe-input,
+  .form-row > .ewe-field {
+    flex: 1 1 calc(7 * var(--control-md));
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(calc(8 * var(--control-md)), 1fr));
+    gap: calc(var(--space-s) + var(--space-xs));
+  }
+  .checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-s) var(--space-md);
+  }
+  .ewe-card > .ewe-alert {
+    flex: none;
+  }
+
+  /* ── Plugins: the options block under a row ─────────────────────────────── */
+  .plugin-options {
+    margin: var(--space-xxs) 0 var(--space-xs) calc(var(--control-lg) + var(--space-s) + var(--space-xs));
+    padding: var(--space-xs);
+    border-radius: var(--primary);
+    background: var(--surface-sunken);
+    border: var(--border-width-1) solid var(--border-subtle);
+  }
+  .plugin-options .ewe-row__title {
+    white-space: normal;
+  }
+  .num-input {
+    width: calc(3 * var(--control-md));
+  }
+  .text-input {
+    width: calc(7 * var(--control-md));
+  }
+
+  /* ── App detail (a Dialog, lg) ─────────────────────────────────────────── */
+  .detail {
+    padding: 0;
+    gap: 0;
+    overflow: hidden;
+  }
+  .detail > .ewe-dialog__head {
+    padding: var(--space-md);
+    border-bottom: var(--border-width-1) solid var(--border-subtle);
+  }
+  .detail__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-xs) var(--space-s);
+    font-size: var(--font-size-s);
+    line-height: var(--line-height-s);
+    color: var(--text-muted);
+  }
+  .detail__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-s);
+    margin-top: var(--space-s);
+  }
+  .detail__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--space-s) + var(--space-xs));
+  }
+  .detail__desc {
+    margin: 0;
+    white-space: pre-line;
+    color: var(--text-secondary);
+    user-select: text;
+  }
+  .shots {
+    display: flex;
+    gap: calc(var(--space-s) + var(--space-xs));
+    overflow-x: auto;
+    padding-bottom: var(--space-xs);
+  }
+  .shots > img {
+    height: calc(3 * var(--control-2xl));
+    flex: none;
+    border-radius: var(--primary);
+    border: var(--border-width-1) solid var(--border-subtle);
+    object-fit: cover;
+  }
+  .ewe-dialog__desc.warn {
+    color: var(--warning);
+  }
+
+  /* ── dialogs: a list of what a decision touches ─────────────────────────── */
+  .ewe-dialog__who > .ewe-mono {
+    color: var(--text-primary);
+    font-weight: var(--font-weight-semibold);
+  }
+  .ewe-dialog__who > .note {
+    margin-left: auto;
+    padding: 0;
+  }
+  .reasons {
+    margin: 0;
+    list-style: disc;
+    padding-left: var(--space-md);
+    color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xxs);
+  }
+  .ewe-dialog .ewe-btn:focus-visible {
+    outline-offset: var(--border-width-1);
+  }
+
+  /* ── the AppImage install wizard (Install wizard, in a floating window) ── */
+  .ewe-wizard.is-floating {
+    width: var(--panel-lg);
+    box-shadow: var(--shadow-float);
+  }
+  .ewe-wizard__top .ewe-sidenav__logo {
+    width: var(--icon-xl);
+    height: var(--icon-xl);
+  }
+  .ewe-wizard__title {
+    margin: 0;
+  }
+  .ewe-wizard__desc {
+    margin: 0;
+  }
+  .ewe-wizard__path {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-s);
+    color: var(--text-muted);
+  }
+  .ewe-wizard__done {
+    width: var(--control-2xl);
+    height: var(--control-2xl);
+    display: inline-grid;
+    place-items: center;
+    border-radius: var(--fully-rounded);
+    background: var(--success-subtle);
+    color: var(--success);
+  }
+  .ewe-wizard__done > .ewe-icon {
+    width: var(--icon-xl);
+    height: var(--icon-xl);
+  }
+
+  /* ── drop anywhere: the File drop zone over a scrim ─────────────────────── */
+  .dropzone {
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    display: flex;
+    padding: var(--space-lg);
+    background: var(--scrim);
+    pointer-events: none;
+  }
+  .dropzone > .ewe-drop {
+    flex: 1;
+  }
 }
 
-/* ── shadcn-svelte theme bridge ─────────────────────────────────────────────
-   shadcn's components are written against a fixed set of semantic CSS
-   variables. Rather than adopt shadcn's palette — which would repaint the app
-   — every one is re-pointed at a token from design/tokens.css, so the stock
-   components follow the theme with the rest of the UI: a shadcn Card is a
-   square 3px-ruled block in flock and a soft hairline one in blacksheep,
-   without touching shadcn's own source.
-
-   Two deliberate deviations from stock shadcn, both intentional:
-   • `accent` stays the BRAND accent. --color-accent is already bound to
-     var(--accent) in the @theme block above, so a highlighted menu row or
-     select item is painted in the brand colour rather than shadcn's neutral
-     grey. --accent-foreground is what sits on top of it.
-   • The radius scale is OURS, not shadcn's arithmetic. Stock shadcn derives
-     --radius-sm from `calc(var(--radius) - 4px)`, which computes to -4px once
-     `corner = "none"` sets the radius ramp to 0 — an invalid value that silently drops. Mapping
-     the four steps onto the theme's own scale cannot go negative and keeps
-     a square corner setting uniformly square.
-   -------------------------------------------------------------------------- */
-:root {
-  --background: var(--bg-3);
-  --foreground: var(--fg-1);
-  /* NOT redefined: --card is a FLUENT role (a raised, filled surface with its
-     own hover/pressed/selected), and shadcn's --card means the same thing.
-     Assigning to it here would shadow the role for every other consumer. */
-  --card-foreground: var(--fg-1);
-  --popover: var(--bg-1);
-  --popover-foreground: var(--fg-1);
-  /* brand-bg, not --accent: a filled control needs the step of the ramp that
-     is dark enough to sit under text, with the measured on-colour above it */
-  --primary: var(--brand-bg);
-  --primary-foreground: var(--fg-on-brand);
-  --secondary: var(--card);
-  --secondary-foreground: var(--fg-1);
-  --muted: var(--bg-2);
-  --muted-foreground: var(--fg-3);
-  --accent-foreground: var(--fg-on-brand);
-  --destructive: var(--danger);
-  --destructive-foreground: var(--fg-inverted);
-  /* shadcn's --border is a COLOUR. ewe's stroke width is --stroke-width;
-     keeping the two apart is why the legacy --border alias is gone. */
-  --border: var(--stroke-2);
-  --input: var(--stroke-1);
-  --ring: var(--compound-brand-stroke);
+@layer components {
+  /* a failure can carry pacman's own words: three lines here, all of it in
+     the tooltip (the Updates and AUR views keep the full text on screen) */
+  .toast-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --radius-sm: var(--radius-control);
-  --radius-md: var(--radius-control);
-  --radius-lg: var(--radius-card);
-  --radius-xl: var(--radius-panel);
-}
-/* ── end shadcn-svelte theme bridge ────────────────────────────────────────*/
-
-html,
-body,
-#app {
-  height: 100%;
+@layer components {
+  .ewe-sidenav__tagline {
+    margin: 0;
+    padding: 0 var(--space-s);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-xs);
+    color: var(--text-muted);
+  }
+  @media (max-width: 720px) {
+    .ewe-sidenav__tagline {
+      display: none;
+    }
+  }
 }
 
-body {
-  @apply antialiased;
-  background: var(--bg-3);
-  color: var(--fg-1);
-  font-family: var(--font-sans);
-  overscroll-behavior: none;
-  user-select: none;
-}
-input,
-textarea {
-  user-select: text;
+@layer components {
+  /* versions are technical values: Geist Mono (Key-value card) */
+  .ver {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .ver .text-warning {
+    font-family: var(--font-sans);
+  }
 }
 
-/* shadcn's input-shaped controls (select trigger, checkbox, switch) draw
-   their edge at the theme's outline width — 0 unless ewe.conf asks for
-   `stroke = thin` — so --input stays a COLOUR and the edge simply has no
-   width to show it in. The components carry the same rule in their classes;
-   this is the belt for a consumer that overrides them. */
-[data-slot="select-trigger"],
-[data-slot="checkbox"],
-[data-slot="switch"] {
-  border-width: var(--outline-width);
+@layer components {
+  /* a turned-on plugin's tile: accent-subtle, the Card's main-subject icon */
+  .ewe-row__lead--tile {
+    font-weight: var(--font-weight-semibold);
+  }
+  .ewe-row__lead--tile.is-on {
+    background: var(--accent-subtle);
+    color: var(--accent-text);
+  }
+  .ewe-row.is-dim .ewe-row__lead--tile {
+    color: var(--text-disabled);
+  }
+  .ewe-row__desc.text-danger {
+    color: var(--danger);
+  }
+  .ewe-check .ewe-switch {
+    margin-top: 0;
+  }
+  .ewe-check:has(.ewe-switch) {
+    align-items: center;
+  }
 }
 
-/* The surface, rail and control classes live in design/components.css. */
+@layer components {
+  .detail__progress {
+    width: calc(6 * var(--control-lg));
+  }
+  .detail > .ewe-dialog__head > .ewe-iconbtn {
+    margin: calc(-1 * var(--space-xs)) calc(-1 * var(--space-xs)) 0 0;
+  }
+}
+
+@layer components {
+  .ewe-wizard .ewe-steps {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .ewe-wizard .ewe-file {
+    flex: none;
+  }
+  .ewe-wizard__body {
+    padding-inline: calc(var(--space-lg) + var(--space-md));
+  }
+}
