@@ -1,42 +1,167 @@
 <!doctype html>
-<!-- Browser-only harness: fakes the Tauri bridge with a three-app catalog so
-     the chrome can be eyeballed without a compositor. Never shipped (dev
-     server only); delete freely. Open http://localhost:5175/dev-mock.html -->
+<!-- Browser-only harness: fakes the Tauri bridge so every view can be
+     eyeballed without a compositor. Never shipped (dev server only); delete
+     freely. Open http://localhost:5173/dev-mock.html
+
+     Query parameters (all optional):
+       scheme=ewe-dark|ewe-light|a11y   which theme_tokens reply to serve
+                                        (a11y = Ewe Dark, increase contrast,
+                                        130% text)
+       pane=<nav label>                 open that section ("Updates")
+       click=<css selector>             click that element (open a dialog)
+       focus=<css selector>             keyboard-focus that element
+       dialog=conflict|restart|wizard|detail   open one of the overlays
+       type=<text>                      type into the page's search field
+       loading                          Discover still loading its catalog
+       still                            no transitions or animations (headless
+                                        screenshots freeze them mid-way)
+     The theme replies are real `ewe-theme show` output, generated into
+     .dev-mock/ (git-ignored) from an isolated XDG_CONFIG_HOME; without them
+     the compiled tokens.css (Ewe Dark) stands. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Komble (mock)</title>
     <script>
-      const app = (id, name, description, categories) => ({
+      const q = new URLSearchParams(location.search);
+      const scheme = q.get("scheme") || "ewe-dark";
+      const json = (p) => fetch(p).then((r) => (r.ok ? r.json() : Promise.reject(p)));
+      const app = (id, name, description, categories, author) => ({
         id, name, description, categories, kind: "appimage", source: "am",
-        icon: "", version: "1.0", homepage: "", plainDesc: description
+        icon: "", version: "1.0", homepage: "", plainDesc: description,
+        authors: author ? [{ name: author }] : []
       });
+      const catalog = [
+        app("zed", "Zed", "A high-performance, multiplayer code editor from the creators of Atom.", ["Development"], "Zed Industries"),
+        app("obsidian", "Obsidian", "A private and flexible note-taking app that adapts to the way you think.", ["Office"], "Obsidian"),
+        app("kdenlive", "Kdenlive", "Free and open source video editor.", ["Video", "AudioVideo"], "KDE"),
+        app("krita", "Krita", "Digital painting, creative freedom.", ["Graphics"], "KDE"),
+        app("inkscape", "Inkscape", "Draw freely with a professional vector graphics editor.", ["Graphics"], "Inkscape project"),
+        app("joplin", "Joplin", "A note-taking and to-do app with synchronisation.", ["Office"], "Laurent Cozic"),
+        app("freetube", "FreeTube", "A private YouTube client for the desktop.", ["Video"], "FreeTube team"),
+        app("bitwarden", "Bitwarden", "A secure and free password manager for all of your devices.", ["Utility"], "Bitwarden Inc."),
+        app("losslesscut", "LosslessCut", "The swiss army knife of lossless video and audio editing.", ["Video"], "mifi")
+      ];
+      const upgradable = [
+        { name: "linux", current: "7.2.5.arch1-1", latest: "7.2.6.arch1-1", source: "repo" },
+        { name: "mesa", current: "1:26.1.2-1", latest: "1:26.1.3-1", source: "repo" },
+        { name: "paru-bin", current: "2.1.0-1", latest: "2.1.1-1", source: "aur" }
+      ];
+      const plugins = {
+        safeMode: false, suspects: [],
+        plugins: [
+          { id: "ewe.clipboard", name: "Clipboard", version: "1.2.0", kinds: ["bar-widget", "service"], bundled: true, git: false, valid: true, enabled: true, installed: true, description: "Clipboard history in the bar", problems: [], settingsSchema: [{ key: "max", label: "Items to keep", type: "int", min: 10, max: 500 }, { key: "images", label: "Keep images", type: "bool" }], settings: { max: 100, images: true } },
+          { id: "acme.clock", name: "Big clock", version: "0.3.1", kinds: ["desktop-widget"], bundled: false, git: true, valid: true, enabled: true, installed: true, description: "A large clock on the desktop", problems: [], widget: { layer: "desktop", visible: true, x: 64, y: 96, output: "DP-1" }, settingsSchema: [{ key: "face", label: "Face", type: "choice", choices: ["digital", "analog"] }, { key: "tint", label: "Tint", type: "color" }, { key: "label", label: "Label", type: "string" }], settings: { face: "digital", tint: "#eeb407", label: "Tbilisi" } },
+          { id: "me.weather", name: "Weather", version: "", kinds: ["bar-widget"], bundled: false, git: false, valid: false, enabled: false, installed: true, description: "", problems: ["manifest.json: missing “entry”"], settingsSchema: [], settings: {} },
+          { id: "acme.notes", installed: false, enabled: true, source: "https://github.com/acme/ewe-notes.git" }
+        ],
+        missing: ["acme.notes"]
+      };
+      const mockTheme = () => json(`/.dev-mock/theme-${scheme}.json`);
+      const waitForever = () => new Promise(() => {});
       window.__TAURI_INTERNALS__ = {
         transformCallback: (cb) => cb,
         metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main" } },
-        invoke: (cmd) => {
+        invoke: (cmd, args) => {
           switch (cmd) {
-            case "fetch_catalog":
-              return Promise.resolve([
-                app("zed", "Zed", "A high-performance, multiplayer code editor.", ["Development"]),
-                app("obsidian", "Obsidian", "A knowledge base that works on local Markdown files.", ["Office"]),
-                app("kdenlive", "Kdenlive", "Free and open source video editor.", ["Video"])
-              ]);
-            case "de_prefs":
-              return Promise.resolve({ accent: "#8fbce0", colorScheme: "dark", themeName: "flock" });
+            case "fetch_catalog": return q.has("loading") ? waitForever() : Promise.resolve(catalog);
+            case "theme_tokens": return mockTheme();
+            case "de_prefs": return Promise.resolve({ accent: "", look: { scheme } });
+            case "plugin:app|version": return Promise.resolve("0.16.1-beta");
             case "system_check":
-              return Promise.resolve({ fuse2: true, gnome: false, appindicatorOk: true });
-            case "list_appimages": case "list_upgradable": case "list_tracked_packages": case "package_repos":
-              return Promise.resolve([]);
-            case "take_pending_open": case "take_pending_route":
-              return Promise.resolve(null);
+              return Promise.resolve({ fuse2: true, pkexec: true, pacman: true, helperInstalled: false, gnome: false, appindicatorOk: true, checkupdates: true });
+            case "list_appimages":
+              return Promise.resolve([
+                { id: "obsidian", name: "Obsidian", version: "1.9.12", path: "~/.local/share/appimages/Obsidian.AppImage", installedAt: 1757900000, iconUrl: "" },
+                { id: "freetube", name: "FreeTube", version: "0.23.4", path: "~/.local/share/appimages/FreeTube.AppImage", installedAt: 1756900000, iconUrl: "" }
+              ]);
+            case "list_tracked_packages":
+              return Promise.resolve([
+                { package: "gimp", version: "3.0.4-2", description: "GNU Image Manipulation Program", source: "repo", installedAt: 1757000000 },
+                { package: "zen-browser-bin", version: "1.15b-1", description: "Performance-oriented Firefox-based browser", source: "aur", installedAt: 1757500000 }
+              ]);
+            case "list_upgradable": return Promise.resolve(upgradable);
+            case "check_appimage_updates":
+              return Promise.resolve({ updates: [{ id: "obsidian", name: "Obsidian", current: "1.9.12", latest: "1.9.14" }], errors: [] });
+            case "ewe_status":
+              return Promise.resolve({ installed: true, version: "0.21.2-beta", latest: "0.22.0-beta", updateAvailable: true, packaged: true, git: false });
+            case "first_party_status":
+              return Promise.resolve([
+                { pkg: "komble-arch", installed: "0.16.1-beta", latest: "0.16.1-beta", updateAvailable: false, managed: "repo" },
+                { pkg: "ewe-settings", installed: "0.15.2-beta", latest: "0.16.0-beta", updateAvailable: true, managed: "repo" }
+              ]);
+            case "restart_state": return Promise.resolve(q.get("dialog") === "restart" ? { level: "reboot", reasons: ["linux 7.2.6 is installed; 7.2.5 is running", "nvidia-open was rebuilt for it"], packages: ["linux"] } : { level: "none" });
+            case "package_repos": return Promise.resolve([["core", 270], ["extra", 14602], ["multilib", 290], ["ewe", 9]]);
+            case "browse_packages":
+              return Promise.resolve({ total: 3, items: [
+                { name: "gimp", summary: "GNU Image Manipulation Program", section: "extra", version: "3.0.4-2", installed: true },
+                { name: "gimp-help-en", summary: "GIMP help files in English", section: "extra", version: "2.10.34-1", installed: false },
+                { name: "gimp-plugin-gmic", summary: "G'MIC plug-in for GIMP", section: "extra", version: "3.5.5-1", installed: false }
+              ] });
+            case "aur_search":
+              return Promise.resolve([
+                { name: "zen-browser-bin", summary: "Performance-oriented Firefox-based browser", version: "1.15b-1", section: "aur", installed: true },
+                { name: "visual-studio-code-bin", summary: "Visual Studio Code (vscode)", version: "1.104.0-1", section: "aur", installed: false }
+              ]);
+            case "aur_pkgbuild":
+              return Promise.resolve("# Maintainer: someone <someone@example.org>\npkgname=visual-studio-code-bin\npkgver=1.104.0\npkgrel=1\npkgdesc=\"Visual Studio Code (vscode)\"\narch=('x86_64')\nurl=\"https://code.visualstudio.com/\"\nlicense=('custom: commercial')\ndepends=('libxkbfile' 'gnupg' 'gtk3' 'libsecret' 'nss' 'gcc-libs' 'libnotify' 'libxss' 'glibc' 'lsof' 'shared-mime-info' 'xdg-utils' 'alsa-lib')\nsource_x86_64=(code_x64_${pkgver}.tar.gz::https://update.code.visualstudio.com/${pkgver}/linux-x64/stable)\nsha256sums_x86_64=('SKIP')\n\npackage() {\n  install -d \"${pkgdir}/opt/${pkgname}\"\n  cp -r \"${srcdir}/VSCode-linux-x64\"/* \"${pkgdir}/opt/${pkgname}\"\n}\n");
+            case "aur_srcinfo": return Promise.resolve({ validpgpkeys: ["BC528686B50D79E339D3721CEB3E94ADBE1229CF"] });
+            case "app_manifest":
+              return Promise.resolve({ available: true, skipped: 3, packages: [
+                { package: "gimp", installed: true, source: "repo" },
+                { package: "inkscape", installed: false, source: "repo" },
+                { package: "obs-studio", installed: false, source: "repo" },
+                { package: "zen-browser-bin", installed: true, source: "aur" },
+                { package: "spotify", installed: false, source: "aur" }
+              ], appimages: [
+                { id: "obsidian", name: "Obsidian", installed: true },
+                { id: "losslesscut", name: "LosslessCut", installed: false, github: "https://github.com/mifi/lossless-cut" }
+              ] });
+            case "plugin_list": return Promise.resolve(plugins);
+            case "appimage_file_info": return Promise.resolve({ path: "/home/nino/Downloads/Cursor-1.6.27-x86_64.AppImage", suggestedName: "Cursor", suggestedVersion: "1.6.27", size: 214958080 });
+            case "take_pending_open": return Promise.resolve(q.get("dialog") === "wizard" ? "/home/nino/Downloads/Cursor-1.6.27-x86_64.AppImage" : null);
+            case "take_pending_route": return Promise.resolve(null);
+            case "resolve_am_app": return Promise.resolve({ github: "https://github.com/zed-industries/zed", release: { version: "0.203.4", assets: [{ size: 98566144 }] } });
+            case "package_info": return Promise.resolve({ version: "3.0.4-2", installedVersion: "3.0.4-2", section: "extra", installedSizeKb: 112640, description: "GNU Image Manipulation Program", homepage: "https://www.gimp.org/" });
+            case "system_upgrade":
+              if (q.get("dialog") === "conflict") return Promise.resolve({ ok: false, conflicts: [{ remove: "jack2", keep: "pipewire-jack", reason: "in conflict" }, { remove: "iptables", keep: "iptables-nft", reason: "replaced" }] });
+              return Promise.resolve({ ok: true });
             default:
+              if (cmd === "plugin:store|load") return Promise.resolve(1);
+              if (cmd === "plugin:store|get") return Promise.resolve([null, false]);
               if (String(cmd).startsWith("plugin:store")) return Promise.resolve(null);
+              if (String(cmd).startsWith("plugin:event")) return Promise.resolve(0);
               return Promise.resolve("");
           }
         }
       };
+      // headless screenshots freeze CSS transitions mid-way; ?still turns them off
+      if (q.has("still")) document.write("<style>*,*::before,*::after{transition:none!important;animation:none!important}</style>");
+      addEventListener("load", () => {
+        const pane = q.get("pane");
+        const dialog = q.get("dialog");
+        setTimeout(() => {
+          if (pane) document.querySelector(`.ewe-navitem[title="${pane}"]`)?.click();
+          setTimeout(() => {
+            const typed = q.get("type");
+            const search = document.querySelector('.ewe-appwin__pane input[type="search"]');
+            if (typed && search) {
+              search.value = typed;
+              search.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+            if (dialog === "detail") document.querySelector(".ewe-appcard")?.click();
+            if (dialog === "conflict") [...document.querySelectorAll("button")].find((b) => /Update system/.test(b.textContent))?.click();
+            setTimeout(() => {
+              if (q.get("click")) document.querySelector(q.get("click"))?.click();
+            }, typed ? 700 : 0);
+            setTimeout(() => {
+              const focus = q.get("focus");
+              if (focus) document.querySelector(focus)?.focus();
+            }, typed ? 1200 : 300);
+          }, 500);
+        }, 400);
+      });
     </script>
   </head>
   <body>
