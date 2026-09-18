@@ -240,7 +240,7 @@ code {
     }
     .ewe-sidenav__name,
     .ewe-navitem__label,
-    .ewe-navitem > .ewe-badge,
+    .ewe-navitem > .ewe-badge:not(.ewe-navitem__dot),
     .ewe-sidenav__version {
       display: none;
     }
@@ -627,7 +627,11 @@ code {
   .ewe-appcard__foot {
     min-height: var(--control-sm);
   }
-  .ewe-appcard__foot .ewe-meta > :last-child {
+  .ewe-appcard__foot .ewe-meta > .ewe-badge {
+    flex: none;
+  }
+  .ewe-appcard__foot .ewe-meta > :last-child:not(.ewe-badge) {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
