@@ -11,6 +11,12 @@
   import { get } from "svelte/store";
   import { refreshPkgs } from "../actions";
   import * as api from "../api";
+  import sheep from "../../assets/sheep.svg?raw";
+  import Page from "./ui/Page.svelte";
+  import Group from "./ui/Group.svelte";
+  import Alert from "./ui/Alert.svelte";
+  import Icon from "./ui/Icon.svelte";
+  import AppIcon from "./AppIcon.svelte";
 
   let manifest = null; // { apps, readAt } from [apps.installed], via ewe-conf
   let reason = ""; // why there is none: "no-manifest" | "no-ewe-conf" | …
@@ -76,7 +82,7 @@
       // cannot tell — go ahead; pacman's own error will say if the db is stale
     }
     if (pending.length) {
-      installNote = `${pending.length} update${pending.length === 1 ? "" : "s"} pending — bringing the system up to date first, so pacman can fetch the apps (authentication may be required)…`;
+      installNote = `Updating the system first (${pending.length} update${pending.length === 1 ? "" : "s"} pending), so pacman can fetch the apps. You may be asked for your password…`;
       toast(installNote, "info", 6000);
       await api.systemUpgrade();
       refreshPkgs();
@@ -91,7 +97,7 @@
         // no release source in the manifest (a local .AppImage install) —
         // Discover is the only road back
         route.set("discover");
-        toast(`Search for "${a.name}" in Discover to reinstall it.`, "info", 5000);
+        toast(`Search for “${a.name}” in Discover to install it again.`, "info", 5000);
         return;
       }
       // the manifest carries the GitHub source — reinstall through the same
@@ -99,7 +105,7 @@
       busyPkg = a.name;
       try {
         await installFromItem({ id: a.id, name: a.name, github: a.github }, get(settings));
-        toast(`${a.name} reinstalled`, "success");
+        toast(`Installed **${a.name}** again`, "success");
         a.installed = true;
         manifest = manifest;
       } catch (e) {
@@ -117,9 +123,9 @@
     busyPkg = a.name;
     try {
       await ensureCurrent();
-      installNote = `Installing ${a.name} — authentication may be required…`;
+      installNote = `Installing ${a.name}. You may be asked for your password…`;
       await installPackage(a.name);
-      toast(`${a.name} installed`, "success");
+      toast(`Installed **${a.name}**`, "success");
       a.installed = true;
       manifest = manifest;
       refreshPkgs();
@@ -148,9 +154,9 @@
       busyPkg = "*";
       try {
         await ensureCurrent();
-        installNote = `Installing ${repo.length} app${repo.length === 1 ? "" : "s"} from the repositories in one go — authentication may be required…`;
+        installNote = `Installing ${repo.length} app${repo.length === 1 ? "" : "s"} from the repositories in one go. You may be asked for your password…`;
         await installPackages(repo);
-        toast(`${repo.length} app${repo.length === 1 ? "" : "s"} installed`, "success");
+        toast(`Installed ${repo.length} app${repo.length === 1 ? "" : "s"}`, "success");
         for (const a of manifest.apps) if (repo.includes(a.name)) a.installed = true;
         manifest = manifest;
         refreshPkgs();
@@ -162,7 +168,7 @@
       busyPkg = "";
     }
     if (aurLeft.length)
-      toast(`${aurLeft.length} AUR package${aurLeft.length === 1 ? "" : "s"} left — “Review AUR apps” walks you through each PKGBUILD.`, "info", 6000);
+      toast(`${aurLeft.length} AUR package${aurLeft.length === 1 ? "" : "s"} left. “Review AUR apps” walks you through each PKGBUILD.`, "info", 6000);
   }
 
   $: missing = (manifest?.apps || []).filter((a) => !a.installed);
@@ -171,110 +177,135 @@
   $: missingRepo = missing.filter((a) => !a.aur && !a.appimage);
 </script>
 
-<div class="h-full overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
-  <div class="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-    <div>
-      <h1 class="text-xl font-bold tracking-tight">For you</h1>
-      <p class="text-sm text-dim dark:text-dim">Apps from your ewe.conf — installed on another machine, recorded in the one file</p>
-    </div>
-    <button class="btn-ghost !py-1 text-xs" disabled={busyPkg !== ""} on:click={readManifest} title="Re-read [apps.installed] from ewe.conf">
-      Re-read
+<Page title="For you" desc="Apps your ewe.conf recorded on your other machines">
+  <svelte:fragment slot="actions">
+    <button class="ewe-btn ewe-btn--ghost" disabled={busyPkg !== ""} on:click={readManifest} title="Read [apps.installed] from ewe.conf again">
+      <Icon name="refresh" />Read again
     </button>
-  </div>
+  </svelte:fragment>
 
   {#if manifest?.apps?.length}
-    <div class="section-title">Apps missing from this machine · {missing.length}</div>
-    {#if missing.length === 0}
-      <div class="card p-5 text-center text-sm text-dim">
-        Everything in your ewe.conf is installed here ✓
-      </div>
-    {:else}
-      <div class="mb-2 flex flex-wrap items-center justify-end gap-2">
-        {#if missingAur.length}
-          <button class="btn-ghost !py-1 text-xs" disabled={busyPkg !== ""} on:click={() => reviewAur(missingAur[0].name)}>
-            Review AUR apps ({missingAur.length})
-          </button>
-        {/if}
-        {#if missingRepo.length}
-          <button class="btn-ghost !py-1 text-xs" disabled={busyPkg !== ""} on:click={installAllMissing}>
-            {busyPkg === "*" ? "Installing…" : `Install all repo apps (${missingRepo.length})`}
-          </button>
-        {/if}
-      </div>
-      {#if installNote}
-        <div class="mb-2 rounded-lg border border-[var(--brand-fg-link)] bg-[color-mix(in_srgb,var(--brand-fg-link)_14%,transparent)]0/5 px-3 py-2 text-xs text-link dark:text-link">{installNote}</div>
-      {/if}
-      {#if installError}
-        <!-- the toast lives eight seconds; the reason stays here -->
-        <div class="mb-2 rounded-lg border border-[var(--danger)] bg-[color-mix(in_srgb,var(--danger)_14%,transparent)]0/5 px-3 py-2 text-xs text-danger dark:text-danger">
-          <div class="flex items-center justify-between gap-2">
-            <span class="font-medium">Install failed</span>
-            <button class="btn-ghost !py-0.5 text-[11px]" on:click={() => (installError = "")}>Dismiss</button>
-          </div>
-          <pre class="mt-1 max-h-40 overflow-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{installError}</pre>
+    {#if missing.length}
+      <!-- the featured banner (App card): one per page, the page's one ask -->
+      <div class="ewe-hero">
+        <div class="ewe-hero__text">
+          <span class="ewe-hero__kicker">From your ewe.conf</span>
+          <span class="ewe-hero__title">{missing.length} app{missing.length === 1 ? "" : "s"} missing from this machine</span>
+          <span class="ewe-hero__desc">
+            {missingRepo.length ? `${missingRepo.length} from the repositories install${missingRepo.length === 1 ? "s" : ""} in one go` : ""}{missingRepo.length && missingAur.length ? "; " : ""}{missingAur.length ? `${missingAur.length} from the AUR wait${missingAur.length === 1 ? "s" : ""} for your review` : ""}{!missingRepo.length && !missingAur.length ? "Each one installs from its own page." : "."}
+          </span>
         </div>
-      {/if}
-      <div class="flex flex-col gap-2">
-        {#each missing as a (a.name)}
-          <div class="card flex items-center gap-3.5 px-4 py-3">
-            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-elevated text-sm font-bold text-dim">
-              {a.name.slice(0, 1).toUpperCase()}
-            </div>
-            <div class="min-w-0 flex-1">
-              <span class="truncate font-medium">{a.name}</span>
-              {#if a.aur}
-                <span class="ml-2 rounded-full bg-orange-500/15 px-2 py-0.5 text-[11px] font-medium text-orange-600 dark:text-orange-400">AUR</span>
-              {/if}
-            </div>
-            {#if busyPkg === a.name || (busyPkg === "*" && !a.aur && !a.appimage)}
-              <span class="text-xs text-dim">Installing…</span>
-            {:else}
-              <button class="btn-primary !py-1 text-xs" disabled={busyPkg !== ""} on:click={() => install(a)}>
-                {a.aur ? "Review…" : "Install"}
-              </button>
-            {/if}
-          </div>
-        {/each}
+        {#if missingRepo.length}
+          <button class="ewe-btn ewe-btn--lg" disabled={busyPkg !== ""} aria-busy={busyPkg === "*"} on:click={installAllMissing}>
+            {#if busyPkg === "*"}<span class="ewe-spinner ewe-spinner--sm ewe-spinner--on-accent" aria-hidden="true"></span>Installing…{:else}<Icon name="download" />Install {missingRepo.length}{/if}
+          </button>
+        {:else if missingAur.length}
+          <button class="ewe-btn ewe-btn--lg" disabled={busyPkg !== ""} on:click={() => reviewAur(missingAur[0].name)}>
+            <Icon name="fileCode" />Review AUR apps
+          </button>
+        {/if}
+        <span class="ewe-hero__sheep" aria-hidden="true">{@html sheep}</span>
       </div>
     {/if}
 
-    <div class="section-title">Already installed · {present.length}</div>
-    <div class="card flex flex-wrap gap-1.5 p-3">
-      {#each present as a (a.name)}
-        <span class="rounded-full bg-elevated px-2.5 py-1 text-xs text-dim /70 ">{a.name}</span>
-      {/each}
-      {#if skipped}
-        <span class="rounded-full bg-elevated/60 px-2.5 py-1 text-xs text-dim  dark:text-dim" title="Komble, ewe-settings and ewe-sync come with the desktop">
-          + {skipped} part of ewe
-        </span>
+    {#if installNote}
+      <Alert tone="info">{installNote}</Alert>
+    {/if}
+    {#if installError}
+      <!-- the toast lives eight seconds; the reason stays here -->
+      <Alert tone="danger" title="Couldn’t install" dismiss={() => (installError = "")}>
+        <pre class="log">{installError}</pre>
+      </Alert>
+    {/if}
+
+    <Group title="Missing from this machine · {missing.length}">
+      <svelte:fragment slot="action">
+        {#if missingAur.length && missingRepo.length}
+          <button class="ewe-btn ewe-btn--secondary ewe-btn--sm" disabled={busyPkg !== ""} on:click={() => reviewAur(missingAur[0].name)}>
+            Review AUR apps ({missingAur.length})
+          </button>
+        {/if}
+      </svelte:fragment>
+      {#if missing.length === 0}
+        <div class="ewe-empty ewe-empty--compact">
+          <span class="ewe-empty__icon"><Icon name="success" /></span>
+          <div class="ewe-empty__title">Everything in your ewe.conf is installed here</div>
+        </div>
+      {:else}
+        {#each missing as a (a.name)}
+          <div class="ewe-row">
+            <span class="ewe-row__lead"><AppIcon name={a.name} pkg={!a.appimage} size="sm" /></span>
+            <div class="ewe-row__text">
+              <div class="row-title">
+                <span class="ewe-row__title">{a.name}</span>
+                {#if a.aur}
+                  <span class="ewe-badge ewe-badge--warning"><span class="ewe-badge__label">AUR</span></span>
+                {:else if a.appimage}
+                  <span class="ewe-badge ewe-badge--info"><span class="ewe-badge__label">AppImage</span></span>
+                {/if}
+              </div>
+            </div>
+            <div class="ewe-row__trail">
+              {#if busyPkg === a.name || (busyPkg === "*" && !a.aur && !a.appimage)}
+                <span class="busy"><span class="ewe-spinner ewe-spinner--sm" aria-hidden="true"></span>Installing…</span>
+              {:else}
+                <button
+                  class="ewe-btn ewe-btn--sm {a.aur ? 'ewe-btn--secondary' : 'ewe-btn--primary'}"
+                  disabled={busyPkg !== ""}
+                  aria-label="{a.aur ? 'Review' : 'Install'} {a.name}"
+                  on:click={() => install(a)}
+                >
+                  {a.aur ? "Review…" : "Install"}
+                </button>
+              {/if}
+            </div>
+          </div>
+        {/each}
       {/if}
-    </div>
+    </Group>
+
+    <Group title="Already installed · {present.length}">
+      <div class="badges badges--well">
+        {#each present as a (a.name)}
+          <span class="ewe-badge"><span class="ewe-badge__label">{a.name}</span></span>
+        {/each}
+        {#if skipped}
+          <span class="ewe-badge ewe-badge--accent" title="Komble, ewe-settings and ewe-sync come with the desktop">
+            <span class="ewe-badge__label">+{skipped} part of ewe</span>
+          </span>
+        {/if}
+      </div>
+    </Group>
   {:else if !loaded}
-    <div class="card p-6 text-center text-sm text-dim">Reading your ewe.conf…</div>
+    <div class="ewe-empty" aria-busy="true">
+      <span class="ewe-empty__icon"><span class="ewe-spinner ewe-spinner--xl" aria-hidden="true"></span></span>
+      <div class="ewe-empty__title">Reading your ewe.conf…</div>
+    </div>
   {:else if reason === "no-ewe-conf"}
-    <div class="card p-6 text-center text-sm text-dim">
-      <span class="text-muted">ewe-conf</span> is not installed here, so there is no
-      app list to read — this needs the ewe desktop (0.9 or newer).
+    <div class="ewe-empty">
+      <span class="ewe-empty__icon"><Icon name="alert" /></span>
+      <div class="ewe-empty__title">No app list to read</div>
+      <div class="ewe-empty__desc">ewe-conf isn’t installed here. For you needs the ewe desktop, 0.9 or newer.</div>
     </div>
   {:else if manifest && manifest.apps.length === 0}
-    <div class="card p-6 text-center text-sm text-dim">
-      The app list in your ewe.conf is empty — nothing Komble knows about has
-      been installed yet. Every install from here on is recorded there.
+    <div class="ewe-empty">
+      <span class="ewe-empty__icon"><Icon name="package" /></span>
+      <div class="ewe-empty__title">No apps recorded yet</div>
+      <div class="ewe-empty__desc">Every app you install with Komble from now on is recorded in your ewe.conf.</div>
     </div>
   {:else}
     <!-- no [apps.installed] at all: a fresh file, or an old backup that never
          carried one. Restoring is not Komble's job — say where it lives. -->
-    <div class="card p-6 text-center text-sm text-dim">
-      Your ewe.conf has no app list yet. Every app you install here is recorded
-      in it from now on. To bring the apps from another ewe machine, restore
-      that machine's file from
-      <span class="text-muted">Settings → Account</span> — the list appears
-      here by itself.
+    <div class="ewe-empty">
+      <span class="ewe-empty__icon"><Icon name="history" /></span>
+      <div class="ewe-empty__title">Your ewe.conf has no app list yet</div>
+      <div class="ewe-empty__desc">
+        Every app you install here is recorded from now on. To bring the apps from another ewe machine, restore its file in Settings › Account. The list then appears here by itself.
+      </div>
     </div>
   {/if}
 
-  <p class="mt-4 text-xs text-dim dark:text-dim">
-    Only applications are listed — packages that ship a launcher. Kernels, drivers and
-    libraries are restored the usual way (dependencies come along automatically).
+  <p class="note">
+    Only apps are listed: packages that ship a launcher. Kernels, drivers and libraries come back the usual way, as dependencies.
   </p>
-</div>
+</Page>

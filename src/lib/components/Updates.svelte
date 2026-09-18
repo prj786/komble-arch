@@ -4,6 +4,10 @@
   import { updatesInfo, settings, progress, systemInfo, toast, conflictPrompt, restartNeed } from "../stores";
   import { refreshInstalled } from "../actions";
   import * as api from "../api";
+  import Page from "./ui/Page.svelte";
+  import Group from "./ui/Group.svelte";
+  import Alert from "./ui/Alert.svelte";
+  import Icon from "./ui/Icon.svelte";
 
   let checking = false;
   let working = false;
@@ -44,7 +48,7 @@
               : ewe.latest || ewe.version,
             update: !!ewe.updateAvailable,
             viaRepo: !!ewe.packaged,
-            note: ewe.dirty ? "working tree has local changes" : ""
+            note: ewe.dirty ? "The working tree has local changes" : ""
           }
         ]
       : []),
@@ -66,12 +70,12 @@
   $: systemPkgs = $updatesInfo.packages.filter((p) => !desktopNames.has(p.name));
 
   const restartTitles = {
-    reboot: "Restart the computer to finish updating",
-    logout: "Log out and back in to finish updating",
-    shell: "Restart the desktop shell to finish updating",
+    reboot: "Restart to finish updating",
+    logout: "Sign out and back in to finish updating",
+    shell: "Restart the shell to finish updating",
     komble: "Relaunch Komble to run the new version"
   };
-  const restartButtons = { reboot: "Restart now", logout: "Log out", shell: "Restart the shell", komble: "Relaunch" };
+  const restartButtons = { reboot: "Restart now", logout: "Sign out", shell: "Restart shell", komble: "Relaunch Komble" };
   async function doRestart() {
     try {
       await api.restartAction($restartNeed.level);
@@ -107,10 +111,10 @@
   async function installContrib() {
     fixingContrib = true;
     try {
-      toast("Installing pacman-contrib — authentication may be required…", "info");
+      toast("Installing **pacman-contrib**. You may be asked for your password…", "info");
       await api.installPacmanContrib();
       systemInfo.update((i) => (i ? { ...i, checkupdates: true } : i));
-      toast("pacman-contrib installed — checking for system updates", "success");
+      toast("Installed **pacman-contrib**. Checking for system updates…", "info");
       await check();
     } catch (e) {
       toast(e, "error");
@@ -160,7 +164,7 @@
   async function updateOne(u) {
     try {
       await api.updateAppimage(u.id, $settings.githubToken);
-      toast(`${u.name} updated to ${u.latest}`, "success");
+      toast(`Updated **${u.name}** to ${u.latest}`, "success");
       refreshInstalled();
       updatesInfo.update((i) => ({ ...i, appimages: i.appimages.filter((x) => x.id !== u.id) }));
     } catch (e) {
@@ -183,9 +187,9 @@
       if (r.conflicts && r.conflicts.length) {
         const yes = await new Promise((resolve) => conflictPrompt.set({ conflicts: r.conflicts, resolve }));
         if (yes) return runSystemUpgrade(true);
-        throw "Update cancelled — nothing was changed.";
+        throw "Update canceled. Nothing was changed.";
       }
-      throw r.error || "Upgrade failed";
+      throw r.error || "The update failed.";
     }
     if (r.restart && r.restart.level !== "none") restartNeed.set(r.restart);
     return r;
@@ -197,14 +201,14 @@
     const hasAur = $updatesInfo.packages.some((p) => p.source === "aur");
     try {
       if (hasRepo) {
-        toast("Upgrading system packages — authentication may be required…", "info");
+        toast("Updating system packages. You may be asked for your password…", "info");
         await runSystemUpgrade();
       }
       if (hasAur) {
-        toast("Rebuilding AUR packages (clone → build → install)…", "info");
+        toast("Rebuilding AUR packages: clone, build, install…", "info");
         await api.aurUpgrade();
       }
-      toast("System upgraded", "success");
+      toast("System updated", "success");
     } catch (e) {
       toast(e, "error");
     }
@@ -237,20 +241,20 @@
     let viaRepo = false;
     try {
       for (const f of fp.filter((x) => x.updateAvailable && x.managed !== "repo")) {
-        toast(`Updating ${f.pkg} ${f.installed || ""} → ${f.latest}…`, "info");
+        toast(`Updating **${f.pkg}** to ${f.latest}…`, "info");
         await api.installFirstParty(f.pkg, $settings.githubToken);
-        toast(`${f.pkg} updated to ${f.latest}`, "success");
+        toast(`Updated **${f.pkg}** to ${f.latest}`, "success");
       }
       if (ewe && ewe.updateAvailable && !ewe.packaged) {
         toast("Updating the ewe desktop…", "info");
         await api.eweUpdate();
-        toast("ewe desktop updated — the shell restarts itself", "success");
+        toast("Updated the ewe desktop. The shell restarts by itself.", "success");
       }
       viaRepo = desktopViaRepo;
     } catch (e) {
       if (String(e) === "needs-terminal") {
         eweNeedsTerminal = true;
-        toast("The desktop update needs a terminal for sudo — use the button below.", "info", 7000);
+        toast("The desktop update needs a terminal for sudo. Use “Update in a terminal”.", "warning", 7000);
       } else {
         toast(e, "error");
       }
@@ -263,7 +267,7 @@
   async function updateInTerminal() {
     try {
       await api.eweUpdateTerminal();
-      toast("Continuing in the terminal — this list refreshes on the next check.", "info", 6000);
+      toast("Continuing in the terminal. This list refreshes on the next check.", "info", 6000);
     } catch (e) {
       toast(e, "error");
     }
@@ -273,7 +277,7 @@
     working = true;
     try {
       await api.refreshLists();
-      toast("Package lists refreshed", "success");
+      toast("Refreshed the package lists", "success");
       await check();
     } catch (e) {
       toast(e, "error");
@@ -284,171 +288,173 @@
   $: total = $updatesInfo.appimages.length + systemPkgs.length + desktopUpdates;
 </script>
 
-<div class="h-full overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
-  <div class="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-    <div class="min-w-0">
-      <h1 class="text-xl font-bold tracking-tight">Updates</h1>
-      <p class="text-sm text-dim dark:text-dim">
-        {#if checking}Checking…{:else if total === 0}Everything is up to date ✓{:else}{total} update{total === 1 ? "" : "s"} available{/if}
-      </p>
-    </div>
-    <div class="flex flex-wrap gap-2">
-      <button class="btn-ghost" disabled={busyAny} on:click={refreshLists} title="Re-read the package databases (checkupdates — never pacman -Sy)">
-        Refresh lists
+<Page title="Updates" desc={checking ? "Checking…" : total === 0 ? "Everything is up to date" : `${total} update${total === 1 ? "" : "s"} available`}>
+  <svelte:fragment slot="actions">
+    <button class="ewe-btn ewe-btn--ghost" disabled={busyAny} on:click={refreshLists} title="Read the package databases again (checkupdates, never pacman -Sy)">
+      Refresh lists
+    </button>
+    <button class="ewe-btn ewe-btn--secondary" disabled={busyAny} aria-busy={checking} on:click={check}>
+      {#if checking}<span class="ewe-spinner ewe-spinner--sm ewe-spinner--neutral" aria-hidden="true"></span>Checking…{:else}<Icon name="refresh" />Check again{/if}
+    </button>
+    {#if total > 0}
+      <button class="ewe-btn ewe-btn--primary" disabled={busyAny} aria-busy={updatingAll} on:click={updateAll}>
+        {#if updatingAll}<span class="ewe-spinner ewe-spinner--sm ewe-spinner--on-accent" aria-hidden="true"></span>Updating…{:else}<Icon name="download" />Update all{/if}
       </button>
-      <button class="btn-ghost" disabled={busyAny} on:click={check}>Check again</button>
-      {#if total > 0}
-        <button class="btn-primary" disabled={busyAny} on:click={updateAll}>Update all</button>
-      {/if}
-    </div>
-  </div>
+    {/if}
+  </svelte:fragment>
 
   {#if $restartNeed && $restartNeed.level !== "none"}
-    <div class="card mb-3 flex items-center gap-3.5 px-4 py-3" style="border-left: 3px solid var(--brand-bg)">
-      <div class="min-w-0 flex-1">
-        <div class="text-sm font-semibold">{restartTitles[$restartNeed.level]}</div>
-        <div class="truncate text-xs text-dim">{$restartNeed.reasons.join(" · ")}</div>
-      </div>
-      <button class="btn-primary !py-1 whitespace-nowrap text-xs" on:click={doRestart}>{restartButtons[$restartNeed.level]}</button>
-    </div>
+    <!-- kept until acted on: the restart dialog's "Later" leaves this -->
+    <Alert tone="accent" title={restartTitles[$restartNeed.level]}>
+      {$restartNeed.reasons.join(" · ")}
+      <svelte:fragment slot="actions">
+        <button class="ewe-btn ewe-btn--sm ewe-btn--primary" on:click={doRestart}>{restartButtons[$restartNeed.level]}</button>
+      </svelte:fragment>
+    </Alert>
   {/if}
 
   <!-- ── the ewe desktop: DE + every first-party app, one Update button ── -->
   {#if desktopRows.length}
-    <div class="section-title">ewe Desktop · {desktopUpdates > 0 ? `${desktopUpdates} update${desktopUpdates === 1 ? "" : "s"}` : "up to date"}</div>
-    <div class="mb-2 flex flex-col gap-2">
+    <Group title="ewe desktop · {desktopUpdates > 0 ? `${desktopUpdates} update${desktopUpdates === 1 ? '' : 's'}` : 'up to date'}">
       {#each desktopRows as r (r.id)}
-        <div class="card flex items-center gap-3.5 px-4 py-3">
-          <div class="min-w-0 flex-1">
-            <div class="truncate font-medium">{r.name}</div>
-            <div class="truncate text-xs text-dim">
-              {#if r.update}
-                {r.current} <span class="mx-1">→</span>
-                <span class="font-medium text-dim ">{r.latest}</span>
-              {:else}
-                {r.current}
-              {/if}
-              {#if r.note}<span class="ml-2 text-warning dark:text-warning">{r.note}</span>{/if}
+        <div class="ewe-row">
+          <div class="ewe-row__text">
+            <div class="ewe-row__title">{r.name}</div>
+            <div class="ewe-row__desc ver">
+              {#if r.update}{r.current}<span class="row-arrow">→</span>{r.latest}{:else}{r.current}{/if}{#if r.note}<span class="text-warning"> · {r.note}</span>{/if}
             </div>
           </div>
-          {#if $progress[r.id]}
-            <span class="text-xs text-dim">{$progress[r.id].stage || ""}…</span>
-          {:else if r.update}
-            <span class="rounded px-2 py-0.5 text-[11px] uppercase tracking-wide text-dim">update</span>
-          {:else}
-            <span class="text-xs font-medium text-success dark:text-success">✓</span>
-          {/if}
+          <div class="ewe-row__trail">
+            {#if $progress[r.id]}
+              <span class="busy"><span class="ewe-spinner ewe-spinner--sm" aria-hidden="true"></span>{$progress[r.id].stage || "Working"}…</span>
+            {:else if r.update}
+              <span class="ewe-badge ewe-badge--warning"><span class="ewe-badge__label">Update</span></span>
+            {:else}
+              <span class="ewe-badge ewe-badge--success"><span class="ewe-badge__label">Up to date</span></span>
+            {/if}
+          </div>
         </div>
       {/each}
-      {#if desktopUpdates > 0}
-        <div class="flex items-center justify-end gap-2">
-          {#if desktopViaRepo}
-            <span class="mr-auto text-xs text-dim">Delivered by the [ewe] repo — updates with the system.</span>
-          {/if}
-          {#if eweNeedsTerminal}
-            <button class="btn-primary !py-1 whitespace-nowrap text-xs" on:click={updateInTerminal}>
-              Update in a terminal…
+      <svelte:fragment slot="after">
+        {#if desktopUpdates > 0}
+          <div class="group-foot">
+            {#if desktopViaRepo}
+              <p class="note">Delivered by the [ewe] repository, so it updates with the system.</p>
+            {/if}
+            {#if eweNeedsTerminal}
+              <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" on:click={updateInTerminal}>
+                <Icon name="terminal" />Update in a terminal…
+              </button>
+            {/if}
+            <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" disabled={busyAny} on:click={updateDesktop}>
+              {eweWorking || (working && desktopViaRepo) ? "Updating…" : desktopOnlyViaRepo ? "Update system" : "Update desktop"}
             </button>
-          {/if}
-          <button class="btn-primary !py-1 whitespace-nowrap text-xs" disabled={busyAny} on:click={updateDesktop}>
-            {eweWorking || (working && desktopViaRepo) ? "Updating…" : desktopOnlyViaRepo ? "Upgrade system" : "Update desktop"}
-          </button>
-        </div>
-      {/if}
-      {#if eweLog.length}
-        <pre class="card max-h-48 overflow-y-auto whitespace-pre-wrap p-3 text-[11px] leading-snug text-dim">{eweLog.join("\n")}</pre>
-      {/if}
-    </div>
-  {/if}
-
-  <div class="section-title">AppImages · {$updatesInfo.appimages.length}</div>
-  {#if $updatesInfo.appimages.length === 0}
-    <div class="card p-5 text-center text-sm text-dim">
-      {checking ? "Checking…" : "All AppImages are current."}
-    </div>
-  {:else}
-    <div class="flex flex-col gap-2">
-      {#each $updatesInfo.appimages as u (u.id)}
-        <div class="card flex items-center gap-3.5 px-4 py-3">
-          <div class="min-w-0 flex-1">
-            <div class="truncate font-medium">{u.name}</div>
-            <div class="text-xs text-dim">
-              {u.current} <span class="mx-1">→</span>
-              <span class="font-medium text-dim ">{u.latest}</span>
-            </div>
           </div>
-          {#if $progress[u.id]}
-            <span class="text-xs tabular-nums text-dim">
-              {$progress[u.id].phase === "integrating"
-                ? "Integrating…"
-                : $progress[u.id].total > 0
-                  ? `${Math.round(($progress[u.id].downloaded / $progress[u.id].total) * 100)}%`
-                  : "…"}
-            </span>
-          {:else}
-            <button class="btn-primary !py-1 text-xs" on:click={() => updateOne(u)}>Update</button>
-          {/if}
-        </div>
-      {/each}
-    </div>
+        {/if}
+        {#if eweLog.length}
+          <pre class="log" aria-label="Update log">{eweLog.join("\n")}</pre>
+        {/if}
+      </svelte:fragment>
+    </Group>
   {/if}
 
-  <div class="section-title">System packages · {systemPkgs.length}</div>
-  {#if contribMissing}
-    <div class="card mb-2 flex items-center gap-3 border-[var(--warning)] px-4 py-3">
-      <div class="min-w-0 flex-1 text-sm">
-        <span class="font-medium">Full system updates need pacman-contrib.</span>
-        <span class="text-dim">
-          It provides checkupdates, the only safe way to list pending repo updates — without it
-          only AUR and AppImage updates appear here.</span>
+  <Group title="AppImages · {$updatesInfo.appimages.length}">
+    {#if $updatesInfo.appimages.length === 0}
+      <div class="ewe-empty ewe-empty--compact">
+        {#if checking}
+          <span class="ewe-empty__icon"><span class="ewe-spinner" aria-hidden="true"></span></span>
+          <div class="ewe-empty__title">Checking…</div>
+        {:else}
+          <span class="ewe-empty__icon"><Icon name="success" /></span>
+          <div class="ewe-empty__title">All AppImages are up to date</div>
+        {/if}
       </div>
-      <button class="btn-primary !py-1 whitespace-nowrap text-xs" disabled={fixingContrib} on:click={installContrib}>
-        {fixingContrib ? "Installing…" : "Install it"}
-      </button>
-    </div>
-  {/if}
-  {#if systemPkgs.length === 0}
-    <div class="card p-5 text-center text-sm text-dim">
-      {checking ? "Checking…" : contribMissing ? "Repo updates unknown — install pacman-contrib above." : "Everything is up to date."}
-    </div>
-  {:else}
-    <div class="mb-2 flex items-center justify-between gap-3">
-      <p class="text-xs text-dim">
-        Arch upgrades as a whole. Updating individual packages against a newer
-        database is a partial upgrade and is unsupported.
-      </p>
-      <button class="btn-primary !py-1 whitespace-nowrap text-xs" disabled={busyAny} on:click={systemUpgradeAll}>
-        Upgrade system
-      </button>
-    </div>
-    <div class="flex flex-col gap-2">
-      {#each systemPkgs as p (p.name)}
-        <div class="card flex items-center gap-3.5 px-4 py-3">
-          <div class="min-w-0 flex-1">
-            <div class="truncate font-medium">{p.name}</div>
-            <div class="truncate text-xs text-dim">
-              {p.current} <span class="mx-1">→</span>
-              <span class="font-medium text-dim ">{p.latest}</span>
-            </div>
+    {:else}
+      {#each $updatesInfo.appimages as u (u.id)}
+        {@const p = $progress[u.id]}
+        <div class="ewe-row">
+          <div class="ewe-row__text">
+            <div class="ewe-row__title">{u.name}</div>
+            <div class="ewe-row__desc ver">{u.current}<span class="row-arrow">→</span>{u.latest}</div>
           </div>
-          {#if $progress[p.name]}
-            <span class="text-xs text-dim">{$progress[p.name].stage || ""}…</span>
-          {:else}
-            <span class="rounded px-2 py-0.5 text-[11px] uppercase tracking-wide text-dim">
-              {p.source}
-            </span>
-          {/if}
+          <div class="ewe-row__trail">
+            {#if p}
+              <span class="busy">
+                <span class="ewe-spinner ewe-spinner--sm" aria-hidden="true"></span>
+                {p.phase === "integrating" ? "Adding to the app menu…" : p.total > 0 ? `Updating… ${Math.round((p.downloaded / p.total) * 100)}%` : "Updating…"}
+              </span>
+            {:else}
+              <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" aria-label="Update {u.name}" on:click={() => updateOne(u)}>
+                <Icon name="download" />Update
+              </button>
+            {/if}
+          </div>
         </div>
       {/each}
-    </div>
-  {/if}
+    {/if}
+  </Group>
+
+  <Group title="System packages · {systemPkgs.length}">
+    <svelte:fragment slot="action">
+      {#if systemPkgs.length}
+        <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" disabled={busyAny} on:click={systemUpgradeAll}>
+          {working ? "Updating…" : "Update system"}
+        </button>
+      {/if}
+    </svelte:fragment>
+    {#if systemPkgs.length === 0}
+      <div class="ewe-empty ewe-empty--compact">
+        {#if checking}
+          <span class="ewe-empty__icon"><span class="ewe-spinner" aria-hidden="true"></span></span>
+          <div class="ewe-empty__title">Checking…</div>
+        {:else if contribMissing}
+          <span class="ewe-empty__icon"><Icon name="warning" /></span>
+          <div class="ewe-empty__title">Repository updates unknown</div>
+          <div class="ewe-empty__desc">Install pacman-contrib below to see them.</div>
+        {:else}
+          <span class="ewe-empty__icon"><Icon name="success" /></span>
+          <div class="ewe-empty__title">Everything is up to date</div>
+        {/if}
+      </div>
+    {:else}
+      {#each systemPkgs as p (p.name)}
+        <div class="ewe-row ewe-row--dense">
+          <div class="ewe-row__text">
+            <div class="ewe-row__title">{p.name}</div>
+            <div class="ewe-row__desc ver">{p.current}<span class="row-arrow">→</span>{p.latest}</div>
+          </div>
+          <div class="ewe-row__trail">
+            {#if $progress[p.name]}
+              <span class="busy"><span class="ewe-spinner ewe-spinner--sm" aria-hidden="true"></span>{$progress[p.name].stage || "Working"}…</span>
+            {:else}
+              <span class="ewe-badge {p.source === 'aur' ? 'ewe-badge--warning' : ''}"><span class="ewe-badge__label">{p.source === "aur" ? "AUR" : p.source}</span></span>
+            {/if}
+          </div>
+        </div>
+      {/each}
+    {/if}
+    <svelte:fragment slot="after">
+      {#if contribMissing}
+        <Alert tone="warning" title="Full system updates need pacman-contrib">
+          It provides checkupdates, the only safe way to list pending repository updates. Without it, only AUR and AppImage updates appear here.
+          <svelte:fragment slot="actions">
+            <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" disabled={fixingContrib} on:click={installContrib}>
+              {fixingContrib ? "Installing…" : "Install pacman-contrib"}
+            </button>
+          </svelte:fragment>
+        </Alert>
+      {/if}
+      {#if systemPkgs.length}
+        <p class="note">Arch updates as a whole. Updating single packages against a newer database is a partial update, which Arch doesn’t support.</p>
+      {/if}
+    </svelte:fragment>
+  </Group>
 
   {#if $updatesInfo.errors.length}
-    <div class="section-title">Warnings</div>
-    <div class="card space-y-1 border-[var(--warning)] p-4 text-xs text-warning dark:text-warning">
-      {#each $updatesInfo.errors as err}
-        <div>{err}</div>
-      {/each}
-    </div>
+    <Group title="Warnings" well={false}>
+      <Alert tone="warning" title="Some checks didn’t finish">
+        {#each $updatesInfo.errors as err}<div>{err}</div>{/each}
+      </Alert>
+    </Group>
   {/if}
-</div>
+</Page>

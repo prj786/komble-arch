@@ -11,6 +11,12 @@
   import { toast } from "../stores";
   import * as api from "../api";
   import Toggle from "./ui/Toggle.svelte";
+  import Page from "./ui/Page.svelte";
+  import Group from "./ui/Group.svelte";
+  import Row from "./ui/Row.svelte";
+  import Alert from "./ui/Alert.svelte";
+  import Icon from "./ui/Icon.svelte";
+  import { Checkbox } from "./ui/checkbox/index.js";
 
   const GUIDE = "https://prj786.github.io/docs/plugins/";
   const EXAMPLE = "https://github.com/prj786/ewe-plugin-example";
@@ -72,7 +78,7 @@
     if (!newId.trim() || !kinds.length || !newDir) return;
     await run("create", async () => {
       const dest = await api.pluginCreate(newId.trim(), newName, kinds, newDir);
-      toast(`Created ${dest} — a git repo; edit the QML, then \`ewe-plugin dev\` it or push it`, "success", 9000);
+      toast(`Created **${dest}**, a git repository. Edit the QML, then try it with ewe-plugin dev or push it.`, "success", 9000);
       try { await openPath(dest); } catch {}
       creating = false; newId = ""; newName = "";
     });
@@ -81,7 +87,7 @@
   let pending = {};
   function setSetting(p, key, value) {
     clearTimeout(pending[p.id + key]);
-    pending[p.id + key] = setTimeout(() => run(p.id, () => api.pluginSet(p.id, key, value), `${p.name || p.id}: ${key} saved`), 350);
+    pending[p.id + key] = setTimeout(() => run(p.id, () => api.pluginSet(p.id, key, value), `Saved ${key} for **${p.name || p.id}**`), 350);
   }
 
   function add() {
@@ -89,10 +95,10 @@
     if (!u) return;
     run("add", () => api.pluginAdd(u, enableNew), null).then(() => (url = ""));
   }
-  const setEnabled = (p, on) => run(p.id, () => api.pluginSetEnabled(p.id, on), `${p.name || p.id} ${on ? "enabled" : "disabled"} — shell restarting`);
+  const setEnabled = (p, on) => run(p.id, () => api.pluginSetEnabled(p.id, on), `${on ? "Turned on" : "Turned off"} **${p.name || p.id}**. The shell is restarting.`);
   const update = (p) => run(p.id, () => api.pluginUpdate(p.id));
-  const install = (p) => run(p.id, () => api.pluginAdd(p.source, p.enabled), `${p.id} restored`);
-  const restoreAll = () => run("restore", () => api.pluginRestore(), "Plugins restored");
+  const install = (p) => run(p.id, () => api.pluginAdd(p.source, p.enabled), `Restored **${p.id}**`);
+  const restoreAll = () => run("restore", () => api.pluginRestore(), "Restored the plugins");
 
   function askConfirm(key) {
     confirming = key;
@@ -101,7 +107,7 @@
   function remove(p) {
     if (confirming !== p.id) return askConfirm(p.id);
     confirming = null;
-    run(p.id, () => api.pluginRemove(p.id), p.bundled ? `${p.name || p.id} removed — ewe updates will leave it out (ewe-plugin seed --restore ${p.id} brings it back)` : `${p.name || p.id} removed`);
+    run(p.id, () => api.pluginRemove(p.id), p.bundled ? `Removed **${p.name || p.id}**. ewe updates leave it out; ewe-plugin seed --restore ${p.id} brings it back.` : `Removed **${p.name || p.id}**`);
   }
 
   // re-read when the window comes back (the terminal, a restore in
@@ -118,187 +124,222 @@
   });
 </script>
 
-<div class="h-full overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
-  <h1 class="text-xl font-bold tracking-tight">Plugins</h1>
-  <p class="mb-4 text-sm text-dim dark:text-dim">
-    Bar widgets, panels and services for the shell — from a git URL, into <code>~/.config/ewe/plugins</code>.
-    <button class="underline decoration-dotted underline-offset-2" on:click={() => openUrl(GUIDE)}>The guide ↗</button>
-  </p>
+<Page title="Plugins" desc="Bar widgets, desktop widgets, panels and services for the shell, from a git URL into ~/.config/ewe/plugins">
+  <svelte:fragment slot="actions">
+    <button class="ewe-btn ewe-btn--ghost" on:click={() => openUrl(GUIDE)}><Icon name="book" />Open the guide</button>
+  </svelte:fragment>
 
   {#if !loaded}
-    <div class="card p-6 text-center text-sm text-dim">Reading…</div>
+    <div class="ewe-empty" aria-busy="true">
+      <span class="ewe-empty__icon"><span class="ewe-spinner ewe-spinner--xl" aria-hidden="true"></span></span>
+      <div class="ewe-empty__title">Reading your plugins…</div>
+    </div>
   {:else if error}
-    <div class="card p-6 text-sm">
-      <div class="font-medium">Plugins need ewe 0.14 or newer.</div>
-      <div class="mt-1 text-dim">{error}</div>
+    <div class="ewe-empty" role="alert">
+      <span class="ewe-empty__icon"><Icon name="puzzle" /></span>
+      <div class="ewe-empty__title">Plugins need ewe 0.14 or newer</div>
+      <div class="ewe-empty__desc">{error}</div>
     </div>
   {:else}
     {#if data.safeMode}
-      <div class="card mb-4 border-l-4 px-4 py-3 text-sm" style="border-left-color: var(--warning)">
-        <div class="font-medium">Safe mode — this session loaded no plugins.</div>
-        <div class="text-dim">
-          The shell restarted three times within a minute. Enabled at the time:
-          {data.suspects.join(", ")}. Switch the culprit off and it will come back on the next start.
-        </div>
-      </div>
+      <Alert tone="warning" title="Safe mode: this session loaded no plugins">
+        The shell restarted three times within a minute. Turned on at the time: {data.suspects.join(", ")}. Turn the culprit off and the rest come back at the next start.
+      </Alert>
     {/if}
 
-    <div class="card px-4 py-3">
-      <div class="flex flex-wrap items-center gap-2">
-        <input
-          class="input min-w-0 flex-1"
-          placeholder="https://github.com/someone/ewe-something.git"
-          bind:value={url}
-          on:keydown={(e) => e.key === "Enter" && add()}
-          disabled={busy === "add"}
-        />
-        <label class="flex items-center gap-2 text-xs text-dim">
-          <Toggle on={enableNew} toggled={() => (enableNew = !enableNew)} /> Enable after install
+    <Group title="Add a plugin" well={false}>
+      <div class="form-row">
+        <label class="ewe-input">
+          <Icon name="git" />
+          <input
+            class="field-text"
+            aria-label="Git URL of the plugin"
+            placeholder="https://github.com/someone/ewe-something.git"
+            bind:value={url}
+            on:keydown={(e) => e.key === "Enter" && add()}
+            disabled={busy === "add"}
+          />
         </label>
-        <button class="btn-primary !py-1.5 text-sm" on:click={add} disabled={!url.trim() || busy === "add"}>
-          {busy === "add" ? "Cloning…" : "Add"}
+        <label class="ewe-check">
+          <Toggle on={enableNew} label="Turn on after install" toggled={() => (enableNew = !enableNew)} />
+          <span class="ewe-check__label">Turn on after install</span>
+        </label>
+        <button class="ewe-btn ewe-btn--primary" on:click={add} disabled={!url.trim() || busy === "add"}>
+          {#if busy === "add"}<span class="ewe-spinner ewe-spinner--sm ewe-spinner--on-accent" aria-hidden="true"></span>Cloning…{:else}Add{/if}
         </button>
       </div>
-      <p class="mt-2 text-xs text-dim">
-        Installing never runs plugin code. Enabling does — unsandboxed, inside your shell, with
-        everything the desktop can do. Read it before you switch it on.
-        <button class="underline decoration-dotted underline-offset-2" on:click={() => openUrl(EXAMPLE)}>The reference plugin ↗</button>
-      </p>
-    </div>
+      <Alert tone="warning">
+        Installing never runs plugin code. Turning it on does: unsandboxed, inside your shell, with everything the desktop can do. Read it before you turn it on.
+        <svelte:fragment slot="actions">
+          <button class="ewe-link" on:click={() => openUrl(EXAMPLE)}>Open the reference plugin<Icon name="external" /></button>
+        </svelte:fragment>
+      </Alert>
+    </Group>
 
-    <div class="section-title">Installed · {installed.length}</div>
-    <div class="mb-3 flex justify-end">
-      <button class="btn-ghost !py-1 text-xs" on:click={() => (creating = !creating)}>{creating ? "Cancel" : "New plugin…"}</button>
-    </div>
-    {#if creating}
-      <div class="card mb-3 p-4">
-        <div class="mb-2 text-sm font-medium">A new plugin repository</div>
-        <p class="mb-3 text-xs text-dim">You get a working plugin per kind, a README that explains the contract, an MIT licence and a first commit. You write the QML; ewe places it, and shows its settings as a form here.</p>
-        <div class="grid gap-2 sm:grid-cols-2">
-          <input class="input" placeholder="id — namespace.name, e.g. acme.clock" bind:value={newId} />
-          <input class="input" placeholder="Name (optional)" bind:value={newName} />
+    <Group title="Installed · {installed.length}">
+      <svelte:fragment slot="action">
+        <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" aria-expanded={creating} on:click={() => (creating = !creating)}>
+          {#if creating}Cancel{:else}<Icon name="plus" />New plugin…{/if}
+        </button>
+      </svelte:fragment>
+      {#if installed.length === 0}
+        <div class="ewe-empty ewe-empty--compact">
+          <span class="ewe-empty__icon"><Icon name="puzzle" /></span>
+          <div class="ewe-empty__title">No plugins yet</div>
+          <div class="ewe-empty__desc">Paste a git URL above, start from the reference plugin, or make one with New plugin.</div>
         </div>
-        <div class="mt-2 flex flex-wrap gap-3 text-sm">
-          {#each Object.keys(newKinds) as k}
-            <label class="flex items-center gap-1.5"><input type="checkbox" bind:checked={newKinds[k]} /> {KIND_LABELS[k]}</label>
-          {/each}
-        </div>
-        <div class="mt-2 flex items-center gap-2">
-          <button class="btn-ghost !py-1 text-xs" on:click={pickDir}>{newDir ? "Folder: " + newDir : "Choose a folder…"}</button>
-          <span class="flex-1"></span>
-          <button class="btn-primary !py-1 text-xs" disabled={busy === "create" || !newId.trim() || !newDir} on:click={create}>Create</button>
-        </div>
-      </div>
-    {/if}
-    {#if installed.length === 0}
-      <div class="card p-6 text-center text-sm text-dim">
-        No plugins yet — paste a git URL above, start from the reference plugin, or make one with New plugin…
-      </div>
-    {:else}
-      <div class="flex flex-col gap-2">
+      {:else}
         {#each installed as p (p.id)}
-          <div class="card flex items-center gap-3.5 px-4 py-3 {p.valid ? '' : 'opacity-75'}">
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold"
-                 style={p.enabled && p.valid ? "background: var(--brand-bg); color: var(--fg-on-brand)" : "background: var(--bg-3); color: var(--fg-3)"}>
+          <div class="ewe-row ewe-row--tall" class:is-dim={!p.valid}>
+            <span class="ewe-row__lead ewe-row__lead--tile" class:is-on={p.enabled && p.valid}>
               {(p.name || p.id).slice(0, 1).toUpperCase()}
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-baseline gap-2">
-                <span class="truncate font-medium">{p.name || p.id}</span>
-                {#if p.version}<span class="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-dim">{p.version}</span>{/if}
-                {#each p.kinds as k}<span class="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-dim">{k}</span>{/each}
-                {#if p.bundled}<span class="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-dim" title="Comes with ewe — removing it is remembered; a later ewe update will not bring it back">bundled</span>
-                {:else if !p.git}<span class="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-dim">hand-made</span>{/if}
+            </span>
+            <div class="ewe-row__text">
+              <div class="row-title">
+                <span class="ewe-row__title">{p.name || p.id}</span>
+                {#if p.version}<span class="ewe-badge ver"><span class="ewe-badge__label">{p.version}</span></span>{/if}
+                {#each p.kinds as k}<span class="ewe-badge"><span class="ewe-badge__label">{KIND_LABELS[k] || k}</span></span>{/each}
+                {#if p.bundled}<span class="ewe-badge ewe-badge--accent" title="Comes with ewe. Removing it is remembered; a later ewe update won’t bring it back."><span class="ewe-badge__label">Bundled</span></span>
+                {:else if !p.git}<span class="ewe-badge"><span class="ewe-badge__label">Hand-made</span></span>{/if}
               </div>
-              <div class="truncate text-xs text-dim dark:text-dim">
+              <div class="ewe-row__desc" class:text-danger={!p.valid}>
                 {#if p.valid}{p.description || p.id}{:else}{p.problems[0]}{/if}
               </div>
             </div>
-            {#if busy === p.id}
-              <span class="text-xs text-dim">working…</span>
-            {:else}
-              {#if p.git}
-                <button class="btn-ghost !py-1 text-xs" on:click={() => update(p)}>Update</button>
+            <div class="ewe-row__trail">
+              {#if busy === p.id}
+                <span class="busy"><span class="ewe-spinner ewe-spinner--sm" aria-hidden="true"></span>Working…</span>
+              {:else}
+                {#if p.git}
+                  <button class="ewe-btn ewe-btn--sm ewe-btn--ghost" aria-label="Update {p.name || p.id}" on:click={() => update(p)}>Update</button>
+                {/if}
+                <button
+                  class="ewe-btn ewe-btn--sm {confirming === p.id ? 'ewe-btn--danger' : 'ewe-btn--ghost'}"
+                  on:click={() => remove(p)}
+                >
+                  {confirming === p.id ? `Remove ${p.name || p.id}` : "Remove"}
+                </button>
+                {#if (p.settingsSchema && p.settingsSchema.length) || p.widget}
+                  <button
+                    class="ewe-btn ewe-btn--sm ewe-btn--secondary"
+                    aria-expanded={expanded === p.id}
+                    on:click={() => (expanded = expanded === p.id ? null : p.id)}
+                  >
+                    Options<Icon name={expanded === p.id ? "caretUp" : "caretDown"} />
+                  </button>
+                {/if}
+                <Toggle on={p.enabled} disabled={!p.valid} label="{p.name || p.id} on" toggled={() => setEnabled(p, !p.enabled)} />
               {/if}
-              <button
-                class="{confirming === p.id ? 'btn-danger' : 'btn-ghost'} !py-1 text-xs"
-                on:click={() => remove(p)}
-              >
-                {confirming === p.id ? "Really remove?" : "Remove"}
-              </button>
-              {#if (p.settingsSchema && p.settingsSchema.length) || p.widget}
-                <button class="btn-ghost !py-1 text-xs" on:click={() => (expanded = expanded === p.id ? null : p.id)}>{expanded === p.id ? "Close" : "Options"}</button>
-              {/if}
-              <Toggle on={p.enabled} disabled={!p.valid} toggled={() => setEnabled(p, !p.enabled)} />
-            {/if}
+            </div>
           </div>
           {#if expanded === p.id}
-            <div class="card -mt-1 flex flex-col gap-3 px-4 py-3">
+            <div class="plugin-options" role="group" aria-label="Options of {p.name || p.id}">
               {#if p.widget}
-                <div class="flex flex-wrap items-center gap-3 text-sm">
-                  <span class="font-medium">On the desktop</span>
-                  <button class="btn-ghost !py-1 text-xs" on:click={() => run(p.id, () => api.pluginArrange(), "Arrange mode — drag on the desktop, Esc when done")}>Arrange…</button>
-                  <label class="flex items-center gap-2 text-xs"><span>Sticky (above windows)</span><Toggle on={p.widget.layer === "top"} toggled={() => run(p.id, () => api.pluginPlace(p.id, p.widget.layer === "top" ? "desktop" : "top", null), "Saved")} /></label>
-                  <label class="flex items-center gap-2 text-xs"><span>Shown</span><Toggle on={p.widget.visible !== false} toggled={() => run(p.id, () => api.pluginPlace(p.id, null, p.widget.visible === false), "Saved")} /></label>
-                  <span class="text-xs text-dim">at {p.widget.x}, {p.widget.y}{p.widget.output ? " on " + p.widget.output : ""}</span>
-                </div>
+                <Row title="On the desktop" sub="At {p.widget.x}, {p.widget.y}{p.widget.output ? ' on ' + p.widget.output : ''}" dense>
+                  <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" on:click={() => run(p.id, () => api.pluginArrange(), "Arrange mode: drag widgets on the desktop, then press Esc")}>Arrange…</button>
+                </Row>
+                <Row title="Above windows" sub="Sticky: the widget stays on top" dense>
+                  <Toggle on={p.widget.layer === "top"} label="Above windows" toggled={() => run(p.id, () => api.pluginPlace(p.id, p.widget.layer === "top" ? "desktop" : "top", null), "Saved")} />
+                </Row>
+                <Row title="Shown" dense>
+                  <Toggle on={p.widget.visible !== false} label="Shown" toggled={() => run(p.id, () => api.pluginPlace(p.id, null, p.widget.visible === false), "Saved")} />
+                </Row>
               {/if}
-              {#each p.settingsSchema || [] as s (s.key)}
-                <label class="flex items-center gap-3 text-sm">
-                  <span class="min-w-0 flex-1 truncate">{s.label || s.key}</span>
-                  {#if s.type === "bool"}
-                    <Toggle on={!!p.settings[s.key]} toggled={() => setSetting(p, s.key, !p.settings[s.key])} />
-                  {:else if s.type === "int"}
-                    <input class="input w-24" type="number" min={s.min} max={s.max} value={p.settings[s.key]} on:change={(e) => setSetting(p, s.key, e.currentTarget.value)} />
-                  {:else if s.type === "choice"}
-                    <select class="input w-40" value={p.settings[s.key]} on:change={(e) => setSetting(p, s.key, e.currentTarget.value)}>
-                      {#each s.choices || [] as c}<option value={c}>{c}</option>{/each}
+              {#each p.settingsSchema || [] as st (st.key)}
+                <Row title={st.label || st.key} dense>
+                  {#if st.type === "bool"}
+                    <Toggle on={!!p.settings[st.key]} label={st.label || st.key} toggled={() => setSetting(p, st.key, !p.settings[st.key])} />
+                  {:else if st.type === "int"}
+                    <input class="ewe-input num-input ver" type="number" aria-label={st.label || st.key} min={st.min} max={st.max} value={p.settings[st.key]} on:change={(e) => setSetting(p, st.key, e.currentTarget.value)} />
+                  {:else if st.type === "choice"}
+                    <select class="ewe-input text-input" aria-label={st.label || st.key} value={p.settings[st.key]} on:change={(e) => setSetting(p, st.key, e.currentTarget.value)}>
+                      {#each st.choices || [] as c}<option value={c}>{c}</option>{/each}
                     </select>
-                  {:else if s.type === "color"}
-                    <input type="color" class="h-7 w-9 cursor-pointer rounded-md border-0 bg-transparent p-0" value={p.settings[s.key]} on:change={(e) => setSetting(p, s.key, e.currentTarget.value)} />
+                  {:else if st.type === "color"}
+                    <input type="color" class="ewe-swatch" aria-label={st.label || st.key} value={p.settings[st.key]} on:change={(e) => setSetting(p, st.key, e.currentTarget.value)} />
                   {:else}
-                    <input class="input w-48" value={p.settings[s.key] ?? ""} on:change={(e) => setSetting(p, s.key, e.currentTarget.value)} />
+                    <input class="ewe-input text-input" aria-label={st.label || st.key} value={p.settings[st.key] ?? ""} on:change={(e) => setSetting(p, st.key, e.currentTarget.value)} />
                   {/if}
-                </label>
+                </Row>
               {/each}
             </div>
           {/if}
         {/each}
-      </div>
-    {/if}
+      {/if}
+      <svelte:fragment slot="after">
+        {#if creating}
+          <section class="ewe-card" aria-label="New plugin">
+            <div class="ewe-card__head">
+              <span class="ewe-card__icon ewe-card__icon--accent"><Icon name="puzzle" /></span>
+              <div class="ewe-card__titles">
+                <div class="ewe-card__title">A new plugin repository</div>
+                <div class="ewe-card__desc">
+                  A working plugin per kind, a README that explains the contract, an MIT license and a first commit. You write the QML; ewe places it and shows its settings here as a form.
+                </div>
+              </div>
+            </div>
+            <div class="form-grid">
+              <label class="ewe-field">
+                <span class="ewe-field__label">ID</span>
+                <span class="ewe-input"><input class="field-text" placeholder="acme.clock" bind:value={newId} /></span>
+                <span class="ewe-field__helper">namespace.name</span>
+              </label>
+              <label class="ewe-field">
+                <span class="ewe-field__label">Name <span class="ewe-field__optional">Optional</span></span>
+                <span class="ewe-input"><input class="field-text" placeholder="Big clock" bind:value={newName} /></span>
+              </label>
+            </div>
+            <div class="ewe-field">
+              <span class="ewe-field__label">Kinds</span>
+              <div class="checks">
+                {#each Object.keys(newKinds) as k}
+                  <Checkbox bind:checked={newKinds[k]} label={KIND_LABELS[k]} />
+                {/each}
+              </div>
+            </div>
+            <div class="ewe-card__foot">
+              <button class="ewe-btn ewe-btn--secondary mr-auto" on:click={pickDir}>
+                <Icon name="folderOpen" />{newDir ? newDir : "Choose a folder…"}
+              </button>
+              <button class="ewe-btn ewe-btn--ghost" on:click={() => (creating = false)}>Cancel</button>
+              <button class="ewe-btn ewe-btn--primary" disabled={busy === "create" || !newId.trim() || !newDir} on:click={create}>Create</button>
+            </div>
+          </section>
+        {/if}
+      </svelte:fragment>
+    </Group>
 
     {#if missing.length > 0}
-      <div class="section-title flex items-center justify-between">
-        <span>From your other machine · {missing.length}</span>
-        {#if fetchable.length > 1}
-          <button class="btn-ghost !py-1 text-xs" on:click={restoreAll} disabled={busy === "restore"}>
-            {busy === "restore" ? "Cloning…" : `Restore all (${fetchable.length})`}
-          </button>
-        {/if}
-      </div>
-      <div class="flex flex-col gap-2">
+      <Group title="From your other machine · {missing.length}">
+        <svelte:fragment slot="action">
+          {#if fetchable.length > 1}
+            <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" on:click={restoreAll} disabled={busy === "restore"}>
+              {busy === "restore" ? "Cloning…" : `Restore all (${fetchable.length})`}
+            </button>
+          {/if}
+        </svelte:fragment>
         {#each missing as p (p.id)}
-          <div class="card flex items-center gap-3.5 px-4 py-3">
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-elevated text-sm font-bold text-dim">
-              {p.id.slice(0, 1).toUpperCase()}
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex items-baseline gap-2">
-                <span class="truncate font-medium">{p.id}</span>
-                <span class="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-dim">{p.enabled ? "was on" : "was off"}</span>
+          <div class="ewe-row">
+            <span class="ewe-row__lead ewe-row__lead--tile">{p.id.slice(0, 1).toUpperCase()}</span>
+            <div class="ewe-row__text">
+              <div class="row-title">
+                <span class="ewe-row__title">{p.id}</span>
+                <span class="ewe-badge"><span class="ewe-badge__label">{p.enabled ? "Was on" : "Was off"}</span></span>
               </div>
-              <div class="truncate text-xs text-dim dark:text-dim">
-                {p.source === "local" ? "a local directory on that machine — nothing to fetch" : p.source === "bundled" ? "comes with ewe — installs with the ewe package" : p.source}
+              <div class="ewe-row__desc">
+                {p.source === "local" ? "A local folder on that machine: nothing to fetch" : p.source === "bundled" ? "Comes with ewe and installs with the ewe package" : p.source}
               </div>
             </div>
             {#if p.source && p.source !== "local" && p.source !== "bundled"}
-              <button class="btn-ghost !py-1 text-xs" on:click={() => install(p)} disabled={busy === p.id}>
-                {busy === p.id ? "Cloning…" : "Install"}
-              </button>
+              <div class="ewe-row__trail">
+                <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" aria-label="Install {p.id}" on:click={() => install(p)} disabled={busy === p.id}>
+                  {busy === p.id ? "Cloning…" : "Install"}
+                </button>
+              </div>
             {/if}
           </div>
         {/each}
-      </div>
+      </Group>
     {/if}
   {/if}
-</div>
+</Page>

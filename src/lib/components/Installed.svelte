@@ -3,6 +3,10 @@
   import { refreshInstalled, refreshPkgs } from "../actions";
   import * as api from "../api";
   import { formatDate } from "../utils";
+  import Page from "./ui/Page.svelte";
+  import Group from "./ui/Group.svelte";
+  import Icon from "./ui/Icon.svelte";
+  import AppIcon from "./AppIcon.svelte";
 
   let confirming = null;
 
@@ -18,7 +22,7 @@
     confirming = null;
     try {
       await api.removeAppimage(entry.id);
-      toast(`${entry.name} removed`, "success");
+      toast(`Removed **${entry.name}**`, "success");
       refreshInstalled();
     } catch (e) {
       toast(e, "error");
@@ -29,9 +33,9 @@
     if (confirming !== `pkg:${d.package}`) return askConfirm(`pkg:${d.package}`);
     confirming = null;
     try {
-      toast(`Removing ${d.package} — authentication may be required…`, "info");
+      toast(`Removing **${d.package}**. You may be asked for your password…`, "info");
       await api.removePackage(d.package);
-      toast(`${d.package} removed`, "success");
+      toast(`Removed **${d.package}**`, "success");
       refreshPkgs();
     } catch (e) {
       toast(e, "error");
@@ -39,85 +43,72 @@
   }
 </script>
 
-<div class="h-full overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
-  <h1 class="text-xl font-bold tracking-tight">Installed</h1>
-  <p class="mb-4 text-sm text-dim dark:text-dim">
-    Apps managed by Komble on this machine
-  </p>
-
-  <div class="section-title">AppImages · {$installed.length}</div>
-  {#if $installed.length === 0}
-    <div class="card p-6 text-center text-sm text-dim">
-      No AppImages yet — install something from Discover.
-    </div>
-  {:else}
-    <div class="flex flex-col gap-2">
+<Page title="Installed" desc="Apps Komble manages on this machine">
+  <Group title="AppImages · {$installed.length}">
+    {#if $installed.length === 0}
+      <div class="ewe-empty ewe-empty--compact">
+        <span class="ewe-empty__icon"><Icon name="app" /></span>
+        <div class="ewe-empty__title">No AppImages yet</div>
+        <div class="ewe-empty__desc">Install one from Discover.</div>
+      </div>
+    {:else}
       {#each $installed as entry (entry.id)}
-        <div class="card flex items-center gap-3.5 px-4 py-3">
-          {#if entry.iconUrl}
-            <img src={entry.iconUrl} alt="" class="h-9 w-9 rounded-lg object-contain" on:error={(e) => (e.currentTarget.style.display = "none")} />
-          {:else}
-            <div class="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold text-[var(--fg-on-brand)]" style="background: var(--brand-bg)">
-              {(entry.name || "?").slice(0, 1).toUpperCase()}
+        <div class="ewe-row ewe-row--tall">
+          <span class="ewe-row__lead"><AppIcon name={entry.name} src={entry.iconUrl} size="sm" /></span>
+          <div class="ewe-row__text">
+            <div class="row-title">
+              <span class="ewe-row__title">{entry.name}</span>
+              <span class="ewe-badge"><span class="ewe-badge__label">{entry.version}</span></span>
             </div>
-          {/if}
-          <div class="min-w-0 flex-1">
-            <div class="flex items-baseline gap-2">
-              <span class="truncate font-medium">{entry.name}</span>
-              <span class="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-dim /70 ">
-                {entry.version}
-              </span>
-            </div>
-            <div class="truncate text-xs text-dim dark:text-dim">
-              {entry.path} · {formatDate(entry.installedAt)}
-            </div>
+            <div class="ewe-row__desc" title={entry.path}>{entry.path} · {formatDate(entry.installedAt)}</div>
           </div>
-          {#if $progress[entry.id]}
-            <span class="text-xs text-dim">updating…</span>
-          {:else}
-            <button
-              class="{confirming === `ai:${entry.id}` ? 'btn-danger' : 'btn-ghost'} !py-1 text-xs"
-              on:click={() => removeAppimage(entry)}
-            >
-              {confirming === `ai:${entry.id}` ? "Really remove?" : "Remove"}
-            </button>
-          {/if}
+          <div class="ewe-row__trail">
+            {#if $progress[entry.id]}
+              <span class="busy"><span class="ewe-spinner ewe-spinner--sm" aria-hidden="true"></span>Updating…</span>
+            {:else}
+              <!-- two steps: the first press arms it (4 s), the second removes -->
+              <button
+                class="ewe-btn ewe-btn--sm {confirming === `ai:${entry.id}` ? 'ewe-btn--danger' : 'ewe-btn--ghost'}"
+                on:click={() => removeAppimage(entry)}
+              >
+                {confirming === `ai:${entry.id}` ? `Remove ${entry.name}` : "Remove"}
+              </button>
+            {/if}
+          </div>
         </div>
       {/each}
-    </div>
-  {/if}
+    {/if}
+  </Group>
 
-  <div class="section-title">Packages installed via Komble · {$trackedPkgs.length}</div>
-  {#if $trackedPkgs.length === 0}
-    <div class="card p-6 text-center text-sm text-dim">
-      Packages you install through Komble will appear here.
-    </div>
-  {:else}
-    <div class="flex flex-col gap-2">
+  <Group title="Packages installed with Komble · {$trackedPkgs.length}">
+    {#if $trackedPkgs.length === 0}
+      <div class="ewe-empty ewe-empty--compact">
+        <span class="ewe-empty__icon"><Icon name="package" /></span>
+        <div class="ewe-empty__title">No packages yet</div>
+        <div class="ewe-empty__desc">Packages you install with Komble appear here.</div>
+      </div>
+    {:else}
       {#each $trackedPkgs as d (d.package)}
-        <div class="card flex items-center gap-3.5 px-4 py-3">
-          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-elevated text-sm font-bold text-dim">
-            {d.package.slice(0, 1).toUpperCase()}
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="flex items-baseline gap-2">
-              <span class="truncate font-medium">{d.package}</span>
-              <span class="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-dim /70 ">
-                {d.version}
-              </span>
+        <div class="ewe-row ewe-row--tall">
+          <span class="ewe-row__lead"><AppIcon name={d.package} pkg size="sm" /></span>
+          <div class="ewe-row__text">
+            <div class="row-title">
+              <span class="ewe-row__title">{d.package}</span>
+              <span class="ewe-badge"><span class="ewe-badge__label">{d.version}</span></span>
+              {#if d.source === "aur"}<span class="ewe-badge ewe-badge--warning"><span class="ewe-badge__label">AUR</span></span>{/if}
             </div>
-            <div class="truncate text-xs text-dim dark:text-dim">
-              {d.description || d.source} · {formatDate(d.installedAt)}
-            </div>
+            <div class="ewe-row__desc">{d.description || d.source} · {formatDate(d.installedAt)}</div>
           </div>
-          <button
-            class="{confirming === `pkg:${d.package}` ? 'btn-danger' : 'btn-ghost'} !py-1 text-xs"
-            on:click={() => removeDebPkg(d)}
-          >
-            {confirming === `pkg:${d.package}` ? "Really remove?" : "Remove"}
-          </button>
+          <div class="ewe-row__trail">
+            <button
+              class="ewe-btn ewe-btn--sm {confirming === `pkg:${d.package}` ? 'ewe-btn--danger' : 'ewe-btn--ghost'}"
+              on:click={() => removeDebPkg(d)}
+            >
+              {confirming === `pkg:${d.package}` ? `Remove ${d.package}` : "Remove"}
+            </button>
+          </div>
         </div>
       {/each}
-    </div>
-  {/if}
-</div>
+    {/if}
+  </Group>
+</Page>

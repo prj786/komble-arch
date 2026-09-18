@@ -847,6 +847,7 @@ code {
   }
   .reasons {
     margin: 0;
+    list-style: disc;
     padding-left: var(--space-md);
     color: var(--text-secondary);
     display: flex;
@@ -932,5 +933,62 @@ code {
     .ewe-sidenav__tagline {
       display: none;
     }
+  }
+}
+
+@layer components {
+  /* versions are technical values: Geist Mono (Key-value card) */
+  .ver {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .ver .text-warning {
+    font-family: var(--font-sans);
+  }
+}
+
+@layer components {
+  /* a turned-on plugin's tile: accent-subtle, the Card's main-subject icon */
+  .ewe-row__lead--tile {
+    font-weight: var(--font-weight-semibold);
+  }
+  .ewe-row__lead--tile.is-on {
+    background: var(--accent-subtle);
+    color: var(--accent-text);
+  }
+  .ewe-row.is-dim .ewe-row__lead--tile {
+    color: var(--text-disabled);
+  }
+  .ewe-row__desc.text-danger {
+    color: var(--danger);
+  }
+  .ewe-check .ewe-switch {
+    margin-top: 0;
+  }
+  .ewe-check:has(.ewe-switch) {
+    align-items: center;
+  }
+}
+
+@layer components {
+  .detail__progress {
+    width: calc(6 * var(--control-lg));
+  }
+  .detail > .ewe-dialog__head > .ewe-iconbtn {
+    margin: calc(-1 * var(--space-xs)) calc(-1 * var(--space-xs)) 0 0;
+  }
+}
+
+@layer components {
+  .ewe-wizard .ewe-steps {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .ewe-wizard .ewe-file {
+    flex: none;
+  }
+  .ewe-wizard__body {
+    padding-inline: calc(var(--space-lg) + var(--space-md));
   }
 }
