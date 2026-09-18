@@ -556,7 +556,7 @@ code {
   .vgrid {
     /* the App card's width (App card: 208px) is the grid's column minimum */
     --col: calc(6 * var(--control-lg) + var(--space-md));
-    --gap: calc(var(--space-s) + var(--space-xs));
+    --vgrid-gap: calc(var(--space-s) + var(--space-xs));
     flex: 1;
     min-height: 0;
     overflow-y: auto;
@@ -566,7 +566,7 @@ code {
     position: absolute;
     visibility: hidden;
     width: var(--col);
-    height: var(--gap);
+    height: var(--vgrid-gap);
     pointer-events: none;
   }
   .vgrid__cell {
