@@ -15,6 +15,9 @@
   import { refreshInstalled, refreshPkgs } from "../actions";
   import * as api from "../api";
   import { stripHtml, formatBytes } from "../utils";
+  import { Dialog } from "bits-ui";
+  import Icon from "./ui/Icon.svelte";
+  import AppIcon from "./AppIcon.svelte";
 
   let release = null;
   let pkgInfo = null;
@@ -85,10 +88,10 @@
     if (isPkg) {
       setPkgBusy(item.pkg, true);
       try {
-        toast(`Installing ${item.pkg} — authentication may be required…`, "info");
+        toast(`Installing **${item.pkg}**. You may be asked for your password…`, "info");
         if (isEwe) await api.installFirstParty(item.pkg, $settings.githubToken);
         else await api.installPackage(item.pkg);
-        toast(`${item.pkg} installed`, "success");
+        toast(`Installed **${item.pkg}**`, "success");
         item.installed = true;
         refreshPkgs();
       } catch (e) {
@@ -99,7 +102,7 @@
     }
     try {
       await api.installFromItem(item, $settings);
-      toast(`${item.name} installed`, "success");
+      toast(`Installed **${item.name}**`, "success");
     } catch (e) {
       toast(e, "error");
     }
@@ -115,15 +118,15 @@
     try {
       if (isPkg) {
         setPkgBusy(item.pkg, true);
-        toast(`Removing ${item.pkg} — authentication may be required…`, "info");
+        toast(`Removing **${item.pkg}**. You may be asked for your password…`, "info");
         await api.removePackage(item.pkg);
-        toast(`${item.pkg} removed`, "success");
+        toast(`Removed **${item.pkg}**`, "success");
         item.installed = false;
         refreshPkgs();
         setPkgBusy(item.pkg, false);
       } else {
         await api.removeAppimage(item.id);
-        toast(`${item.name} removed`, "success");
+        toast(`Removed **${item.name}**`, "success");
         refreshInstalled();
       }
     } catch (e) {
@@ -133,123 +136,120 @@
   }
 </script>
 
-<svelte:window on:keydown={(e) => e.key === "Escape" && close()} />
-
+<!-- The app's page, as a large Dialog: bits-ui gives the focus trap, Esc,
+     click-outside (it closes, as before: nothing is lost) and focus return. -->
 {#if item}
-  <div
-    class="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm sm:p-6"
-    role="button"
-    tabindex="-1"
-    on:click|self={close}
-    on:keydown={() => {}}
-  >
-    <div class="card flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden !bg-white shadow-2xl dark:!bg-[var(--bg-3)]">
-      <div class="flex items-start gap-3 border-b border-hairline p-4 sm:gap-4 sm:p-5 ">
-        {#if isPkg}
-          <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-elevated text-dim">
-            <svg viewBox="0 0 24 24" class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 7l-8-4-8 4v10l8 4 8-4V7zM4 7l8 4m0 0l8-4m-8 4v10" />
-            </svg>
+  <Dialog.Root open={true} onOpenChange={(v) => !v && close()}>
+    <Dialog.Portal>
+      <Dialog.Overlay class="scrim" />
+      <Dialog.Content class="ewe-dialog ewe-dialog--lg is-floating detail" aria-describedby={undefined}>
+        <div class="ewe-dialog__head">
+          <AppIcon {item} size="xl" />
+          <div class="ewe-dialog__titles">
+            <Dialog.Title class="ewe-dialog__title">{item.name}</Dialog.Title>
+            <div class="detail__meta">
+              {#if isPkg}
+                <span class="ewe-badge {isAur ? 'ewe-badge--warning' : isEwe ? 'ewe-badge--accent' : ''}">
+                  <span class="ewe-badge__label">{isAur ? "AUR" : isEwe ? "ewe" : pkgInfo?.section || item.section || "Repository"}</span>
+                </span>
+                {#if loading}
+                  <span>Loading details…</span>
+                {:else if pkgInfo}
+                  <span class="ver">{pkgInfo.version}</span>
+                  {#if pkgInfo.installedSizeKb}<span>{formatBytes(pkgInfo.installedSizeKb * 1024)} installed</span>{/if}
+                {:else if item.version}
+                  <span class="ver">{item.version}</span>
+                {/if}
+              {:else}
+                <span class="ewe-badge ewe-badge--info"><span class="ewe-badge__label">AppImage</span></span>
+                {#if item.authors?.[0]?.name}<span>by {item.authors[0].name}</span>{/if}
+                {#if item.license}<span>{item.license}</span>{/if}
+                {#if loading}
+                  <span>Checking the latest version…</span>
+                {:else if release}
+                  <span class="ver">{release.version}</span>
+                  {#if release.assets?.[0]?.size}<span>{formatBytes(release.assets[0].size)}</span>{/if}
+                {/if}
+              {/if}
+            </div>
+            <div class="detail__actions">
+              {#if isInstalled}
+                <span class="ewe-badge ewe-badge--success"><Icon name="check" size="xs" /><span class="ewe-badge__label">Installed</span></span>
+                <!-- two steps: the first press arms it (4 s), the second removes -->
+                <button class="ewe-btn ewe-btn--sm {confirming ? 'ewe-btn--danger' : 'ewe-btn--secondary'}" disabled={pkgBusy} on:click={remove}>
+                  <Icon name="trash" />{confirming ? `Remove ${item.name}` : "Remove"}
+                </button>
+              {:else if pkgBusy || prog}
+                <div
+                  class="ewe-progress {pct === null ? 'ewe-progress--indeterminate' : ''} detail__progress"
+                  role="progressbar"
+                  aria-label="Installing {item.name}"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow={pct ?? undefined}
+                >
+                  <div class="ewe-progress__head">
+                    <span class="ewe-progress__label">
+                      {prog && prog.phase === "integrating" ? "Adding to the app menu…" : prog ? "Downloading…" : "Installing…"}
+                    </span>
+                    {#if pct !== null}<span class="ewe-progress__value">{pct}%</span>{/if}
+                  </div>
+                  <div class="ewe-progress__track"><div class="ewe-progress__fill" style="--value: {pct ?? 0}%"></div></div>
+                </div>
+              {:else}
+                <button class="ewe-btn ewe-btn--primary" on:click={install}>
+                  {#if isAur}<Icon name="fileCode" />Review PKGBUILD…{:else}<Icon name="download" />Install{/if}
+                </button>
+              {/if}
+              {#if isPkg && pkgInfo?.homepage}
+                <button class="ewe-btn ewe-btn--sm ewe-btn--ghost" on:click={() => openUrl(pkgInfo.homepage)}>Homepage<Icon name="external" /></button>
+              {/if}
+              {#if !isPkg && item.github}
+                <button class="ewe-btn ewe-btn--sm ewe-btn--ghost" on:click={() => openUrl(item.github)}>GitHub<Icon name="external" /></button>
+              {/if}
+              {#if !isPkg && item.download}
+                <button class="ewe-btn ewe-btn--sm ewe-btn--ghost" on:click={() => openUrl(item.download)}>Download page<Icon name="external" /></button>
+              {/if}
+            </div>
+            {#if relError}
+              <p class="ewe-dialog__desc warn">{relError}</p>
+            {/if}
           </div>
-        {:else if item.icon && !iconError}
-          <img src={item.icon} alt="" class="h-16 w-16 rounded-xl object-contain" on:error={() => (iconError = true)} />
-        {:else}
-          <div class="flex h-16 w-16 items-center justify-center rounded-xl text-2xl font-bold text-[var(--fg-on-brand)]" style="background: var(--brand-bg)">
-            {item.name.slice(0, 1).toUpperCase()}
-          </div>
-        {/if}
-        <div class="min-w-0 flex-1">
-          <h2 class="truncate text-lg font-bold">{item.name}</h2>
-          <div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-dim dark:text-dim">
+          <Dialog.Close class="ewe-iconbtn ewe-iconbtn--ghost ewe-iconbtn--sm" aria-label="Close">
+            <Icon name="x" />
+          </Dialog.Close>
+        </div>
+
+        <div class="detail__body">
+          {#if !isPkg && item.screenshots?.length}
+            <div class="shots">
+              {#each item.screenshots as shot}
+                <img src={shot} alt="Screenshot of {item.name}" on:error={(e) => e.currentTarget.remove()} />
+              {/each}
+            </div>
+          {/if}
+          <p class="detail__desc">
             {#if isPkg}
-              <span class="font-medium text-orange-600 dark:text-orange-400">{isAur ? "AUR package" : isEwe ? "ewe first-party app" : "repository package"}</span>
-              {#if pkgInfo?.section && !isAur}<span>{pkgInfo.section}</span>{/if}
-              {#if loading}
-                <span>loading details…</span>
-              {:else if pkgInfo}
-                <span class="font-medium text-dim">
-                  {pkgInfo.version}{#if pkgInfo.installedSizeKb}&nbsp;· {formatBytes(pkgInfo.installedSizeKb * 1024)} installed{/if}
-                </span>
-              {:else if item.version}
-                <span class="font-medium text-dim">{item.version}</span>
-              {/if}
+              {pkgInfo?.description || item.plainDesc || "No description."}
             {:else}
-              {#if item.authors?.[0]?.name}<span>by {item.authors[0].name}</span>{/if}
-              {#if item.license}<span>{item.license}</span>{/if}
-              {#if loading}
-                <span>checking latest version…</span>
-              {:else if release}
-                <span class="font-medium text-dim">
-                  v{release.version}{#if release.assets?.[0]?.size}&nbsp;· {formatBytes(release.assets[0].size)}{/if}
-                </span>
-              {/if}
+              {stripHtml(item.description, true) || "No description."}
             {/if}
-          </div>
-          <div class="mt-2.5 flex flex-wrap items-center gap-2">
-            {#if isInstalled}
-              <span class="text-sm font-medium text-success dark:text-success">✓ Installed</span>
-              <button class="btn-danger !py-1 text-xs" disabled={pkgBusy} on:click={remove}>
-                {confirming ? "Really remove?" : "Remove"}
-              </button>
-            {:else if pkgBusy}
-              <span class="text-sm text-dim">Installing…</span>
-            {:else if prog}
-              <span class="text-sm tabular-nums text-dim">
-                {prog.phase === "integrating" ? "Integrating…" : pct !== null ? `Downloading ${pct}%` : "Downloading…"}
-              </span>
-            {:else}
-              <button class="btn-primary" on:click={install}>{isAur ? "Review PKGBUILD…" : "Install"}</button>
-            {/if}
-            {#if isPkg && pkgInfo?.homepage}
-              <button class="btn-ghost !py-1.5 text-xs" on:click={() => openUrl(pkgInfo.homepage)}>Homepage ↗</button>
-            {/if}
-            {#if !isPkg && item.github}
-              <button class="btn-ghost !py-1.5 text-xs" on:click={() => openUrl(item.github)}>GitHub ↗</button>
-            {/if}
-            {#if !isPkg && item.download}
-              <button class="btn-ghost !py-1.5 text-xs" on:click={() => openUrl(item.download)}>Download page ↗</button>
-            {/if}
-          </div>
-          {#if relError}
-            <p class="mt-2 text-xs text-warning dark:text-warning">{relError}</p>
+          </p>
+          {#if !isPkg && item.categories?.length}
+            <div class="badges">
+              {#each item.categories as cat}
+                <span class="ewe-badge"><span class="ewe-badge__label">{cat}</span></span>
+              {/each}
+            </div>
+          {/if}
+          {#if isPkg && pkgInfo?.installedVersion && pkgInfo.installedVersion !== pkgInfo.version}
+            <dl class="ewe-kv">
+              <dt>Installed</dt><dd class="ewe-kv__mono">{pkgInfo.installedVersion}</dd>
+              <dt>Available</dt><dd class="ewe-kv__mono">{pkgInfo.version}</dd>
+            </dl>
           {/if}
         </div>
-        <button class="btn-ghost !px-2.5 !py-1" on:click={close}>✕</button>
-      </div>
-
-      <div class="min-h-0 flex-1 overflow-y-auto p-5">
-        {#if !isPkg && item.screenshots?.length}
-          <div class="mb-4 flex gap-3 overflow-x-auto pb-1.5">
-            {#each item.screenshots as shot}
-              <img
-                src={shot}
-                alt="Screenshot"
-                class="h-44 shrink-0 rounded-lg border border-hairline object-cover "
-                on:error={(e) => e.currentTarget.remove()}
-              />
-            {/each}
-          </div>
-        {/if}
-        <p class="whitespace-pre-line text-sm leading-relaxed text-dim ">
-          {#if isPkg}
-            {pkgInfo?.description || item.plainDesc || "No description available."}
-          {:else}
-            {stripHtml(item.description, true) || "No description available."}
-          {/if}
-        </p>
-        {#if !isPkg && item.categories?.length}
-          <div class="mt-4 flex flex-wrap gap-1.5">
-            {#each item.categories as cat}
-              <span class="rounded-full bg-elevated px-2.5 py-1 text-xs text-dim /70 ">{cat}</span>
-            {/each}
-          </div>
-        {/if}
-        {#if isPkg && pkgInfo?.installedVersion && pkgInfo.installedVersion !== pkgInfo.version}
-          <p class="mt-4 text-xs text-dim">
-            Installed: {pkgInfo.installedVersion} · Available: {pkgInfo.version}
-          </p>
-        {/if}
-      </div>
-    </div>
-  </div>
+      </Dialog.Content>
+    </Dialog.Portal>
+  </Dialog.Root>
 {/if}
