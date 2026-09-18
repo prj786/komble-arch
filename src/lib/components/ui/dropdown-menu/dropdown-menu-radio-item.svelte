@@ -15,19 +15,15 @@
 <DropdownMenuPrimitive.RadioItem
 	bind:ref
 	data-slot="dropdown-menu-radio-item"
-	class={cn(
-		"gap-2 rounded-[calc(var(--radius-control)-4px)] py-1.5 pr-8 pl-2 text-sm focus:bg-primary focus:text-primary-foreground focus:**:text-primary-foreground data-inset:pl-8 [&_svg:not([class*='size-'])]:size-4 relative flex cursor-default items-center outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
-		className
-	)}
+	class={cn("ewe-menu__item", className)}
 	{...restProps}
 >
 	{#snippet children({ checked })}
-		<span
-			class="absolute right-2 flex items-center justify-center pointer-events-none"
+		<span class="ewe-menu__check order-last ml-auto"
 			data-slot="dropdown-menu-radio-item-indicator"
 		>
 			{#if checked}
-				<Icon code={ICONS.check} size={12} />
+				<Icon name="check" />
 			{/if}
 		</span>
 		{@render childrenProp?.({ checked })}

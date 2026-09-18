@@ -11,6 +11,6 @@
 <Separator
 	bind:ref
 	data-slot="select-separator"
-	class={cn("-mx-1 my-1 h-px bg-border pointer-events-none", className)}
+	class={cn("ewe-menu__divider", className)}
 	{...restProps}
 />

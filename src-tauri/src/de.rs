@@ -46,6 +46,10 @@ pub async fn de_prefs() -> Result<Value, String> {
         "themeDensity": j["themeDensity"].as_str().unwrap_or(""),
         "themeStroke": j["themeStroke"].as_str().unwrap_or(""),
         "neutralTint": j["neutralTint"].as_i64().unwrap_or(-1),
+        // the whole record as well: the v3 look has more inputs (scheme,
+        // light/dark, look presets, the accessibility modes), and the front
+        // end re-reads `ewe-theme show` whenever ANY of them moves
+        "look": j,
     }))
 }
 
