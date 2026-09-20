@@ -1037,23 +1037,36 @@ fn running_kernel_modules_missing() -> bool {
 /// table above; plus the kernel check. pacman.log is world-readable.
 pub fn restart_needed_after_last_upgrade() -> RestartNeed {
     let log = std::fs::read_to_string("/var/log/pacman.log").unwrap_or_default();
-    // entries after the last "starting full system upgrade" line
-    let start = log
-        .rfind("[PACMAN] starting full system upgrade")
-        .unwrap_or(log.len());
+    // entries after the last full upgrade. "starting full system upgrade"
+    // and the [ALPM] verbs ("upgraded", "installed" …) are gettext strings —
+    // a root locale other than C writes them translated — so the marker is
+    // ALSO the untranslated `Running 'pacman -Syu…'` line, and a touched
+    // package is read by shape: `[ALPM] <verb> <name> (<versions>)`.
+    let mut start = log.rfind("[PACMAN] starting full system upgrade");
+    for (pos, _) in log.match_indices("[PACMAN] Running 'pacman ") {
+        let line = log[pos..].lines().next().unwrap_or("");
+        let is_upgrade = line
+            .split_whitespace()
+            .any(|w| w.starts_with("-S") && w.contains('u') && !w.contains('s'));
+        if is_upgrade && start.is_none_or(|s| pos > s) {
+            start = Some(pos);
+        }
+    }
+    let start = start.unwrap_or(log.len());
     let mut touched: Vec<String> = Vec::new();
     for line in log[start..].lines() {
         let Some(rest) = line.split("[ALPM] ").nth(1) else {
             continue;
         };
-        for verb in ["upgraded ", "installed ", "removed ", "reinstalled "] {
-            if let Some(r) = rest.strip_prefix(verb) {
-                if let Some(name) = r.split(' ').next() {
-                    if !touched.iter().any(|t| t == name) {
-                        touched.push(name.to_string());
-                    }
-                }
-            }
+        let mut words = rest.split(' ');
+        let (Some(_verb), Some(name), Some(after)) = (words.next(), words.next(), words.next()) else {
+            continue;
+        };
+        if !after.starts_with('(') || name.is_empty() {
+            continue;
+        }
+        if !touched.iter().any(|t| t == name) {
+            touched.push(name.to_string());
         }
     }
     classify_restart(&touched, running_kernel_modules_missing())
