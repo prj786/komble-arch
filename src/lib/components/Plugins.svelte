@@ -85,9 +85,28 @@
   }
   // settings: typed by the manifest; the CLI refuses what does not fit
   let pending = {};
+  // one write after another, never gated on `busy`: routed through run(), a
+  // second change inside the 350 ms window was dropped while the first write
+  // was still in flight, and the re-read then showed the old value (2026-09-20)
+  let settingChain = Promise.resolve();
+  let settingReload;
   function setSetting(p, key, value) {
     clearTimeout(pending[p.id + key]);
-    pending[p.id + key] = setTimeout(() => run(p.id, () => api.pluginSet(p.id, key, value), `Saved ${key} for **${p.name || p.id}**`), 350);
+    pending[p.id + key] = setTimeout(() => {
+      settingChain = settingChain
+        .then(async () => {
+          try {
+            await api.pluginSet(p.id, key, value);
+            toast(`Saved ${key} for **${p.name || p.id}**`, "success");
+          } catch (e) {
+            toast(e, "error", 8000);
+          }
+        })
+        .then(() => {
+          clearTimeout(settingReload);
+          settingReload = setTimeout(load, 1200);
+        });
+    }, 350);
   }
 
   function add() {
