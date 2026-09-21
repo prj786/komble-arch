@@ -264,6 +264,7 @@ pub fn run() {
             pacman::install_packages,
             pacman::remove_package,
             pacman::list_tracked_packages,
+            pacman::installed_package_names,
             pacman::package_file_info,
             pacman::install_package_file,
             // updates — note there is no per-REPO-package upgrade command on

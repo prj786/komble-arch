@@ -31,6 +31,8 @@ export const packageFileInfo = (path) => invoke("package_file_info", { path });
 export const installPackageFile = (path) => invoke("install_package_file", { path });
 export const removePackage = (pkg) => invoke("remove_package", { package: pkg });
 export const listTrackedPackages = () => invoke("list_tracked_packages");
+// every installed package name in one call (the curated cards' "Installed")
+export const installedPackageNames = () => invoke("installed_package_names");
 export const listUpgradable = () => invoke("list_upgradable");
 // "Refresh lists" is free and touches nothing: checkupdates works against its
 // own database copy, so there is no `pacman -Sy` to run (and running one would

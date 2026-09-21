@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { getVersion } from "@tauri-apps/api/app";
   import { route, updatesCount } from "../stores";
-  import sheep from "../../assets/sheep.svg?raw";
+  import sheep from "../../assets/ewe-mark.svg?raw";
   import Icon from "./ui/Icon.svelte";
 
   // Real app version, not a hardcoded string that goes stale on release.

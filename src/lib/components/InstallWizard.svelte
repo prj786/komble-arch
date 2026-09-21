@@ -9,7 +9,7 @@
   import { refreshInstalled } from "../actions";
   import * as api from "../api";
   import { slugify, formatBytes } from "../utils";
-  import sheep from "../../assets/sheep.svg?raw";
+  import sheep from "../../assets/ewe-mark.svg?raw";
   import Icon from "./ui/Icon.svelte";
 
   let info = null;

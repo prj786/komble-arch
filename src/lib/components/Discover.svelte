@@ -1,10 +1,13 @@
 <script>
   import { catalog, catalogLoading, catalogError, pendingSearch } from "../stores";
   import { searchCatalog } from "../fuzzy";
-  import { loadCatalog } from "../actions";
+  import { onMount } from "svelte";
+  import { loadCatalog, refreshPkgs } from "../actions";
   import * as api from "../api";
   import VirtualGrid from "./VirtualGrid.svelte";
   import AppCard from "./AppCard.svelte";
+  import CuratedCard from "./CuratedCard.svelte";
+  import { curatedCategories } from "../curated";
   import * as Select from "./ui/select/index.js";
   import Page from "./ui/Page.svelte";
   import Seg from "./ui/Seg.svelte";
@@ -33,6 +36,12 @@
   let pkgSearching = false;
   let indexReady = false;
   let timer;
+  // Curated "Popular" area: which category is picked ("" = none). It shows
+  // only in the default "All" view with an empty search box — a query or an
+  // explicit source filter hides it and search behaves exactly as before.
+  let curated = "";
+  // what pacman already has, for the curated cards' "Installed"
+  onMount(refreshPkgs);
 
   const sources = [
     ["all", "All"],
@@ -79,6 +88,18 @@
           : q2
             ? `${merged.length.toLocaleString()} result${merged.length === 1 ? "" : "s"}${pkgSearching ? " · searching the repositories…" : ""}`
             : `${$catalog.length.toLocaleString()} AppImages from the AM catalog, plus the Arch repositories and the AUR`;
+
+  // Curated "Popular" shows only in the default view with no query typed.
+  $: showPopular = source === "all" && !query.trim();
+  $: popularCategory = showPopular
+    ? curatedCategories.find((c) => c.id === curated) || null
+    : null;
+
+  // Single-select chips: tapping the picked one clears it, tapping another
+  // switches (so "none" is always one tap away).
+  function toggleCurated(id) {
+    curated = curated === id ? "" : id;
+  }
 
   async function loadSections() {
     sectionsLoaded = true;
@@ -215,6 +236,46 @@
     <Seg options={sources} value={source} label="Source" accent picked={(v) => (source = v)} />
   </div>
 
+  {#if showPopular}
+    <!-- Curated "Popular": category chips plus the chosen category's apps,
+         above the catalog grid. A typed query hides it and search is as it was. -->
+    <section class="popular" aria-labelledby="popular-title">
+      <h2 id="popular-title" class="ewe-section__title">Popular</h2>
+
+      <div class="popular__chips" role="group" aria-label="Popular categories">
+        {#each curatedCategories as c (c.id)}
+          <button
+            type="button"
+            class="ewe-tag ewe-tag--md"
+            class:is-selected={curated === c.id}
+            aria-pressed={curated === c.id}
+            on:click={() => toggleCurated(c.id)}
+          >
+            <Icon name={c.icon} />
+            {c.title}
+          </button>
+        {/each}
+      </div>
+
+      {#if popularCategory}
+        <p class="popular__blurb">
+          {popularCategory.blurb}
+          <button type="button" class="ewe-link" on:click={() => (curated = "")}>Back to the full catalog</button>
+        </p>
+      {:else}
+        <p class="popular__hint">Choose a category to see the apps most people install first: a browser, an editor, a language toolchain.</p>
+      {/if}
+    </section>
+  {/if}
+
+  {#if popularCategory}
+    <!-- the chosen category takes the page's grid: same columns, same scroll -->
+    <div class="popular__grid" aria-label={popularCategory.title}>
+      {#each popularCategory.apps as app (app.pkg)}
+        <CuratedCard {app} />
+      {/each}
+    </div>
+  {:else}
   {#if source !== "pkg" && source !== "aur" && $catalogLoading}
     <!-- Skeleton: the grid's own shape, nine App cards -->
     <div class="grid-static" aria-busy="true" aria-label="Loading the catalog">
@@ -266,5 +327,6 @@
     <VirtualGrid items={merged} let:item>
       <AppCard {item} />
     </VirtualGrid>
+  {/if}
   {/if}
 </Page>

@@ -11,7 +11,7 @@
   import { get } from "svelte/store";
   import { refreshPkgs } from "../actions";
   import * as api from "../api";
-  import sheep from "../../assets/sheep.svg?raw";
+  import sheep from "../../assets/ewe-mark-hero.svg?raw";
   import Page from "./ui/Page.svelte";
   import Group from "./ui/Group.svelte";
   import Alert from "./ui/Alert.svelte";

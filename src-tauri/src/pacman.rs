@@ -218,6 +218,17 @@ async fn installed_set() -> HashSet<String> {
     set
 }
 
+/// Every installed package name, in one call — the curated "Popular" cards
+/// (Discover) mark what the machine already has without a query per card.
+/// Served from the same 60 s cache the package browser uses; an install or a
+/// removal through Komble invalidates it.
+#[tauri::command]
+pub async fn installed_package_names() -> Result<Vec<String>, String> {
+    let mut names: Vec<String> = installed_set().await.into_iter().collect();
+    names.sort_unstable();
+    Ok(names)
+}
+
 pub(crate) async fn installed_version(pkg: &str) -> Option<String> {
     let text = run_out("pacman", &["-Q", pkg]).await.ok()?;
     text.split_whitespace().nth(1).map(|s| s.to_string())
