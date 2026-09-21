@@ -10,6 +10,9 @@ export const catalogError = writable("");
 export const installed = writable([]);
 /** Packages installed through Komble. */
 export const trackedPkgs = writable([]);
+// names of EVERY installed package (pacman -Qq), not only the ones Komble
+// installed — a Set, refreshed with refreshPkgs()
+export const installedPkgNames = writable(new Set());
 
 export const DEFAULT_SETTINGS = {
   theme: "system",
