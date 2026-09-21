@@ -12,8 +12,8 @@ pkgname=komble-arch
 # extracts to <repo>-<tag without the leading v>, so the source URL and
 # the directory below follow _tag, never pkgver. The release workflow
 # rewrites both.
-_tag=v0.18.0-beta
-pkgver=0.18.0beta
+_tag=v0.18.1-beta
+pkgver=0.18.1beta
 pkgrel=1
 pkgdesc="App store for Arch — pacman, the AUR and AppImages"
 arch=('x86_64' 'aarch64')
@@ -78,7 +78,11 @@ package() {
     "$pkgdir/usr/share/polkit-1/actions/io.github.komble.arch.policy"
 
   install -Dm644 packaging/komble.desktop "$pkgdir/usr/share/applications/komble.desktop"
-  install -Dm644 src-tauri/icons/128x128.png \
-    "$pkgdir/usr/share/icons/hicolor/128x128/apps/komble.png"
+  for s in 32 64 128 256; do
+    install -Dm644 "src-tauri/icons/${s}x${s}.png" \
+      "$pkgdir/usr/share/icons/hicolor/${s}x${s}/apps/komble.png"
+  done
+  install -Dm644 packaging/komble.svg \
+    "$pkgdir/usr/share/icons/hicolor/scalable/apps/komble.svg"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
