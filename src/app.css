@@ -584,6 +584,71 @@ code {
     overflow: hidden;
   }
 
+  /* ── Popular: curated category chips and the chosen category's grid ───────
+     The chips are Tag toggle buttons (single-select); the grid reuses the
+     App card's own column width and gap and takes the catalog grid's place
+     while a category is chosen (never a scroll area inside a scroll area). */
+  .popular {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-s);
+    flex: none;
+  }
+  .popular__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-s);
+  }
+  .popular__hint,
+  .popular__blurb {
+    margin: 0;
+    font-size: var(--font-size-s);
+    line-height: var(--line-height-s);
+  }
+  .popular__hint {
+    color: var(--text-muted);
+  }
+  /* "Back to the full catalog": a Link that is a button */
+  .popular__blurb .ewe-link {
+    margin-left: var(--space-s);
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+  }
+  .popular__blurb .ewe-link:focus-visible {
+    outline: var(--focus-width) solid var(--focus-ring);
+    outline-offset: var(--border-width-1);
+  }
+  .popular__blurb {
+    color: var(--text-secondary);
+  }
+  .popular__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(calc(6 * var(--control-lg) + var(--space-md)), 1fr));
+    gap: calc(var(--space-s) + var(--space-xs));
+    align-content: start;
+    /* it stands where the catalog grid stands: the rest of the page, scrolling */
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: var(--space-xs);
+  }
+  .curated-card__note {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-xs);
+    color: var(--text-muted);
+  }
+  .ewe-appcard__foot .busy {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    color: var(--text-muted);
+    font-size: var(--font-size-s);
+    line-height: var(--line-height-s);
+  }
+
   /* ── App card: a full cell of the grid, the card's own anatomy ─────────── */
   .ewe-appcard {
     width: auto;
