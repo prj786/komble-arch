@@ -1,14 +1,14 @@
 {
   "name": "komble-arch",
   "private": true,
-  "version": "0.18.0-beta",
+  "version": "0.18.1-beta",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "icons": "node scripts/gen-icons.mjs"
+    "icons": "bash scripts/gen-icons.sh"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",
