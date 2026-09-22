@@ -1070,7 +1070,8 @@ pub fn restart_needed_after_last_upgrade() -> RestartNeed {
             continue;
         };
         let mut words = rest.split(' ');
-        let (Some(_verb), Some(name), Some(after)) = (words.next(), words.next(), words.next()) else {
+        let (Some(_verb), Some(name), Some(after)) = (words.next(), words.next(), words.next())
+        else {
             continue;
         };
         if !after.starts_with('(') || name.is_empty() {
