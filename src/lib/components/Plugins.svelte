@@ -176,7 +176,7 @@
   });
 </script>
 
-<Page title="Plugins" desc="Add-ons that come with ewe, and plugins from a git URL: bar widgets, panels and services for the shell">
+<Page title="Add-ons" desc="What comes with ewe, and plugins from a git URL: bar widgets, panels and services for the shell">
   <svelte:fragment slot="actions">
     <button class="ewe-btn ewe-btn--ghost" on:click={() => openUrl(GUIDE)}><Icon name="book" />Open the guide</button>
   </svelte:fragment>
@@ -184,12 +184,12 @@
   {#if !loaded}
     <div class="ewe-empty" aria-busy="true">
       <span class="ewe-empty__icon"><span class="ewe-spinner ewe-spinner--xl" aria-hidden="true"></span></span>
-      <div class="ewe-empty__title">Reading your plugins…</div>
+      <div class="ewe-empty__title">Reading your add-ons…</div>
     </div>
   {:else if error}
     <div class="ewe-empty" role="alert">
       <span class="ewe-empty__icon"><Icon name="puzzle" /></span>
-      <div class="ewe-empty__title">Plugins need ewe 0.14 or newer</div>
+      <div class="ewe-empty__title">Add-ons need ewe 0.14 or newer</div>
       <div class="ewe-empty__desc">{error}</div>
     </div>
   {:else}
@@ -203,7 +203,7 @@
       <!-- Add-ons: the catalog ewe ships, nothing installed until asked.
            One card per add-on, its state as the action: Install, or the
            on/off switch and Remove once it is here. -->
-      <Group title="Add-ons" desc="Part of ewe, installed only when you want them. Each takes a second and restarts the shell." well={false}>
+      <Group title="From ewe" desc="Part of ewe, installed only when you want them. Each takes a second and restarts the shell." well={false}>
         <div class="grid-static addons" role="list" aria-label="Add-ons">
           {#each addons as a (a.id)}
             {@const live = byId.get(a.id)}

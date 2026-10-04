@@ -1,7 +1,7 @@
 <script>
   // The options block of one installed plugin: a desktop widget's placement
   // and the typed settings its manifest declares. Shared by the add-on cards
-  // and the plugin rows of the Plugins page; `run` and `setSetting` are the
+  // and the plugin rows of the Add-ons page; `run` and `setSetting` are the
   // page's (one busy flag, one write chain), so the two never disagree.
   import * as api from "../api";
   import Toggle from "./ui/Toggle.svelte";
