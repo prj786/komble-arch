@@ -284,6 +284,7 @@ pub async fn plugin_create(
     if !id.contains('.') {
         return Err("id must be <namespace>.<name>".into());
     }
+    // every kind the ewe plugin API knows (API 3 added the last four)
     const KINDS: &[&str] = &[
         "service",
         "panel",
@@ -291,6 +292,10 @@ pub async fn plugin_create(
         "menu",
         "bar-widget",
         "desktop-widget",
+        "quick-tile",
+        "quick-page",
+        "bar-status",
+        "dock-item",
     ];
     if kinds.is_empty() || kinds.iter().any(|k| !KINDS.contains(&k.as_str())) {
         return Err("pick at least one kind".into());

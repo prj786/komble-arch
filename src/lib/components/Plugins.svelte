@@ -34,7 +34,8 @@
   let creating = false;
   let newId = "";
   let newName = "";
-  let newKinds = { "bar-widget": true, "desktop-widget": false, panel: false, service: false };
+  let newKinds = { "bar-widget": true, "desktop-widget": false, panel: false, service: false,
+                   "quick-tile": false, "quick-page": false, "bar-status": false, "dock-item": false };
   let newDir = "";
   const KIND_LABELS = {
     "bar-widget": "Bar widget", "desktop-widget": "Desktop widget", panel: "Panel", service: "Service",
