@@ -1,10 +1,13 @@
 <script>
-  // Plugins — third-party bar widgets, panels and services for the shell,
-  // managed through `ewe-plugin` (the CLI is the implementation; this view
-  // runs it and shows its words). The trust model is the CLI's: installing
-  // never runs plugin code, enabling does — unsandboxed, inside the shell —
-  // so the warning stays on screen, not in a modal that gets clicked away.
-  // A toggle restarts the shell for a second; Komble is left alone.
+  // Plugins — what extends the shell, managed through `ewe-plugin` (the CLI
+  // is the implementation; this view runs it and shows its words). Two
+  // halves: the ADD-ONS ewe ships inside its own payload but does not install
+  // (opt-in since 0.25 — Insomnia, the dock, Music, Cast…; one click installs
+  // one, a removed one comes back the same way), and the plugins from a git
+  // URL. The trust model is the CLI's: installing never runs plugin code,
+  // enabling does — unsandboxed, inside the shell — so the warning stays on
+  // screen, not in a modal that gets clicked away. A toggle restarts the
+  // shell for a second; Komble is left alone.
   import { onMount, onDestroy } from "svelte";
   import { openUrl, openPath } from "@tauri-apps/plugin-opener";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
@@ -13,10 +16,11 @@
   import Toggle from "./ui/Toggle.svelte";
   import Page from "./ui/Page.svelte";
   import Group from "./ui/Group.svelte";
-  import Row from "./ui/Row.svelte";
   import Alert from "./ui/Alert.svelte";
   import Icon from "./ui/Icon.svelte";
+  import { themeIcon } from "./ui/icons.js";
   import { Checkbox } from "./ui/checkbox/index.js";
+  import PluginOptions from "./PluginOptions.svelte";
 
   const GUIDE = "https://prj786.github.io/docs/plugins/";
   const EXAMPLE = "https://github.com/prj786/ewe-plugin-example";
@@ -32,15 +36,26 @@
   let newName = "";
   let newKinds = { "bar-widget": true, "desktop-widget": false, panel: false, service: false };
   let newDir = "";
-  const KIND_LABELS = { "bar-widget": "Bar widget", "desktop-widget": "Desktop widget", panel: "Panel", service: "Service" };
+  const KIND_LABELS = {
+    "bar-widget": "Bar widget", "desktop-widget": "Desktop widget", panel: "Panel", service: "Service",
+    overlay: "Overlay", menu: "Menu", "quick-tile": "Quick settings tile", "quick-page": "Quick settings page",
+    "bar-status": "Bar status", "dock-item": "Dock item"
+  };
   let expanded = null;    // id whose settings form is open
   let busy = "";          // id (or "add" / "restore") with a command in flight
   let confirming = null;
   let timer;
 
-  $: installed = data ? data.plugins.filter((p) => p.installed) : [];
-  $: missing = data ? data.plugins.filter((p) => !p.installed) : [];
-  $: fetchable = data ? data.missing : [];
+  // the catalog: absent on an ewe before 0.25 → the group is not shown
+  $: addons = data && Array.isArray(data.available) ? data.available : [];
+  $: addonIds = new Set(addons.map((a) => a.id));
+  // the installed entry of an add-on (validity, options) lives in plugins[]
+  $: byId = new Map(data ? data.plugins.map((p) => [p.id, p]) : []);
+  // everything else: plugins from a URL or a folder, never the catalog's
+  $: installed = data ? data.plugins.filter((p) => p.installed && !addonIds.has(p.id)) : [];
+  $: missing = data ? data.plugins.filter((p) => !p.installed && !addonIds.has(p.id)) : [];
+  $: fetchable = data ? data.missing.filter((id) => !addonIds.has(id)) : [];
+  $: expandedAddon = expanded && addonIds.has(expanded) ? byId.get(expanded) : null;
 
   async function load() {
     try {
@@ -59,7 +74,7 @@
     busy = id;
     try {
       const out = await fn();
-      toast(okMsg || (out || "").split("\n").pop() || "Done", "success");
+      toast(okMsg || (typeof out === "string" ? out.split("\n").pop() : "") || "Done", "success");
     } catch (e) {
       toast(e, "error", 8000);
     } finally {
@@ -119,6 +134,17 @@
   const install = (p) => run(p.id, () => api.pluginAdd(p.source, p.enabled), `Restored **${p.id}**`);
   const restoreAll = () => run("restore", () => api.pluginRestore(), "Restored the plugins");
 
+  // an add-on: from the payload, so there is nothing to fetch; what it still
+  // needs on this machine (packages) is installed first, by the backend,
+  // through the ordinary pacman path — hence the password note
+  const needs = (a) => [...(a.missing?.packages || []), ...(a.missing?.commands || [])];
+  function installAddon(a) {
+    const pkgs = a.missing?.packages || [];
+    if (pkgs.length) toast(`Installing ${pkgs.join(", ")} first. You may be asked for your password…`, "info", 15000);
+    run(a.id, () => api.pluginInstall(a.id), `Installed **${a.name || a.id}**. The shell is restarting.`);
+  }
+  const hasOptions = (p) => !!p && ((p.settingsSchema && p.settingsSchema.length) || p.widget);
+
   function askConfirm(key) {
     confirming = key;
     setTimeout(() => { if (confirming === key) confirming = null; }, 4000);
@@ -126,7 +152,14 @@
   function remove(p) {
     if (confirming !== p.id) return askConfirm(p.id);
     confirming = null;
-    run(p.id, () => api.pluginRemove(p.id), p.bundled ? `Removed **${p.name || p.id}**. ewe updates leave it out; ewe-plugin seed --restore ${p.id} brings it back.` : `Removed **${p.name || p.id}**`);
+    const name = p.name || p.id;
+    const after = addonIds.has(p.id)
+      ? `Removed **${name}**. Add-ons brings it back any time.`
+      : p.bundled
+        ? `Removed **${name}**. ewe updates leave it out; ewe-plugin seed --restore ${p.id} brings it back.`
+        : `Removed **${name}**`;
+    if (expanded === p.id) expanded = null;
+    run(p.id, () => api.pluginRemove(p.id), after);
   }
 
   // re-read when the window comes back (the terminal, a restore in
@@ -143,7 +176,7 @@
   });
 </script>
 
-<Page title="Plugins" desc="Bar widgets, desktop widgets, panels and services for the shell, from a git URL into ~/.config/ewe/plugins">
+<Page title="Plugins" desc="Add-ons that come with ewe, and plugins from a git URL: bar widgets, panels and services for the shell">
   <svelte:fragment slot="actions">
     <button class="ewe-btn ewe-btn--ghost" on:click={() => openUrl(GUIDE)}><Icon name="book" />Open the guide</button>
   </svelte:fragment>
@@ -164,6 +197,74 @@
       <Alert tone="warning" title="Safe mode: this session loaded no plugins">
         The shell restarted three times within a minute. Turned on at the time: {data.suspects.join(", ")}. Turn the culprit off and the rest come back at the next start.
       </Alert>
+    {/if}
+
+    {#if addons.length}
+      <!-- Add-ons: the catalog ewe ships, nothing installed until asked.
+           One card per add-on, its state as the action: Install, or the
+           on/off switch and Remove once it is here. -->
+      <Group title="Add-ons" desc="Part of ewe, installed only when you want them. Each takes a second and restarts the shell." well={false}>
+        <div class="grid-static addons" role="list" aria-label="Add-ons">
+          {#each addons as a (a.id)}
+            {@const live = byId.get(a.id)}
+            {@const broken = a.installed && live && live.valid === false}
+            {@const need = needs(a)}
+            <div class="ewe-card ewe-card--compact addon" class:is-dim={broken} role="listitem" aria-label={a.name || a.id}>
+              <div class="ewe-card__head">
+                <span class="ewe-card__icon" class:ewe-card__icon--accent={a.installed && a.enabled && !broken}>
+                  <Icon code={themeIcon(a.icon)} />
+                </span>
+                <div class="ewe-card__titles">
+                  <div class="row-title">
+                    <span class="ewe-card__title">{a.name || a.id}</span>
+                    {#if a.version}<span class="ewe-badge ver"><span class="ewe-badge__label">{a.version}</span></span>{/if}
+                  </div>
+                  <div class="ewe-card__desc" class:text-danger={broken}>
+                    {#if broken}{live.problems?.[0] || "This add-on does not load."}{:else}{a.description || a.id}{/if}
+                  </div>
+                </div>
+              </div>
+              <div class="ewe-card__foot addon__foot">
+                <span class="badges">
+                  {#if a.category}<span class="ewe-badge"><span class="ewe-badge__label">{a.category}</span></span>{/if}
+                  {#if a.installed}
+                    <span class="ewe-badge ewe-badge--success"><span class="ewe-badge__label">Installed</span></span>
+                  {:else if need.length}
+                    <span class="ewe-badge ewe-badge--warning" title="Installed first, with your password: {need.join(', ')}"><span class="ewe-badge__label">Needs {need.join(", ")}</span></span>
+                  {/if}
+                </span>
+                <span class="addon__actions">
+                  {#if busy === a.id}
+                    <span class="busy" role="status"><span class="ewe-spinner ewe-spinner--sm" aria-hidden="true"></span>Working…</span>
+                  {:else if a.installed}
+                    <button
+                      class="ewe-btn ewe-btn--sm {confirming === a.id ? 'ewe-btn--danger' : 'ewe-btn--ghost'}"
+                      on:click={() => remove(live || a)}
+                    >
+                      {confirming === a.id ? `Remove ${a.name || a.id}` : "Remove"}
+                    </button>
+                    {#if hasOptions(live)}
+                      <button
+                        class="ewe-btn ewe-btn--sm ewe-btn--secondary"
+                        aria-expanded={expanded === a.id}
+                        on:click={() => (expanded = expanded === a.id ? null : a.id)}
+                      >
+                        Options<Icon name={expanded === a.id ? "caretUp" : "caretDown"} />
+                      </button>
+                    {/if}
+                    <Toggle on={a.enabled} disabled={broken} label="{a.name || a.id} on" toggled={() => setEnabled(live || a, !a.enabled)} />
+                  {:else}
+                    <button class="ewe-btn ewe-btn--sm ewe-btn--primary" aria-label="Install {a.name || a.id}" on:click={() => installAddon(a)}>Install</button>
+                  {/if}
+                </span>
+              </div>
+            </div>
+          {/each}
+        </div>
+        {#if expandedAddon}
+          <PluginOptions p={expandedAddon} {run} {setSetting} class="addons__options" />
+        {/if}
+      </Group>
     {/if}
 
     <Group title="Add a plugin" well={false}>
@@ -195,7 +296,7 @@
       </Alert>
     </Group>
 
-    <Group title="Installed · {installed.length}">
+    <Group title="{addons.length ? 'Other plugins' : 'Installed'} · {installed.length}">
       <svelte:fragment slot="action">
         <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" aria-expanded={creating} on:click={() => (creating = !creating)}>
           {#if creating}Cancel{:else}<Icon name="plus" />New plugin…{/if}
@@ -204,7 +305,7 @@
       {#if installed.length === 0}
         <div class="ewe-empty ewe-empty--compact">
           <span class="ewe-empty__icon"><Icon name="puzzle" /></span>
-          <div class="ewe-empty__title">No plugins yet</div>
+          <div class="ewe-empty__title">{addons.length ? "No other plugins yet" : "No plugins yet"}</div>
           <div class="ewe-empty__desc">Paste a git URL above, start from the reference plugin, or make one with New plugin.</div>
         </div>
       {:else}
@@ -238,7 +339,7 @@
                 >
                   {confirming === p.id ? `Remove ${p.name || p.id}` : "Remove"}
                 </button>
-                {#if (p.settingsSchema && p.settingsSchema.length) || p.widget}
+                {#if hasOptions(p)}
                   <button
                     class="ewe-btn ewe-btn--sm ewe-btn--secondary"
                     aria-expanded={expanded === p.id}
@@ -252,36 +353,7 @@
             </div>
           </div>
           {#if expanded === p.id}
-            <div class="plugin-options" role="group" aria-label="Options of {p.name || p.id}">
-              {#if p.widget}
-                <Row title="On the desktop" sub="At {p.widget.x}, {p.widget.y}{p.widget.output ? ' on ' + p.widget.output : ''}" dense>
-                  <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" on:click={() => run(p.id, () => api.pluginArrange(), "Arrange mode: drag widgets on the desktop, then press Esc")}>Arrange…</button>
-                </Row>
-                <Row title="Above windows" sub="Sticky: the widget stays on top" dense>
-                  <Toggle on={p.widget.layer === "top"} label="Above windows" toggled={() => run(p.id, () => api.pluginPlace(p.id, p.widget.layer === "top" ? "desktop" : "top", null), "Saved")} />
-                </Row>
-                <Row title="Shown" dense>
-                  <Toggle on={p.widget.visible !== false} label="Shown" toggled={() => run(p.id, () => api.pluginPlace(p.id, null, p.widget.visible === false), "Saved")} />
-                </Row>
-              {/if}
-              {#each p.settingsSchema || [] as st (st.key)}
-                <Row title={st.label || st.key} dense>
-                  {#if st.type === "bool"}
-                    <Toggle on={!!p.settings[st.key]} label={st.label || st.key} toggled={() => setSetting(p, st.key, !p.settings[st.key])} />
-                  {:else if st.type === "int"}
-                    <input class="ewe-input num-input ver" type="number" aria-label={st.label || st.key} min={st.min} max={st.max} value={p.settings[st.key]} on:change={(e) => setSetting(p, st.key, e.currentTarget.value)} />
-                  {:else if st.type === "choice"}
-                    <select class="ewe-input text-input" aria-label={st.label || st.key} value={p.settings[st.key]} on:change={(e) => setSetting(p, st.key, e.currentTarget.value)}>
-                      {#each st.choices || [] as c}<option value={c}>{c}</option>{/each}
-                    </select>
-                  {:else if st.type === "color"}
-                    <input type="color" class="ewe-swatch" aria-label={st.label || st.key} value={p.settings[st.key]} on:change={(e) => setSetting(p, st.key, e.currentTarget.value)} />
-                  {:else}
-                    <input class="ewe-input text-input" aria-label={st.label || st.key} value={p.settings[st.key] ?? ""} on:change={(e) => setSetting(p, st.key, e.currentTarget.value)} />
-                  {/if}
-                </Row>
-              {/each}
-            </div>
+            <PluginOptions {p} {run} {setSetting} />
           {/if}
         {/each}
       {/if}
