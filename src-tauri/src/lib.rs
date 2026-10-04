@@ -25,6 +25,9 @@ fn route_arg(arg: &str) -> Option<String> {
     match arg {
         "--updates" => Some("updates".into()),
         "--settings" => Some("settings".into()),
+        // `komble --addons` from the shell (Shell.openStore("addons"), the
+        // Welcome screen) and ewe-settings; the catalog is the top of Plugins
+        "--addons" | "--plugins" => Some("plugins".into()),
         // `komble --search=pdf` — the desktop's gnome-software stand-in sends
         // GTK's "Find New Applications" here with the file/link type as words
         _ => arg
@@ -296,6 +299,7 @@ pub fn run() {
             de::poke_shell_updates,
             // shell plugins (ewe-plugin)
             plugins::plugin_list,
+            plugins::plugin_install,
             plugins::plugin_add,
             plugins::plugin_set_enabled,
             plugins::plugin_update,
@@ -313,4 +317,36 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running Komble");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn route(args: &[&str]) -> Option<String> {
+        route_from_args(args.iter().map(|s| s.to_string()))
+    }
+
+    #[test]
+    fn deep_links_route_to_their_pages() {
+        assert_eq!(route(&["--updates"]).as_deref(), Some("updates"));
+        assert_eq!(route(&["--settings"]).as_deref(), Some("settings"));
+        assert_eq!(route(&["--addons"]).as_deref(), Some("plugins"));
+        assert_eq!(route(&["--plugins"]).as_deref(), Some("plugins"));
+    }
+
+    #[test]
+    fn search_takes_both_spellings() {
+        assert_eq!(
+            route(&["--search=pdf viewer"]).as_deref(),
+            Some("search:pdf viewer")
+        );
+        assert_eq!(route(&["--search", " pdf "]).as_deref(), Some("search:pdf"));
+    }
+
+    #[test]
+    fn unknown_args_route_nowhere() {
+        assert_eq!(route(&[]), None);
+        assert_eq!(route(&["/home/me/x.AppImage", "--verbose"]), None);
+    }
 }

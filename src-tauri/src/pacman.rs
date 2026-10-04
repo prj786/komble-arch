@@ -58,6 +58,26 @@ pub async fn install_package_named(package: &str) -> Result<String, String> {
     .await
 }
 
+/// Several repo packages in one transaction, again without the registry —
+/// what an add-on declares it needs (`ewe-plugin` reports them, Komble
+/// installs them, the shell never does). Same helper verb as an install.
+pub(crate) async fn install_packages_named(packages: &[String]) -> Result<String, String> {
+    if packages.is_empty() {
+        return Err("no packages given".into());
+    }
+    for p in packages {
+        if !valid_pkg_name(p) {
+            return Err(format!("invalid package name: {p}"));
+        }
+    }
+    let names: Vec<&str> = packages.iter().map(String::as_str).collect();
+    let mut direct = vec!["pacman", "-S", "--noconfirm", "--needed", "--"];
+    direct.extend(names.iter().copied());
+    let mut helper = vec!["install-repo"];
+    helper.extend(names.iter().copied());
+    run_privileged(direct, helper).await
+}
+
 // ── shapes the frontend binds to ────────────────────────────────────────────
 // Deliberately identical in shape to what the Debian build returned, so the
 // Svelte views are a rename rather than a rewrite. `section` carries the repo
