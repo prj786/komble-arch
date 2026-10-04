@@ -142,6 +142,9 @@ export const appManifest = () => invoke("app_manifest");
 // shell plugins — through ewe-plugin (ewe 0.14+); the CLI is the implementation
 export const pluginList = () => invoke("plugin_list");
 export const pluginAdd = (url, enable) => invoke("plugin_add", { url, enable });
+// an add-on of the ewe payload (ewe 0.25+): its missing packages first
+// (pacman, one prompt), then `ewe-plugin install` — enabled, shell restarted
+export const pluginInstall = (id) => invoke("plugin_install", { id });
 export const pluginSetEnabled = (id, on) => invoke("plugin_set_enabled", { id, on });
 export const pluginUpdate = (id) => invoke("plugin_update", { id: id || null });
 export const pluginRemove = (id) => invoke("plugin_remove", { id });

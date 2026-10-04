@@ -829,6 +829,48 @@ code {
     flex: none;
   }
 
+  /* ── Plugins: the add-ons catalog (one compact card per add-on) ────────── */
+  .addons {
+    margin-bottom: var(--space-s);
+  }
+  .addon .ewe-card__head {
+    flex: 1;
+  }
+  .addon .ewe-card__title {
+    font-size: var(--font-size-md);
+    line-height: var(--line-height-md);
+  }
+  .addon .ewe-card__desc {
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-sm);
+  }
+  /* badges left, the state's action right; wraps on a narrow card */
+  .addon__foot {
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-xs) var(--space-s);
+  }
+  .addon__foot .badges {
+    min-width: 0;
+  }
+  .addon__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-left: auto;
+  }
+  .addon__actions .busy {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+  }
+  /* an add-on's options open under the whole grid, not indented like a row's */
+  .plugin-options.addons__options {
+    margin-left: 0;
+  }
+
   /* ── Plugins: the options block under a row ─────────────────────────────── */
   .plugin-options {
     margin: var(--space-xxs) 0 var(--space-xs) calc(var(--control-lg) + var(--space-s) + var(--space-xs));

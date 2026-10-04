@@ -53,3 +53,40 @@ export const ICONS = {
   sliders: 0xE29A, // sliders-horizontal
   settings: 0xE154
 };
+
+/**
+ * The shell's Theme.qml glyph names (ewe/dotfiles/quickshell/Theme.qml) with
+ * their codepoints — the same font, so an add-on manifest's `icon`
+ * ("icMusic") renders here exactly as it does in the bar. A snapshot: a name
+ * this table does not know falls back to the puzzle piece (themeIcon()).
+ */
+export const THEME_ICONS = {
+  icSearch: 0xE151, icSearchOff: 0xE4AD, icClose: 0xE1B2,
+  icChevronDown: 0xE06D, icChevronUp: 0xE070, icChevronRight: 0xE06F,
+  icWifi: 0xE1AE, icWifiMed: 0xE5F7, icWifiLow: 0xE5F8, icWifiOff: 0xE1AF, icEthernet: 0xE620,
+  icBluetooth: 0xE05C, icBluetoothOn: 0xE1B8,
+  icVpn: 0xE1FF, icSsh: 0xE20A, icWeb: 0xE0E8,
+  icCamera: 0xE064, icClipboard: 0xE14E, icTrash: 0xE18E, icPencil: 0xE1F9,
+  icEye: 0xE0BA, icEyeOff: 0xE0BB, icDnd: 0xE11E, icCast: 0xE066,
+  icSun: 0xE178, icBolt: 0xE1B4, icBattFull: 0xE055, icBattEmpty: 0xE053,
+  icLeaf: 0xE2DE, icBalance: 0xE212, icSpeed: 0xE1BF,
+  icVolHigh: 0xE1AB, icVolLow: 0xE1AA, icVolOff: 0xE1A9, icVolMute: 0xE1AC, icMic: 0xE118,
+  icPlay: 0xE13C, icPause: 0xE12E, icPrev: 0xE15F, icNext: 0xE160, icMusic: 0xE122,
+  icMonitorOff: 0xE11D, icLock: 0xE10B, icPower: 0xE140, icCog: 0xE154,
+  icTiling: 0xE0FF, icFloating: 0xE426, icCheck: 0xE06C,
+  icPhone: 0xE163, icMessage: 0xE116, icSend: 0xE152, icBellRing: 0xE224, icBell: 0xE059,
+  icCalendar: 0xE063, icRefresh: 0xE145, icBack: 0xE048, icMail: 0xE10F,
+  icFile: 0xE0C0, icFolder: 0xE0D7, icHome: 0xE0F5, icPin: 0xE259, icUser: 0xE19F, icStar: 0xE176,
+  icCpu: 0xE0A9, icMemory: 0xE445, icImage: 0xE0F6, icWarning: 0xE193,
+  icApps: 0xE0E9, icStack: 0xE529, icPen: 0xE129, icDownload: 0xE0B2, icStore: 0xE3E4,
+  icKeyboard: 0xE284, icHeadphones: 0xE0F1, icHeadset: 0xE5BD, icSpeaker: 0xE166,
+  icMouse: 0xE28E, icGamepad: 0xE0DF, icTablet: 0xE17E, icLaptop: 0xE1CD, icPrinter: 0xE141,
+  icCloudOk: 0xE66E, icCloudOff: 0xE08D, icCloudAlert: 0xE633, icPlus: 0xE13D,
+  // names an add-on may use that Theme.qml spells differently
+  icKey: 0xE4A3, icDock: 0xE529, icPlug: 0xE29C
+};
+
+/** codepoint for a Theme icon name (or one of ours); the puzzle piece otherwise */
+export function themeIcon(name) {
+  return THEME_ICONS[name] ?? ICONS[name] ?? ICONS.puzzle;
+}

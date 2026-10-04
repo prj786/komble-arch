@@ -7,12 +7,14 @@
        scheme=ewe-dark|ewe-light|a11y   which theme_tokens reply to serve
                                         (a11y = Ewe Dark, increase contrast,
                                         130% text)
-       pane=<nav label>                 open that section ("Updates")
+       pane=<nav label>                 open that section ("Updates", "Add-ons")
        click=<css selector>             click that element (open a dialog)
        focus=<css selector>             keyboard-focus that element
        dialog=conflict|restart|wizard|detail   open one of the overlays
        type=<text>                      type into the page's search field
        loading                          Discover still loading its catalog
+       oldewe                           plugin_list without the add-ons catalog
+                                        (an ewe before 0.25: the group hides)
        still                            no transitions or animations (headless
                                         screenshots freeze them mid-way)
      The theme replies are real `ewe-theme show` output, generated into
@@ -54,9 +56,50 @@
           { id: "ewe.clipboard", name: "Clipboard", version: "1.2.0", kinds: ["bar-widget", "service"], bundled: true, git: false, valid: true, enabled: true, installed: true, description: "Clipboard history in the bar", problems: [], settingsSchema: [{ key: "max", label: "Items to keep", type: "int", min: 10, max: 500 }, { key: "images", label: "Keep images", type: "bool" }], settings: { max: 100, images: true } },
           { id: "acme.clock", name: "Big clock", version: "0.3.1", kinds: ["desktop-widget"], bundled: false, git: true, valid: true, enabled: true, installed: true, description: "A large clock on the desktop", problems: [], widget: { layer: "desktop", visible: true, x: 64, y: 96, output: "DP-1" }, settingsSchema: [{ key: "face", label: "Face", type: "choice", choices: ["digital", "analog"] }, { key: "tint", label: "Tint", type: "color" }, { key: "label", label: "Label", type: "string" }], settings: { face: "digital", tint: "#eeb407", label: "Tbilisi" } },
           { id: "me.weather", name: "Weather", version: "", kinds: ["bar-widget"], bundled: false, git: false, valid: false, enabled: false, installed: true, description: "", problems: ["manifest.json: missing “entry”"], settingsSchema: [], settings: {} },
+          { id: "ewe.passwords", name: "Passwords", version: "1.1.0", kinds: ["panel", "service"], bundled: true, git: false, valid: true, enabled: false, installed: true, description: "Fill a password from your manager with Super+P", problems: [], settingsSchema: [{ key: "provider", label: "Provider", type: "choice", choices: ["1password", "bitwarden", "pass"] }, { key: "enter", label: "Press Enter after filling", type: "bool" }], settings: { provider: "1password", enter: false } },
           { id: "acme.notes", installed: false, enabled: true, source: "https://github.com/acme/ewe-notes.git" }
         ],
-        missing: ["acme.notes"]
+        missing: ["acme.notes"],
+        // the add-ons catalog (ewe 0.25+): every add-on in the payload, installed or not;
+        // `removed` are bundled ids the person took out (they stay installable)
+        available: [
+          { id: "ewe.insomnia", name: "Insomnia", description: "Keep the screen awake for a while, from Quick settings", icon: "icEye", category: "Power", version: "1.0.0", kinds: ["service", "quick-tile", "bar-status"], installed: false, enabled: false, requires: { packages: [], commands: [] }, missing: { packages: [], commands: [] } },
+          { id: "ewe.sysmon", name: "System monitor", description: "CPU and memory meters in Quick settings, optionally in the bar", icon: "icCpu", category: "System", version: "1.0.0", kinds: ["quick-tile", "bar-widget"], installed: false, enabled: false, requires: { packages: [], commands: [] }, missing: { packages: [], commands: [] } },
+          { id: "ewe.ssh", name: "SSH", description: "Your SSH hosts and tunnels, one tap away", icon: "icSsh", category: "Network", version: "1.0.0", kinds: ["quick-tile", "quick-page", "bar-status"], installed: false, enabled: false, requires: { packages: ["openssh"], commands: ["ssh"] }, missing: { packages: [], commands: [] } },
+          { id: "ewe.vpn", name: "VPN", description: "Connect and disconnect your VPNs from Quick settings", icon: "icVpn", category: "Network", version: "1.0.0", kinds: ["quick-tile", "quick-page", "bar-status"], installed: false, enabled: false, requires: { packages: ["networkmanager-l2tp", "strongswan"], commands: ["nmcli"] }, missing: { packages: ["networkmanager-l2tp"], commands: [] } },
+          { id: "ewe.media", name: "Music", description: "What is playing, with controls, in the bar and the dock", icon: "icMusic", category: "Media", version: "1.0.0", kinds: ["panel", "dock-item", "bar-widget"], installed: true, enabled: true, requires: { packages: ["playerctl"], commands: ["playerctl"] }, missing: { packages: [], commands: [] } },
+          { id: "ewe.places", name: "Places", description: "Your folders, drives and recent files in a panel", icon: "icFolder", category: "Files", version: "1.0.0", kinds: ["panel", "dock-item", "bar-widget"], installed: false, enabled: false, requires: { packages: [], commands: [] }, missing: { packages: [], commands: [] } },
+          { id: "ewe.phone", name: "Phone", description: "Your phone through KDE Connect: notifications, SMS, files", icon: "icPhone", category: "Devices", version: "1.0.0", kinds: ["service", "quick-page", "bar-status"], installed: false, enabled: false, requires: { packages: ["kdeconnect"], commands: ["kdeconnect-cli"] }, missing: { packages: ["kdeconnect"], commands: ["kdeconnect-cli"] } },
+          { id: "ewe.mail", name: "Mail", description: "Unread mail from Gmail and IMAP accounts in Quick settings", icon: "icMail", category: "Accounts", version: "1.0.0", kinds: ["service", "quick-page", "bar-status"], installed: false, enabled: false, requires: { packages: [], commands: [] }, missing: { packages: [], commands: [] } },
+          { id: "ewe.cast", name: "Cast to TV", description: "Send a window or the screen to a Chromecast or a Miracast TV", icon: "icCast", category: "Media", version: "1.0.0", kinds: ["service", "quick-tile", "quick-page", "bar-status"], installed: false, enabled: false, requires: { packages: ["ewe-cast"], commands: ["ewe-cast"] }, missing: { packages: [], commands: [] } },
+          { id: "ewe.dock", name: "Dock", description: "Pinned apps and running windows at the bottom of every screen", icon: "icDock", category: "Desktop", version: "1.0.0", kinds: ["panel"], installed: false, enabled: false, requires: { packages: [], commands: [] }, missing: { packages: [], commands: [] } },
+          { id: "ewe.clipboard", name: "Clipboard", description: "Clipboard history in the bar", icon: "icClipboard", category: "Productivity", version: "1.2.0", kinds: ["bar-widget", "service"], installed: true, enabled: true, requires: { packages: ["cliphist", "wl-clipboard"], commands: ["cliphist", "wl-paste"] }, missing: { packages: [], commands: [] } },
+          { id: "ewe.screenshot", name: "Screenshots", description: "Print to capture a region, a window or the screen, with a preview", icon: "icCamera", category: "Productivity", version: "1.1.0", kinds: ["bar-widget", "overlay"], installed: false, enabled: false, requires: { packages: ["grim", "slurp"], commands: ["grim", "slurp"] }, missing: { packages: [], commands: [] } },
+          { id: "ewe.passwords", name: "Passwords", description: "Fill a password from your manager with Super+P", icon: "icKey", category: "Productivity", version: "1.1.0", kinds: ["panel", "service"], installed: true, enabled: false, requires: { packages: ["wtype"], commands: ["wtype"] }, missing: { packages: [], commands: [] } }
+        ],
+        removed: ["ewe.screenshot"]
+      };
+      // the mock's state verbs: flip the flags so a click shows its result
+      const addon = (id) => plugins.available.find((a) => a.id === id);
+      const liveOf = (id) => plugins.plugins.find((p) => p.id === id);
+      const pluginInstall = (id) => {
+        const a = addon(id);
+        if (!a) return Promise.reject(`${id} is not an add-on of this ewe`);
+        a.installed = true; a.enabled = true; a.missing = { packages: [], commands: [] };
+        plugins.removed = plugins.removed.filter((x) => x !== id);
+        if (!liveOf(id)) plugins.plugins.push({ id, name: a.name, version: a.version, kinds: a.kinds, bundled: true, git: false, valid: true, enabled: true, installed: true, description: a.description, problems: [], settingsSchema: [], settings: {} });
+        return Promise.resolve({ ok: true, id, source: "bundled", enabled: true });
+      };
+      const pluginRemove = (id) => {
+        const a = addon(id);
+        if (a) { a.installed = false; a.enabled = false; plugins.removed.push(id); }
+        plugins.plugins = plugins.plugins.filter((p) => p.id !== id);
+        return Promise.resolve(`removed ${id}`);
+      };
+      const pluginEnabled = (id, on) => {
+        const a = addon(id); if (a) a.enabled = on;
+        const p = liveOf(id); if (p) p.enabled = on;
+        return Promise.resolve(`${on ? "enabled" : "disabled"} ${id}`);
       };
       const mockTheme = () => json(`/.dev-mock/theme-${scheme}.json`);
       const waitForever = () => new Promise(() => {});
@@ -118,7 +161,14 @@
                 { id: "obsidian", name: "Obsidian", installed: true },
                 { id: "losslesscut", name: "LosslessCut", installed: false, github: "https://github.com/mifi/lossless-cut" }
               ] });
-            case "plugin_list": return Promise.resolve(plugins);
+            // ?oldewe: an ewe before 0.25 — no catalog keys, the Add-ons group stays hidden
+            case "plugin_list": {
+              const { available, removed, ...old } = plugins;
+              return Promise.resolve(q.has("oldewe") ? old : JSON.parse(JSON.stringify(plugins)));
+            }
+            case "plugin_install": return pluginInstall(args.id);
+            case "plugin_remove": return pluginRemove(args.id);
+            case "plugin_set_enabled": return pluginEnabled(args.id, args.on);
             case "appimage_file_info": return Promise.resolve({ path: "/home/nino/Downloads/Cursor-1.6.27-x86_64.AppImage", suggestedName: "Cursor", suggestedVersion: "1.6.27", size: 214958080 });
             case "take_pending_open": return Promise.resolve(q.get("dialog") === "wizard" ? "/home/nino/Downloads/Cursor-1.6.27-x86_64.AppImage" : null);
             case "take_pending_route": return Promise.resolve(null);

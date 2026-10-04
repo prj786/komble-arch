@@ -21,7 +21,7 @@
     { id: "discover", label: "Discover", icon: "compass" },
     { id: "foryou", label: "For you", icon: "user" },
     { id: "installed", label: "Installed", icon: "package" },
-    { id: "plugins", label: "Plugins", icon: "puzzle" },
+    { id: "plugins", label: "Add-ons", icon: "puzzle" },
     { id: "updates", label: "Updates", icon: "refresh" },
     { id: "aur", label: "AUR", icon: "download" },
     { id: "settings", label: "Settings", icon: "sliders" }
