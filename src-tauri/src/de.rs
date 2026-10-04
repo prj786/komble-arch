@@ -78,8 +78,49 @@ async fn shell_pid() -> Option<String> {
         {
             let pid = out.trim().to_string();
             if !pid.is_empty() && pid != "0" {
-                return Some(pid);
+                return qs_pid_for(&pid);
             }
+        }
+    }
+    None
+}
+
+/// The parent pid from a `/proc/<pid>/stat` line. The comm field is in
+/// parentheses and may itself contain spaces or `)`, so split after the LAST
+/// `)`: what follows is "state ppid …".
+fn ppid_from_stat(stat: &str) -> Option<&str> {
+    let rest = stat.rsplit_once(')')?.1;
+    let mut it = rest.split_whitespace();
+    it.next()?; // state
+    it.next()
+}
+
+fn proc_comm(pid: &str) -> String {
+    std::fs::read_to_string(format!("/proc/{pid}/comm"))
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default()
+}
+
+/// The shell's `qs` process for the unit's MainPID. Since ewe 0.24.1 the unit
+/// runs `qs-launch.sh` (a bash restart net) that keeps `qs` as its CHILD, so
+/// MainPID is bash and `qs ipc --pid <MainPID>` answers "No instance found" —
+/// every poke was silently lost. Use MainPID when it is qs, else its qs child;
+/// None lets `qs ipc` find the instance by config path.
+fn qs_pid_for(main: &str) -> Option<String> {
+    if proc_comm(main) == "qs" {
+        return Some(main.to_string());
+    }
+    for e in std::fs::read_dir("/proc").ok()?.flatten() {
+        let name = e.file_name();
+        let p = name.to_string_lossy();
+        if !p.bytes().all(|b| b.is_ascii_digit()) {
+            continue;
+        }
+        let Ok(stat) = std::fs::read_to_string(format!("/proc/{p}/stat")) else {
+            continue;
+        };
+        if ppid_from_stat(&stat) == Some(main) && proc_comm(&p) == "qs" {
+            return Some(p.to_string());
         }
     }
     None
@@ -300,4 +341,24 @@ async fn repo_knows(name: &str) -> bool {
 #[tauri::command]
 pub fn manifest_dump(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     Ok(crate::registry::build_manifest(&app))
+}
+
+#[cfg(test)]
+mod shell_pid_tests {
+    use super::*;
+
+    #[test]
+    fn ppid_from_stat_reads_the_fourth_field() {
+        assert_eq!(
+            ppid_from_stat("628839 (qs) S 628835 628835 1 0 -1"),
+            Some("628835")
+        );
+        assert_eq!(ppid_from_stat("42 (a b) c)) R 7 42 42"), Some("7"));
+        assert_eq!(ppid_from_stat("garbage"), None);
+    }
+
+    #[test]
+    fn no_qs_child_means_no_pid() {
+        assert_eq!(qs_pid_for(&std::process::id().to_string()), None);
+    }
 }
