@@ -338,7 +338,11 @@ pub async fn plugin_set(id: String, key: String, value: String) -> Result<String
 }
 
 fn on_off(v: bool) -> String {
-    if v { "on".into() } else { "off".into() }
+    if v {
+        "on".into()
+    } else {
+        "off".into()
+    }
 }
 
 /// The `ewe-plugin place` arguments for a desktop widget: its layer
@@ -373,7 +377,11 @@ fn place_args(
         args.push("--pin-level".into());
         args.push(l);
     }
-    for (flag, v) in [("--pinned", pinned), ("--locked", locked), ("--visible", visible)] {
+    for (flag, v) in [
+        ("--pinned", pinned),
+        ("--locked", locked),
+        ("--visible", visible),
+    ] {
         if let Some(v) = v {
             args.push(flag.into());
             args.push(on_off(v));
@@ -458,12 +466,60 @@ mod tests {
 
     #[test]
     fn place_arguments() {
-        let a = place_args("acme.clock".into(), None, None, Some(true), Some("overlay".into()), Some(false), None).unwrap();
-        assert_eq!(a, ["place", "acme.clock", "--pin-level", "overlay", "--pinned", "on", "--locked", "off"]);
-        let r = place_args("acme.clock".into(), None, None, None, None, None, Some(true)).unwrap();
+        let a = place_args(
+            "acme.clock".into(),
+            None,
+            None,
+            Some(true),
+            Some("overlay".into()),
+            Some(false),
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            a,
+            [
+                "place",
+                "acme.clock",
+                "--pin-level",
+                "overlay",
+                "--pinned",
+                "on",
+                "--locked",
+                "off"
+            ]
+        );
+        let r = place_args(
+            "acme.clock".into(),
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(true),
+        )
+        .unwrap();
         assert_eq!(r, ["place", "acme.clock", "--reset"]);
-        assert!(place_args("acme.clock".into(), Some("middle".into()), None, None, None, None, None).is_err());
-        assert!(place_args("acme.clock".into(), None, None, None, Some("desktop".into()), None, None).is_err());
+        assert!(place_args(
+            "acme.clock".into(),
+            Some("middle".into()),
+            None,
+            None,
+            None,
+            None,
+            None
+        )
+        .is_err());
+        assert!(place_args(
+            "acme.clock".into(),
+            None,
+            None,
+            None,
+            Some("desktop".into()),
+            None,
+            None
+        )
+        .is_err());
         assert!(place_args("bad id".into(), None, None, None, None, None, None).is_err());
     }
 

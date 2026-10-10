@@ -355,8 +355,14 @@ mod tests {
         assert_eq!(route(&["--settings"]).as_deref(), Some("settings"));
         assert_eq!(route(&["--addons"]).as_deref(), Some("plugins"));
         assert_eq!(route(&["--plugins"]).as_deref(), Some("plugins"));
-        assert_eq!(route(&["--options=ewe.dock"]).as_deref(), Some("options:ewe.dock"));
-        assert_eq!(route(&["--options", "acme.clock"]).as_deref(), Some("options:acme.clock"));
+        assert_eq!(
+            route(&["--options=ewe.dock"]).as_deref(),
+            Some("options:ewe.dock")
+        );
+        assert_eq!(
+            route(&["--options", "acme.clock"]).as_deref(),
+            Some("options:acme.clock")
+        );
         assert_eq!(route(&["--options=Bad Id;rm"]), None);
     }
 
