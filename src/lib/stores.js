@@ -83,6 +83,9 @@ export const restartNeed = writable(null);
 export const conflictPrompt = writable(null);
 // a search the app was opened INTO (`komble --search=pdf`); Discover consumes it
 export const pendingSearch = writable("");
+// `komble --options=<id>`: the plugin whose Options dialog Plugins opens once
+// its list is read (ewe-settings' "Dock options", the shell)
+export const pendingOptions = writable("");
 
 // The Toast (design/system/components/Toast): one at a time, centered at the
 // bottom; a new one replaces the current one. 5 s, 8 s with an action or for

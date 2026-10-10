@@ -866,21 +866,17 @@ code {
     color: var(--text-secondary);
     font-size: var(--font-size-sm);
   }
-  /* an add-on's options open under the whole grid, not indented like a row's */
-  .plugin-options.addons__options {
-    margin-left: 0;
-  }
-
-  /* ── Plugins: the options block under a row ─────────────────────────────── */
-  .plugin-options {
-    margin: var(--space-xxs) 0 var(--space-xs) calc(var(--control-lg) + var(--space-s) + var(--space-xs));
-    padding: var(--space-xs);
-    border-radius: var(--primary);
-    background: var(--surface-sunken);
-    border: var(--border-width-1) solid var(--border-subtle);
-  }
-  .plugin-options .ewe-row__title {
+  /* ── Plugins: the Options dialog (PluginOptions; .detail gives the
+     scrolling body between a fixed head and foot) ─────────────────────── */
+  .plugin-dialog .ewe-row__title,
+  .plugin-dialog .ewe-row__desc {
     white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+  .plugin-dialog > .ewe-dialog__foot {
+    padding: var(--space-s) var(--space-md);
+    border-top: var(--border-width-1) solid var(--border-subtle);
   }
   .num-input {
     width: calc(3 * var(--control-md));

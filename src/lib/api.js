@@ -142,7 +142,7 @@ export const appManifest = () => invoke("app_manifest");
 // shell plugins — through ewe-plugin (ewe 0.14+); the CLI is the implementation
 export const pluginList = () => invoke("plugin_list");
 export const pluginAdd = (url, enable) => invoke("plugin_add", { url, enable });
-// an add-on of the ewe payload (ewe 0.25+): its missing packages first
+// a first-party plugin of the ewe payload (ewe 0.25+): its missing packages first
 // (pacman, one prompt), then `ewe-plugin install` — enabled, shell restarted
 export const pluginInstall = (id) => invoke("plugin_install", { id });
 export const pluginSetEnabled = (id, on) => invoke("plugin_set_enabled", { id, on });
@@ -151,7 +151,19 @@ export const pluginRemove = (id) => invoke("plugin_remove", { id });
 export const pluginRestore = () => invoke("plugin_restore");
 export const pluginCreate = (id, name, kinds, dir) => invoke("plugin_create", { id, name, kinds, dir });
 export const pluginSet = (id, key, value) => invoke("plugin_set", { id, key, value: String(value) });
-export const pluginPlace = (id, layer = null, visible = null) => invoke("plugin_place", { id, layer, visible });
+// a desktop widget: { pinned, pinLevel: "top"|"overlay", locked, visible, layer, reset }
+export const pluginPlace = (id, opts = {}) =>
+  invoke("plugin_place", {
+    id,
+    layer: opts.layer ?? null,
+    visible: opts.visible ?? null,
+    pinned: opts.pinned ?? null,
+    pinLevel: opts.pinLevel ?? null,
+    locked: opts.locked ?? null,
+    reset: opts.reset ?? null
+  });
+// Show in bar (`ewe-plugin bar <id> on|off`)
+export const pluginBar = (id, on) => invoke("plugin_bar", { id, on: !!on });
 export const pluginArrange = () => invoke("plugin_arrange");
 export const manifestDump = () => invoke("manifest_dump");
 

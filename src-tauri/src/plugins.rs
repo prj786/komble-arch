@@ -208,13 +208,13 @@ pub async fn plugin_install(id: String) -> Result<Value, String> {
     check_id(&id)?;
     let list = plugin_list().await?;
     let Some(available) = list.get("available").and_then(Value::as_array) else {
-        return Err("add-ons need ewe 0.25 or newer".into());
+        return Err("plugins from ewe need ewe 0.25 or newer".into());
     };
     let Some(addon) = available
         .iter()
         .find(|a| a.get("id").and_then(Value::as_str) == Some(&id))
     else {
-        return Err(format!("{id} is not an add-on of this ewe"));
+        return Err(format!("{id} is not a plugin this ewe ships"));
     };
     let pkgs = strings_of(addon.pointer("/missing/packages"));
     if !pkgs.is_empty() {
@@ -337,28 +337,82 @@ pub async fn plugin_set(id: String, key: String, value: String) -> Result<String
     run(&["set", &id, &key, &value]).await
 }
 
-/// A desktop widget's layer (desktop | top = sticky) or visibility. Live.
-#[tauri::command]
-pub async fn plugin_place(
+fn on_off(v: bool) -> String {
+    if v {
+        "on".into()
+    } else {
+        "off".into()
+    }
+}
+
+/// The `ewe-plugin place` arguments for a desktop widget: its layer
+/// (desktop | top | overlay), pinned (to its pin level), the pin level
+/// (top = above windows, overlay = above everything), locked, visible, reset.
+/// Every value is checked here as well as in the CLI.
+fn place_args(
     id: String,
     layer: Option<String>,
     visible: Option<bool>,
-) -> Result<String, String> {
+    pinned: Option<bool>,
+    pin_level: Option<String>,
+    locked: Option<bool>,
+    reset: Option<bool>,
+) -> Result<Vec<String>, String> {
     check_id(&id)?;
     let mut args: Vec<String> = vec!["place".into(), id];
+    if reset == Some(true) {
+        args.push("--reset".into());
+    }
     if let Some(l) = layer {
-        if l != "desktop" && l != "top" {
-            return Err("layer is desktop or top".into());
+        if !["desktop", "top", "overlay"].contains(&l.as_str()) {
+            return Err("layer is desktop, top or overlay".into());
         }
         args.push("--layer".into());
         args.push(l);
     }
-    if let Some(v) = visible {
-        args.push("--visible".into());
-        args.push(if v { "on".into() } else { "off".into() });
+    if let Some(l) = pin_level {
+        if !["top", "overlay"].contains(&l.as_str()) {
+            return Err("pin level is top or overlay".into());
+        }
+        args.push("--pin-level".into());
+        args.push(l);
     }
+    for (flag, v) in [
+        ("--pinned", pinned),
+        ("--locked", locked),
+        ("--visible", visible),
+    ] {
+        if let Some(v) = v {
+            args.push(flag.into());
+            args.push(on_off(v));
+        }
+    }
+    Ok(args)
+}
+
+/// A desktop widget: pin, pin level, lock, visibility, layer, reset. Live.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub async fn plugin_place(
+    id: String,
+    layer: Option<String>,
+    visible: Option<bool>,
+    pinned: Option<bool>,
+    pin_level: Option<String>,
+    locked: Option<bool>,
+    reset: Option<bool>,
+) -> Result<String, String> {
+    let args = place_args(id, layer, visible, pinned, pin_level, locked, reset)?;
     let refs: Vec<&str> = args.iter().map(String::as_str).collect();
     run(&refs).await
+}
+
+/// Show in bar: the plugin's bar widget and its glyph in the bar's Quick
+/// settings pill (`ewe-plugin bar <id> on|off` → desktop.bar.show). Live.
+#[tauri::command]
+pub async fn plugin_bar(id: String, on: bool) -> Result<String, String> {
+    check_id(&id)?;
+    run(&["bar", &id, &on_off(on)]).await
 }
 
 #[cfg(test)]
@@ -408,6 +462,65 @@ mod tests {
         let v = normalize_list(json!({ "plugins": [], "missing": [], "safeMode": false }));
         assert!(v.get("available").is_none());
         assert!(v.get("removed").is_none());
+    }
+
+    #[test]
+    fn place_arguments() {
+        let a = place_args(
+            "acme.clock".into(),
+            None,
+            None,
+            Some(true),
+            Some("overlay".into()),
+            Some(false),
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            a,
+            [
+                "place",
+                "acme.clock",
+                "--pin-level",
+                "overlay",
+                "--pinned",
+                "on",
+                "--locked",
+                "off"
+            ]
+        );
+        let r = place_args(
+            "acme.clock".into(),
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(true),
+        )
+        .unwrap();
+        assert_eq!(r, ["place", "acme.clock", "--reset"]);
+        assert!(place_args(
+            "acme.clock".into(),
+            Some("middle".into()),
+            None,
+            None,
+            None,
+            None,
+            None
+        )
+        .is_err());
+        assert!(place_args(
+            "acme.clock".into(),
+            None,
+            None,
+            None,
+            Some("desktop".into()),
+            None,
+            None
+        )
+        .is_err());
+        assert!(place_args("bad id".into(), None, None, None, None, None, None).is_err());
     }
 
     #[test]

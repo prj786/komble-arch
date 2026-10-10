@@ -1,17 +1,18 @@
 <script>
   // Plugins — what extends the shell, managed through `ewe-plugin` (the CLI
-  // is the implementation; this view runs it and shows its words). Two
-  // halves: the ADD-ONS ewe ships inside its own payload but does not install
-  // (opt-in since 0.25 — Insomnia, the dock, Music, Cast…; one click installs
-  // one, a removed one comes back the same way), and the plugins from a git
-  // URL. The trust model is the CLI's: installing never runs plugin code,
-  // enabling does — unsandboxed, inside the shell — so the warning stays on
-  // screen, not in a modal that gets clicked away. A toggle restarts the
-  // shell for a second; Komble is left alone.
+  // is the implementation; this view runs it and shows its words). One name
+  // everywhere: plugins. Two halves: the ones ewe ships inside its own
+  // payload but does not install (opt-in since 0.25 — Insomnia, the dock,
+  // Music, Cast…; one click installs one, a removed one comes back the same
+  // way), and the plugins from a git URL. The trust model is the CLI's:
+  // installing never runs plugin code, enabling does — unsandboxed, inside
+  // the shell — so the warning stays on screen, not in a modal that gets
+  // clicked away. A toggle restarts the shell for a second; Komble is left
+  // alone. Options open in a dialog (PluginOptions).
   import { onMount, onDestroy } from "svelte";
   import { openUrl, openPath } from "@tauri-apps/plugin-opener";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
-  import { toast } from "../stores";
+  import { toast, pendingOptions } from "../stores";
   import * as api from "../api";
   import Toggle from "./ui/Toggle.svelte";
   import Page from "./ui/Page.svelte";
@@ -42,7 +43,7 @@
     overlay: "Overlay", menu: "Menu", "quick-tile": "Quick settings tile", "quick-page": "Quick settings page",
     "bar-status": "Bar status", "dock-item": "Dock item"
   };
-  let expanded = null;    // id whose settings form is open
+  let expanded = null;    // id whose Options dialog is open
   let busy = "";          // id (or "add" / "restore") with a command in flight
   let confirming = null;
   let timer;
@@ -50,18 +51,24 @@
   // the catalog: absent on an ewe before 0.25 → the group is not shown
   $: addons = data && Array.isArray(data.available) ? data.available : [];
   $: addonIds = new Set(addons.map((a) => a.id));
-  // the installed entry of an add-on (validity, options) lives in plugins[]
+  // the installed entry of a first-party plugin (validity, options) lives in plugins[]
   $: byId = new Map(data ? data.plugins.map((p) => [p.id, p]) : []);
   // everything else: plugins from a URL or a folder, never the catalog's
   $: installed = data ? data.plugins.filter((p) => p.installed && !addonIds.has(p.id)) : [];
   $: missing = data ? data.plugins.filter((p) => !p.installed && !addonIds.has(p.id)) : [];
   $: fetchable = data ? data.missing.filter((id) => !addonIds.has(id)) : [];
-  $: expandedAddon = expanded && addonIds.has(expanded) ? byId.get(expanded) : null;
+  // the Options dialog's plugin, looked up again on every re-read so it shows
+  // what the CLI last answered; gone (removed) → the dialog closes
+  $: optionsOf = expanded ? byId.get(expanded) || null : null;
 
   async function load() {
     try {
       data = await api.pluginList();
       error = "";
+      // a plugin removed under an open Options dialog closes it, and never
+      // reopens it on a later reinstall
+      if (expanded && !data.plugins.some((p) => p.id === expanded && p.installed)) expanded = null;
+      takeOptions();
     } catch (e) {
       data = null;
       error = String(e);
@@ -69,6 +76,17 @@
       loaded = true;
     }
   }
+
+  // `komble --options=<id>` (pendingOptions): open that plugin's Options
+  // once the list says it is installed; otherwise just land on the page
+  function takeOptions() {
+    const id = $pendingOptions;
+    if (!id || !data) return;
+    pendingOptions.set("");
+    if (data.plugins.some((p) => p.id === id && p.installed)) expanded = id;
+    else toast(`${id} is not installed. Install it below, then open its Options.`, "info");
+  }
+  $: $pendingOptions, takeOptions();
 
   async function run(id, fn, okMsg) {
     if (busy) return;
@@ -113,7 +131,8 @@
         .then(async () => {
           try {
             await api.pluginSet(p.id, key, value);
-            toast(`Saved ${key} for **${p.name || p.id}**`, "success");
+            const label = (p.settingsSchema || []).find((o) => o.key === key)?.label || key;
+            toast(`Saved **${label}** for ${p.name || p.id}`, "success");
           } catch (e) {
             toast(e, "error", 8000);
           }
@@ -135,7 +154,7 @@
   const install = (p) => run(p.id, () => api.pluginAdd(p.source, p.enabled), `Restored **${p.id}**`);
   const restoreAll = () => run("restore", () => api.pluginRestore(), "Restored the plugins");
 
-  // an add-on: from the payload, so there is nothing to fetch; what it still
+  // a first-party plugin: from the payload, so there is nothing to fetch; what it still
   // needs on this machine (packages) is installed first, by the backend,
   // through the ordinary pacman path — hence the password note
   const needs = (a) => [...(a.missing?.packages || []), ...(a.missing?.commands || [])];
@@ -144,7 +163,9 @@
     if (pkgs.length) toast(`Installing ${pkgs.join(", ")} first. You may be asked for your password…`, "info", 15000);
     run(a.id, () => api.pluginInstall(a.id), `Installed **${a.name || a.id}**. The shell is restarting.`);
   }
-  const hasOptions = (p) => !!p && ((p.settingsSchema && p.settingsSchema.length) || p.widget);
+  // Options: declared settings, a Show in bar switch, or a desktop widget
+  const hasOptions = (p) =>
+    !!p && ((p.settingsSchema && p.settingsSchema.length) || p.widget || (p.bar && p.bar.toggle !== false));
 
   function askConfirm(key) {
     confirming = key;
@@ -155,7 +176,7 @@
     confirming = null;
     const name = p.name || p.id;
     const after = addonIds.has(p.id)
-      ? `Removed **${name}**. Add-ons brings it back any time.`
+      ? `Removed **${name}**. Install brings it back any time.`
       : p.bundled
         ? `Removed **${name}**. ewe updates leave it out; ewe-plugin seed --restore ${p.id} brings it back.`
         : `Removed **${name}**`;
@@ -177,7 +198,7 @@
   });
 </script>
 
-<Page title="Add-ons" desc="What comes with ewe, and plugins from a git URL: bar widgets, panels and services for the shell">
+<Page title="Plugins" desc="What comes with ewe, and plugins from a git URL: the dock, bar widgets, panels and services for the shell">
   <svelte:fragment slot="actions">
     <button class="ewe-btn ewe-btn--ghost" on:click={() => openUrl(GUIDE)}><Icon name="book" />Open the guide</button>
   </svelte:fragment>
@@ -185,12 +206,12 @@
   {#if !loaded}
     <div class="ewe-empty" aria-busy="true">
       <span class="ewe-empty__icon"><span class="ewe-spinner ewe-spinner--xl" aria-hidden="true"></span></span>
-      <div class="ewe-empty__title">Reading your add-ons…</div>
+      <div class="ewe-empty__title">Reading your plugins…</div>
     </div>
   {:else if error}
     <div class="ewe-empty" role="alert">
       <span class="ewe-empty__icon"><Icon name="puzzle" /></span>
-      <div class="ewe-empty__title">Add-ons need ewe 0.14 or newer</div>
+      <div class="ewe-empty__title">Plugins need ewe 0.14 or newer</div>
       <div class="ewe-empty__desc">{error}</div>
     </div>
   {:else}
@@ -201,11 +222,11 @@
     {/if}
 
     {#if addons.length}
-      <!-- Add-ons: the catalog ewe ships, nothing installed until asked.
-           One card per add-on, its state as the action: Install, or the
+      <!-- From ewe: the catalog ewe ships, nothing installed until asked.
+           One card per plugin, its state as the action: Install, or the
            on/off switch and Remove once it is here. -->
       <Group title="From ewe" desc="Part of ewe, installed only when you want them. Each takes a second and restarts the shell." well={false}>
-        <div class="grid-static addons" role="list" aria-label="Add-ons">
+        <div class="grid-static addons" role="list" aria-label="Plugins from ewe">
           {#each addons as a (a.id)}
             {@const live = byId.get(a.id)}
             {@const broken = a.installed && live && live.valid === false}
@@ -221,7 +242,7 @@
                     {#if a.version}<span class="ewe-badge ver"><span class="ewe-badge__label">{a.version}</span></span>{/if}
                   </div>
                   <div class="ewe-card__desc" class:text-danger={broken}>
-                    {#if broken}{live.problems?.[0] || "This add-on does not load."}{:else}{a.description || a.id}{/if}
+                    {#if broken}{live.problems?.[0] || "This plugin does not load."}{:else}{a.description || a.id}{/if}
                   </div>
                 </div>
               </div>
@@ -245,12 +266,8 @@
                       {confirming === a.id ? `Remove ${a.name || a.id}` : "Remove"}
                     </button>
                     {#if hasOptions(live)}
-                      <button
-                        class="ewe-btn ewe-btn--sm ewe-btn--secondary"
-                        aria-expanded={expanded === a.id}
-                        on:click={() => (expanded = expanded === a.id ? null : a.id)}
-                      >
-                        Options<Icon name={expanded === a.id ? "caretUp" : "caretDown"} />
+                      <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" aria-haspopup="dialog" on:click={() => (expanded = a.id)}>
+                        Options…
                       </button>
                     {/if}
                     <Toggle on={a.enabled} disabled={broken} label="{a.name || a.id} on" toggled={() => setEnabled(live || a, !a.enabled)} />
@@ -262,9 +279,6 @@
             </div>
           {/each}
         </div>
-        {#if expandedAddon}
-          <PluginOptions p={expandedAddon} {run} {setSetting} class="addons__options" />
-        {/if}
       </Group>
     {/if}
 
@@ -341,21 +355,14 @@
                   {confirming === p.id ? `Remove ${p.name || p.id}` : "Remove"}
                 </button>
                 {#if hasOptions(p)}
-                  <button
-                    class="ewe-btn ewe-btn--sm ewe-btn--secondary"
-                    aria-expanded={expanded === p.id}
-                    on:click={() => (expanded = expanded === p.id ? null : p.id)}
-                  >
-                    Options<Icon name={expanded === p.id ? "caretUp" : "caretDown"} />
+                  <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" aria-haspopup="dialog" on:click={() => (expanded = p.id)}>
+                    Options…
                   </button>
                 {/if}
                 <Toggle on={p.enabled} disabled={!p.valid} label="{p.name || p.id} on" toggled={() => setEnabled(p, !p.enabled)} />
               {/if}
             </div>
           </div>
-          {#if expanded === p.id}
-            <PluginOptions {p} {run} {setSetting} />
-          {/if}
         {/each}
       {/if}
       <svelte:fragment slot="after">
@@ -435,3 +442,7 @@
     {/if}
   {/if}
 </Page>
+
+{#if optionsOf}
+  <PluginOptions p={optionsOf} {run} {setSetting} close={() => (expanded = null)} />
+{/if}

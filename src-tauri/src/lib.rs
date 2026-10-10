@@ -27,22 +27,43 @@ fn route_arg(arg: &str) -> Option<String> {
         "--settings" => Some("settings".into()),
         // `komble --addons` from the shell (Shell.openStore("addons"), the
         // Welcome screen) and ewe-settings; the catalog is the top of Plugins
+        // (`--addons` stays: installed binaries call it — Rule 4)
         "--addons" | "--plugins" => Some("plugins".into()),
         // `komble --search=pdf` — the desktop's gnome-software stand-in sends
         // GTK's "Find New Applications" here with the file/link type as words
         _ => arg
             .strip_prefix("--search=")
-            .map(|q| format!("search:{}", q.trim())),
+            .map(|q| format!("search:{}", q.trim()))
+            .or_else(|| arg.strip_prefix("--options=").and_then(options_route)),
     }
 }
 
-/// `--search=q` or `--search q` from an argv (the first route wins).
+/// `komble --options=ewe.dock` — Plugins with that plugin's Options dialog
+/// open (ewe-settings' "Dock options", the shell). The id is checked here:
+/// it travels into the webview as a route.
+fn options_route(id: &str) -> Option<String> {
+    let id = id.trim();
+    let ok = !id.is_empty()
+        && id.len() <= 64
+        && id
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '.' | '_' | '-'));
+    ok.then(|| format!("options:{id}"))
+}
+
+/// `--search=q` or `--search q`, `--options=id` or `--options id` from an
+/// argv (the first route wins).
 fn route_from_args<I: IntoIterator<Item = String>>(args: I) -> Option<String> {
     let v: Vec<String> = args.into_iter().collect();
     let mut i = 0;
     while i < v.len() {
         if v[i] == "--search" && i + 1 < v.len() {
             return Some(format!("search:{}", v[i + 1].trim()));
+        }
+        if v[i] == "--options" && i + 1 < v.len() {
+            if let Some(r) = options_route(&v[i + 1]) {
+                return Some(r);
+            }
         }
         if let Some(r) = route_arg(&v[i]) {
             return Some(r);
@@ -308,6 +329,7 @@ pub fn run() {
             plugins::plugin_create,
             plugins::plugin_set,
             plugins::plugin_place,
+            plugins::plugin_bar,
             plugins::plugin_arrange,
             system::install_fuse2,
             system::install_pacman_contrib,
@@ -333,6 +355,15 @@ mod tests {
         assert_eq!(route(&["--settings"]).as_deref(), Some("settings"));
         assert_eq!(route(&["--addons"]).as_deref(), Some("plugins"));
         assert_eq!(route(&["--plugins"]).as_deref(), Some("plugins"));
+        assert_eq!(
+            route(&["--options=ewe.dock"]).as_deref(),
+            Some("options:ewe.dock")
+        );
+        assert_eq!(
+            route(&["--options", "acme.clock"]).as_deref(),
+            Some("options:acme.clock")
+        );
+        assert_eq!(route(&["--options=Bad Id;rm"]), None);
     }
 
     #[test]
