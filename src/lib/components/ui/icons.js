@@ -56,7 +56,7 @@ export const ICONS = {
 
 /**
  * The shell's Theme.qml glyph names (ewe/dotfiles/quickshell/Theme.qml) with
- * their codepoints — the same font, so an add-on manifest's `icon`
+ * their codepoints — the same font, so a plugin manifest's `icon`
  * ("icMusic") renders here exactly as it does in the bar. A snapshot: a name
  * this table does not know falls back to the puzzle piece (themeIcon()).
  */
@@ -77,12 +77,13 @@ export const THEME_ICONS = {
   icPhone: 0xE163, icMessage: 0xE116, icSend: 0xE152, icBellRing: 0xE224, icBell: 0xE059,
   icCalendar: 0xE063, icRefresh: 0xE145, icBack: 0xE048, icMail: 0xE10F,
   icFile: 0xE0C0, icFolder: 0xE0D7, icHome: 0xE0F5, icPin: 0xE259, icUser: 0xE19F, icStar: 0xE176,
+  icPinOff: 0xE2B6, icGrip: 0xE0EB, icLockOpen: 0xE10C,
   icCpu: 0xE0A9, icMemory: 0xE445, icImage: 0xE0F6, icWarning: 0xE193,
   icApps: 0xE0E9, icStack: 0xE529, icPen: 0xE129, icDownload: 0xE0B2, icStore: 0xE3E4,
   icKeyboard: 0xE284, icHeadphones: 0xE0F1, icHeadset: 0xE5BD, icSpeaker: 0xE166,
   icMouse: 0xE28E, icGamepad: 0xE0DF, icTablet: 0xE17E, icLaptop: 0xE1CD, icPrinter: 0xE141,
   icCloudOk: 0xE66E, icCloudOff: 0xE08D, icCloudAlert: 0xE633, icPlus: 0xE13D,
-  // names an add-on may use that Theme.qml spells differently
+  // names a plugin may use that Theme.qml spells differently
   icKey: 0xE4A3, icDock: 0xE529, icPlug: 0xE29C
 };
 

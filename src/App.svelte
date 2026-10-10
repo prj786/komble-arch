@@ -6,6 +6,7 @@
   import {
     route,
     pendingSearch,
+    pendingOptions,
     installed,
     progress,
     settings,
@@ -108,6 +109,10 @@
         if (typeof r === "string" && r.startsWith("search:")) {
           pendingSearch.set(r.slice(7));
           route.set("discover");
+        } else if (typeof r === "string" && r.startsWith("options:")) {
+          // a plugin's Options dialog, on the Plugins page
+          pendingOptions.set(r.slice(8));
+          route.set("plugins");
         } else {
           route.set(r);
         }
