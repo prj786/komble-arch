@@ -221,6 +221,82 @@
       </Alert>
     {/if}
 
+    <!-- Adding comes first: a git URL, or a new plugin of your own -->
+    <Group title="Add a plugin" well={false}>
+      <svelte:fragment slot="action">
+        <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" aria-expanded={creating} on:click={() => (creating = !creating)}>
+          {#if creating}Cancel{:else}<Icon name="plus" />New plugin…{/if}
+        </button>
+      </svelte:fragment>
+      <div class="form-row">
+        <label class="ewe-input">
+          <Icon name="git" />
+          <input
+            class="field-text"
+            aria-label="Git URL of the plugin"
+            placeholder="https://github.com/someone/ewe-something.git"
+            bind:value={url}
+            on:keydown={(e) => e.key === "Enter" && add()}
+            disabled={busy === "add"}
+          />
+        </label>
+        <label class="ewe-check">
+          <Toggle on={enableNew} label="Turn on after install" toggled={() => (enableNew = !enableNew)} />
+          <span class="ewe-check__label">Turn on after install</span>
+        </label>
+        <button class="ewe-btn ewe-btn--primary" on:click={add} disabled={!url.trim() || busy === "add"}>
+          {#if busy === "add"}<span class="ewe-spinner ewe-spinner--sm ewe-spinner--on-accent" aria-hidden="true"></span>Cloning…{:else}Add{/if}
+        </button>
+      </div>
+      <Alert tone="warning">
+        Installing never runs plugin code. Turning it on does: unsandboxed, inside your shell, with everything the desktop can do. Read it before you turn it on.
+        <svelte:fragment slot="actions">
+          <button class="ewe-link" on:click={() => openUrl(EXAMPLE)}>Open the reference plugin<Icon name="external" /></button>
+        </svelte:fragment>
+      </Alert>
+      <svelte:fragment slot="after">
+        {#if creating}
+          <section class="ewe-card" aria-label="New plugin">
+            <div class="ewe-card__head">
+              <span class="ewe-card__icon ewe-card__icon--accent"><Icon name="puzzle" /></span>
+              <div class="ewe-card__titles">
+                <div class="ewe-card__title">A new plugin repository</div>
+                <div class="ewe-card__desc">
+                  A working plugin per kind, a README that explains the contract, an MIT license and a first commit. You write the QML; ewe places it and shows its settings here as a form.
+                </div>
+              </div>
+            </div>
+            <div class="form-grid">
+              <label class="ewe-field">
+                <span class="ewe-field__label">ID</span>
+                <span class="ewe-input"><input class="field-text" placeholder="acme.clock" bind:value={newId} /></span>
+                <span class="ewe-field__helper">namespace.name</span>
+              </label>
+              <label class="ewe-field">
+                <span class="ewe-field__label">Name <span class="ewe-field__optional">Optional</span></span>
+                <span class="ewe-input"><input class="field-text" placeholder="Big clock" bind:value={newName} /></span>
+              </label>
+            </div>
+            <div class="ewe-field">
+              <span class="ewe-field__label">Kinds</span>
+              <div class="checks">
+                {#each Object.keys(newKinds) as k}
+                  <Checkbox bind:checked={newKinds[k]} label={KIND_LABELS[k]} />
+                {/each}
+              </div>
+            </div>
+            <div class="ewe-card__foot">
+              <button class="ewe-btn ewe-btn--secondary mr-auto" on:click={pickDir}>
+                <Icon name="folderOpen" />{newDir ? newDir : "Choose a folder…"}
+              </button>
+              <button class="ewe-btn ewe-btn--ghost" on:click={() => (creating = false)}>Cancel</button>
+              <button class="ewe-btn ewe-btn--primary" disabled={busy === "create" || !newId.trim() || !newDir} on:click={create}>Create</button>
+            </div>
+          </section>
+        {/if}
+      </svelte:fragment>
+    </Group>
+
     {#if addons.length}
       <!-- From ewe: the catalog ewe ships, nothing installed until asked.
            One card per plugin, its state as the action: Install, or the
@@ -282,41 +358,7 @@
       </Group>
     {/if}
 
-    <Group title="Add a plugin" well={false}>
-      <div class="form-row">
-        <label class="ewe-input">
-          <Icon name="git" />
-          <input
-            class="field-text"
-            aria-label="Git URL of the plugin"
-            placeholder="https://github.com/someone/ewe-something.git"
-            bind:value={url}
-            on:keydown={(e) => e.key === "Enter" && add()}
-            disabled={busy === "add"}
-          />
-        </label>
-        <label class="ewe-check">
-          <Toggle on={enableNew} label="Turn on after install" toggled={() => (enableNew = !enableNew)} />
-          <span class="ewe-check__label">Turn on after install</span>
-        </label>
-        <button class="ewe-btn ewe-btn--primary" on:click={add} disabled={!url.trim() || busy === "add"}>
-          {#if busy === "add"}<span class="ewe-spinner ewe-spinner--sm ewe-spinner--on-accent" aria-hidden="true"></span>Cloning…{:else}Add{/if}
-        </button>
-      </div>
-      <Alert tone="warning">
-        Installing never runs plugin code. Turning it on does: unsandboxed, inside your shell, with everything the desktop can do. Read it before you turn it on.
-        <svelte:fragment slot="actions">
-          <button class="ewe-link" on:click={() => openUrl(EXAMPLE)}>Open the reference plugin<Icon name="external" /></button>
-        </svelte:fragment>
-      </Alert>
-    </Group>
-
     <Group title="{addons.length ? 'Other plugins' : 'Installed'} · {installed.length}">
-      <svelte:fragment slot="action">
-        <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" aria-expanded={creating} on:click={() => (creating = !creating)}>
-          {#if creating}Cancel{:else}<Icon name="plus" />New plugin…{/if}
-        </button>
-      </svelte:fragment>
       {#if installed.length === 0}
         <div class="ewe-empty ewe-empty--compact">
           <span class="ewe-empty__icon"><Icon name="puzzle" /></span>
@@ -365,47 +407,6 @@
           </div>
         {/each}
       {/if}
-      <svelte:fragment slot="after">
-        {#if creating}
-          <section class="ewe-card" aria-label="New plugin">
-            <div class="ewe-card__head">
-              <span class="ewe-card__icon ewe-card__icon--accent"><Icon name="puzzle" /></span>
-              <div class="ewe-card__titles">
-                <div class="ewe-card__title">A new plugin repository</div>
-                <div class="ewe-card__desc">
-                  A working plugin per kind, a README that explains the contract, an MIT license and a first commit. You write the QML; ewe places it and shows its settings here as a form.
-                </div>
-              </div>
-            </div>
-            <div class="form-grid">
-              <label class="ewe-field">
-                <span class="ewe-field__label">ID</span>
-                <span class="ewe-input"><input class="field-text" placeholder="acme.clock" bind:value={newId} /></span>
-                <span class="ewe-field__helper">namespace.name</span>
-              </label>
-              <label class="ewe-field">
-                <span class="ewe-field__label">Name <span class="ewe-field__optional">Optional</span></span>
-                <span class="ewe-input"><input class="field-text" placeholder="Big clock" bind:value={newName} /></span>
-              </label>
-            </div>
-            <div class="ewe-field">
-              <span class="ewe-field__label">Kinds</span>
-              <div class="checks">
-                {#each Object.keys(newKinds) as k}
-                  <Checkbox bind:checked={newKinds[k]} label={KIND_LABELS[k]} />
-                {/each}
-              </div>
-            </div>
-            <div class="ewe-card__foot">
-              <button class="ewe-btn ewe-btn--secondary mr-auto" on:click={pickDir}>
-                <Icon name="folderOpen" />{newDir ? newDir : "Choose a folder…"}
-              </button>
-              <button class="ewe-btn ewe-btn--ghost" on:click={() => (creating = false)}>Cancel</button>
-              <button class="ewe-btn ewe-btn--primary" disabled={busy === "create" || !newId.trim() || !newDir} on:click={create}>Create</button>
-            </div>
-          </section>
-        {/if}
-      </svelte:fragment>
     </Group>
 
     {#if missing.length > 0}

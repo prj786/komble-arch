@@ -144,9 +144,9 @@ code {
     transform: translateX(var(--space-xs));
   }
 }
-@keyframes ewe-fade {
+@keyframes ewe-scrim-in {
   from {
-    opacity: 0;
+    background-color: transparent;
   }
 }
 @keyframes toast-timer {
@@ -364,10 +364,11 @@ code {
   .ewe-sheet[data-state="open"] {
     animation: ewe-in-left var(--dur-base) var(--ease-out);
   }
-  .ewe-dialog[data-state="open"],
-  .ewe-wizard[data-state="open"] {
-    animation: ewe-fade var(--dur-base) var(--ease-out);
-  }
+  /* Dialogs and the wizard open in place, and the scrim fades its COLOUR,
+     never its opacity: WebKitGTK puts an opacity animation on a GPU layer
+     and, when it ends, sometimes presents one frame without the scrim and
+     the dialog (the "Options blinks" report, 2026-10-11 — caught in 3 of 12
+     grim runs of the dev mock under WebKitGTK 2.54; 0 of 12 this way). */
   .ewe-toast {
     animation: ewe-in-up var(--dur-base) var(--ease-out);
   }
@@ -376,7 +377,7 @@ code {
     inset: 0;
     z-index: 40;
     background: var(--scrim);
-    animation: ewe-fade var(--dur-base) var(--ease-out);
+    animation: ewe-scrim-in var(--dur-base) var(--ease-out);
   }
   .ewe-menu,
   .ewe-popover {
