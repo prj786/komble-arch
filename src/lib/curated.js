@@ -27,7 +27,8 @@
 // `note` is an optional second, even shorter line for the card.
 //
 // Apps ewe already ships by default (nemo, kitty, zed, mpv, imv, zathura,
-// helium-browser-bin, mise) may appear but never dominate a category.
+// mise) may appear but never dominate a category. ewe's own browser (ewe
+// browser) is a first-party app, listed by first_party.rs, not here.
 
 // Same icon URL pattern as the backend's catalog.rs (`AM_ICON_URL`): a missing
 // file just 404s and the card falls back to its glyph/initial (AppCard's
@@ -48,7 +49,7 @@ export const curatedCategories = [
       { name: "Brave", pkg: "brave-bin", source: "aur", icon: "brave", desc: "Chromium with ad and tracker blocking built in." },
       { name: "Firefox Developer Edition", pkg: "firefox-developer-edition", source: "repo", desc: "Firefox for web developers, with the newest tooling." },
       { name: "qutebrowser", pkg: "qutebrowser", source: "repo", desc: "A keyboard-driven browser for Vim users." },
-      { name: "Helium", pkg: "helium-browser-bin", icon: "helium", source: "repo", desc: "A lean Chromium browser without Google services.", note: "Ships with ewe." },
+      { name: "Helium", pkg: "helium-browser-bin", icon: "helium", source: "aur", desc: "A lean Chromium browser without Google services." },
       { name: "Falkon", pkg: "falkon", source: "repo", icon: "falkon", desc: "The lightweight KDE browser." }
     ]
   },

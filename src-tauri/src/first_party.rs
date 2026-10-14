@@ -50,6 +50,11 @@ pub const DISCOVER: &[(&str, &str, &str)] = &[
         "prj786/ewe-cast",
         "Cast the ewe desktop to a TV — Miracast and Chromecast (daemon)",
     ),
+    (
+        "ewe-browser",
+        "prj786/ewe-browser",
+        "ewe browser — the web, your files and your music in one window",
+    ),
 ];
 
 const EWE_REPO: &str = "prj786/ewe";
