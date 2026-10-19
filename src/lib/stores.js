@@ -10,6 +10,8 @@ export const catalogError = writable("");
 export const installed = writable([]);
 /** Packages installed through Komble. */
 export const trackedPkgs = writable([]);
+/** First-party ewe apps pacman has — [{pkg, repo, summary, version}]. */
+export const firstPartyPkgs = writable([]);
 // names of EVERY installed package (pacman -Qq), not only the ones Komble
 // installed — a Set, refreshed with refreshPkgs()
 export const installedPkgNames = writable(new Set());

@@ -48,6 +48,8 @@ export const restartAction = (kind) => invoke("restart_action", { kind });
 // through the same clone → makepkg → pacman -U pipeline as an install.
 export const aurUpgrade = () => invoke("aur_upgrade");
 
+// the first-party apps pacman has (Installed page) — local, no GitHub call
+export const firstPartyInstalled = () => invoke("first_party_installed");
 // first-party ewe apps (Komble, ewe-settings) + the desktop itself
 // repoUpdates: the pending repo updates checkupdates already reported
 // ([{name, latest}]) — the [ewe] repo carries the desktop and its apps, so

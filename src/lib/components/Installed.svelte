@@ -1,5 +1,5 @@
 <script>
-  import { installed, trackedPkgs, progress, toast } from "../stores";
+  import { installed, trackedPkgs, firstPartyPkgs, progress, toast } from "../stores";
   import { refreshInstalled, refreshPkgs } from "../actions";
   import * as api from "../api";
   import { formatDate } from "../utils";
@@ -44,6 +44,26 @@
 </script>
 
 <Page title="Installed" desc="Apps Komble manages on this machine">
+  <!-- The desktop's own apps arrive as dependencies of the ewe package, not
+       through Komble, so they were missing here while Updates listed them.
+       No Remove: pacman would refuse while ewe depends on them. -->
+  {#if $firstPartyPkgs.length}
+    <Group title="ewe apps · {$firstPartyPkgs.length}">
+      {#each $firstPartyPkgs as f (f.pkg)}
+        <div class="ewe-row ewe-row--tall">
+          <span class="ewe-row__lead"><AppIcon name={f.pkg} pkg size="sm" /></span>
+          <div class="ewe-row__text">
+            <div class="row-title">
+              <span class="ewe-row__title">{f.pkg}</span>
+              <span class="ewe-badge"><span class="ewe-badge__label">{f.version}</span></span>
+            </div>
+            <div class="ewe-row__desc">{f.summary}</div>
+          </div>
+        </div>
+      {/each}
+    </Group>
+  {/if}
+
   <Group title="AppImages · {$installed.length}">
     {#if $installed.length === 0}
       <div class="ewe-empty ewe-empty--compact">
