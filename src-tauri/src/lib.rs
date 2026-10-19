@@ -303,6 +303,7 @@ pub fn run() {
             pacman::refresh_lists,
             // first-party ewe apps + the desktop itself
             first_party::first_party_status,
+            first_party::first_party_installed,
             de::app_manifest,
             de::manifest_dump,
             first_party::install_first_party,

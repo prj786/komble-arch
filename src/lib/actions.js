@@ -5,6 +5,7 @@ import {
   catalogError,
   installed,
   trackedPkgs,
+  firstPartyPkgs,
   installedPkgNames
 } from "./stores";
 import { stripHtml } from "./utils";
@@ -28,5 +29,6 @@ export function refreshInstalled() {
 
 export function refreshPkgs() {
   api.listTrackedPackages().then(trackedPkgs.set).catch(() => {});
+  api.firstPartyInstalled().then(firstPartyPkgs.set).catch(() => {});
   api.installedPackageNames().then((names) => installedPkgNames.set(new Set(names))).catch(() => {});
 }

@@ -201,6 +201,25 @@ async fn sync_version(pkg: &str) -> Option<String> {
         .filter(|v| !v.is_empty())
 }
 
+/// The first-party apps pacman has, however they got there — the `ewe`
+/// package pulls them in as dependencies, so Komble never installed them and
+/// its own install log (`list_tracked_packages`) never had them. The
+/// Installed page listed none of them while Updates did (ewe browser,
+/// 2026-10-19). Local only: `pacman -Q`, no GitHub call.
+#[tauri::command]
+pub async fn first_party_installed() -> Result<Vec<Value>, String> {
+    let mut rows = Vec::new();
+    for (pkg, repo, summary) in DISCOVER {
+        if let Some(v) = crate::pacman::installed_version(pkg).await {
+            rows.push(json!({
+                "pkg": pkg, "repo": repo, "summary": summary,
+                "version": strip_pkgrel(&v),
+            }));
+        }
+    }
+    Ok(rows)
+}
+
 /// One row per first-party app: installed version (None = not installed),
 /// what is available, and whether an update is pending.
 ///
