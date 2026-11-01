@@ -286,12 +286,18 @@
       <span class="ewe-empty__icon"><Icon name="alert" /></span>
       <div class="ewe-empty__title">No app list to read</div>
       <div class="ewe-empty__desc">ewe-conf isn’t installed here. For you needs the ewe desktop, 0.9 or newer.</div>
+      <div class="ewe-empty__actions">
+        <button class="ewe-btn ewe-btn--secondary" on:click={() => route.set("updates")}>Check for updates</button>
+      </div>
     </div>
   {:else if manifest && manifest.apps.length === 0}
     <div class="ewe-empty">
       <span class="ewe-empty__icon"><Icon name="package" /></span>
       <div class="ewe-empty__title">No apps recorded yet</div>
       <div class="ewe-empty__desc">Every app you install with Komble from now on is recorded in your ewe.conf.</div>
+      <div class="ewe-empty__actions">
+        <button class="ewe-btn ewe-btn--primary" on:click={() => route.set("discover")}><Icon name="compass" />Discover apps</button>
+      </div>
     </div>
   {:else}
     <!-- no [apps.installed] at all: a fresh file, or an old backup that never
@@ -300,7 +306,10 @@
       <span class="ewe-empty__icon"><Icon name="history" /></span>
       <div class="ewe-empty__title">Your ewe.conf has no app list yet</div>
       <div class="ewe-empty__desc">
-        Every app you install here is recorded from now on. To bring the apps from another ewe machine, restore its file in Settings › Account. The list then appears here by itself.
+        Every app you install here is recorded from now on. To bring the apps from another ewe machine, use Bring everything back in ewe Sync. The list then appears here by itself.
+      </div>
+      <div class="ewe-empty__actions">
+        <button class="ewe-btn ewe-btn--secondary" on:click={() => route.set("discover")}><Icon name="compass" />Discover apps</button>
       </div>
     </div>
   {/if}
