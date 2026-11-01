@@ -837,54 +837,157 @@ code {
     flex: none;
   }
 
-  /* ── Plugins: the add-ons catalog (one compact card per add-on) ────────── */
-  .addons {
-    margin-bottom: var(--space-s);
+  /* ── Plugins: one row per plugin (PluginRow), the sheet (PluginSheet) ─── */
+  .plugin-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xxs);
   }
-  .addon .ewe-card__head {
+  .plugin-row {
+    min-height: var(--control-2xl);
+  }
+  .plugin-row .ewe-row__title {
+    font-weight: var(--font-weight-medium);
+  }
+  /* the name is the row's keyboard path to the sheet: a plain button */
+  .plugin-row__open {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    border-radius: var(--slight);
+  }
+  /* one column for the control and one for ⋯, so switches and Install line
+     up down the list whatever sits before them */
+  .plugin-row__ctl {
+    display: inline-flex;
+    justify-content: flex-end;
+    min-width: calc(2 * var(--control-md));
+  }
+  .plugin-row__more {
+    display: inline-flex;
+    justify-content: center;
+    width: var(--control-sm);
+  }
+  /* a Tag that names, not a toggle */
+  span.ewe-tag {
+    cursor: inherit;
+  }
+  /* Remove: ghost, the danger hue; armed, it is the danger button */
+  .ewe-btn--ghost.is-danger {
+    color: var(--danger);
+  }
+  .ewe-btn--ghost.is-danger:hover:not(:disabled) {
+    background: var(--danger-subtle);
+  }
+  .page > .ewe-seg {
+    align-self: flex-start;
+  }
+  /* an open sheet keeps the list beside it, not under it */
+  .page.has-sheet {
+    margin-right: calc(var(--panel-md) + var(--window-gap));
+  }
+  .ewe-sheet__titles {
     flex: 1;
-  }
-  .addon .ewe-card__title {
-    font-size: var(--font-size-md);
-    line-height: var(--line-height-md);
-  }
-  .addon .ewe-card__desc {
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-sm);
-  }
-  /* badges left, the state's action right; wraps on a narrow card */
-  .addon__foot {
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--space-xs) var(--space-s);
-  }
-  .addon__foot .badges {
     min-width: 0;
+    display: flex;
+    flex-direction: column;
   }
-  .addon__actions {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-xs);
-    margin-left: auto;
+  .ewe-sheet__titles > .ewe-sheet__title,
+  .ewe-sheet__subtitle {
+    flex: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .addon__actions .busy {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-xs);
-    color: var(--text-secondary);
-    font-size: var(--font-size-sm);
+  .ewe-sheet__subtitle {
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-xs);
+    color: var(--text-muted);
   }
-  /* ── Plugins: the Options dialog (PluginOptions; .detail gives the
-     scrolling body between a fixed head and foot) ─────────────────────── */
-  .plugin-dialog .ewe-row__title,
-  .plugin-dialog .ewe-row__desc {
+  .ewe-sheet__body > * {
+    flex: none;
+  }
+  .ewe-sheet .ewe-list {
+    background: var(--surface-overlay);
+  }
+  .ewe-sheet .ewe-row__title,
+  .ewe-sheet .ewe-row__desc {
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
   }
-  .plugin-dialog > .ewe-dialog__foot {
-    padding: var(--space-s) var(--space-md);
-    border-top: var(--border-width-1) solid var(--border-subtle);
+  .sheet-text {
+    margin: 0;
+    font-size: var(--font-size-s);
+    line-height: var(--line-height-s);
+    color: var(--text-secondary);
+    user-select: text;
+  }
+  .sheet-note,
+  .sheet-foot-note,
+  .switch-text__desc,
+  .sheet-tags__label {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-xs);
+    color: var(--text-muted);
+  }
+  .sheet-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-xs);
+  }
+  .sheet-tags__label {
+    margin-right: var(--space-xs);
+  }
+  .sheet-rule {
+    height: var(--border-width-1);
+    background: var(--border-subtle);
+  }
+  /* an overline: spaced letters, never uppercased (Georgian) */
+  .sheet-over {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-xs);
+    letter-spacing: var(--tracking-wide);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-muted);
+  }
+  .switch-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .switch-text__title {
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+  }
+  .sheet-foot-gap {
+    flex: 1;
+  }
+  .ewe-switch-row .busy {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    color: var(--text-muted);
+    font-size: var(--font-size-s);
+  }
+  .folder-btn {
+    justify-content: flex-start;
+    max-width: 100%;
+  }
+  .folder-btn__path {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .num-input {
     width: calc(3 * var(--control-md));

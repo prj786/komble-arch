@@ -38,7 +38,7 @@ fn route_arg(arg: &str) -> Option<String> {
     }
 }
 
-/// `komble --options=ewe.dock` — Plugins with that plugin's Options dialog
+/// `komble --options=ewe.dock` — Plugins with that plugin's sheet
 /// open (ewe-settings' "Dock options", the shell). The id is checked here:
 /// it travels into the webview as a route.
 fn options_route(id: &str) -> Option<String> {

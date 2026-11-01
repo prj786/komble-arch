@@ -110,7 +110,7 @@
           pendingSearch.set(r.slice(7));
           route.set("discover");
         } else if (typeof r === "string" && r.startsWith("options:")) {
-          // a plugin's Options dialog, on the Plugins page
+          // a plugin's sheet (its options and the rest), on the Plugins page
           pendingOptions.set(r.slice(8));
           route.set("plugins");
         } else {

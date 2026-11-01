@@ -7,9 +7,11 @@
   export let desc = "";
   // fill: the page takes the whole pane and scrolls inside (Discover's grid)
   export let fill = false;
+  let className = "";
+  export { className as class };
 </script>
 
-<div class="page" class:page--fill={fill}>
+<div class="page {className}" class:page--fill={fill}>
   <header class="ewe-headerbar ewe-headerbar--page">
     <div class="ewe-headerbar__titles">
       <h1 class="ewe-headerbar__title">{title}</h1>
