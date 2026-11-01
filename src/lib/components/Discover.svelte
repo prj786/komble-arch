@@ -13,6 +13,7 @@
   import Seg from "./ui/Seg.svelte";
   import SearchField from "./ui/SearchField.svelte";
   import Icon from "./ui/Icon.svelte";
+  import { displayName } from "../names.js";
 
   // "" is a real value here (= no filter), but bits-ui reads "" as "nothing
   // selected" — so it travels under a sentinel, same as ui/SelectRow.svelte.
@@ -116,7 +117,8 @@
       kind: "pkg",
       id: `pkg:${p.name}`,
       pkg: p.name,
-      name: p.name,
+      // the desktop's own apps by the name a person knows (ewe Settings)
+      name: p.section === "ewe" ? displayName(p.name) : p.name,
       description: p.summary,
       plainDesc: p.summary,
       section: p.section,

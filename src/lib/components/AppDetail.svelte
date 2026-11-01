@@ -88,10 +88,10 @@
     if (isPkg) {
       setPkgBusy(item.pkg, true);
       try {
-        toast(`Installing **${item.pkg}**. You may be asked for your password…`, "info");
+        toast(`Installing **${item.name}**. You may be asked for your password…`, "info");
         if (isEwe) await api.installFirstParty(item.pkg, $settings.githubToken);
         else await api.installPackage(item.pkg);
-        toast(`Installed **${item.pkg}**`, "success");
+        toast(`Installed **${item.name}**`, "success");
         item.installed = true;
         refreshPkgs();
       } catch (e) {
@@ -118,9 +118,9 @@
     try {
       if (isPkg) {
         setPkgBusy(item.pkg, true);
-        toast(`Removing **${item.pkg}**. You may be asked for your password…`, "info");
+        toast(`Removing **${item.name}**. You may be asked for your password…`, "info");
         await api.removePackage(item.pkg);
-        toast(`Removed **${item.pkg}**`, "success");
+        toast(`Removed **${item.name}**`, "success");
         item.installed = false;
         refreshPkgs();
         setPkgBusy(item.pkg, false);

@@ -270,7 +270,7 @@
           <span class="ewe-badge"><span class="ewe-badge__label">{a.name}</span></span>
         {/each}
         {#if skipped}
-          <span class="ewe-badge ewe-badge--accent" title="Komble, ewe-settings and ewe-sync come with the desktop">
+          <span class="ewe-badge ewe-badge--accent" title="Komble, ewe Settings and ewe Sync come with the desktop">
             <span class="ewe-badge__label">+{skipped} part of ewe</span>
           </span>
         {/if}

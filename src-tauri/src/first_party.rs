@@ -26,11 +26,14 @@ use tokio::process::Command;
 use crate::util::{estr, which};
 
 /// name, github repo, one-line summary (shown as the search-result card).
+/// The card's title is the display name the UI gives the package (ewe
+/// Settings, Komble — src/lib/names.js), so a summary never repeats it; a
+/// search still finds the package by either name (`discover_matches`).
 pub const DISCOVER: &[(&str, &str, &str)] = &[
     (
         "komble-arch",
         "prj786/komble-arch",
-        "Komble — the ewe desktop's software manager (this app)",
+        "The ewe desktop's software manager (this app)",
     ),
     (
         "ewe-settings",
@@ -53,11 +56,21 @@ pub const DISCOVER: &[(&str, &str, &str)] = &[
     (
         "ewe-browser",
         "prj786/ewe-browser",
-        "ewe browser — the web, your files and your music in one window",
+        "The web, your files and your music in one window",
     ),
 ];
 
 const EWE_REPO: &str = "prj786/ewe";
+
+/// Does a (lower-case) search match a first-party package? By its package
+/// name, by that name with spaces for dashes — so "ewe settings", the name
+/// people read, finds `ewe-settings` — or by its summary.
+pub fn discover_matches(pkg: &str, summary: &str, q: &str) -> bool {
+    !q.is_empty()
+        && (pkg.contains(q)
+            || pkg.replace('-', " ").contains(q)
+            || summary.to_lowercase().contains(q))
+}
 
 fn home() -> PathBuf {
     PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/".into()))
@@ -544,4 +557,25 @@ pub async fn ewe_update_terminal() -> Result<(), String> {
         }
     }
     Err("no terminal emulator found (tried kitty, foot, alacritty, xterm)".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_search_finds_first_party_apps_by_either_name() {
+        let m = |pkg: &str, q: &str| {
+            let (_, _, summary) = DISCOVER.iter().find(|(p, _, _)| *p == pkg).unwrap();
+            discover_matches(pkg, summary, q)
+        };
+        // the package name, the name people read, a word of the summary
+        assert!(m("ewe-settings", "ewe-sett"));
+        assert!(m("ewe-settings", "ewe settings"));
+        assert!(m("ewe-browser", "browser"));
+        assert!(m("ewe-sync", "account"));
+        assert!(m("komble-arch", "software"));
+        assert!(!m("ewe-cast", "passwords"));
+        assert!(!m("ewe-cast", ""));
+    }
 }

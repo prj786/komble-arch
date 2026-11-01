@@ -401,7 +401,7 @@ pub async fn browse_packages(
     let mut total = total;
     if !q.is_empty() && repo.is_none() {
         for (name, _, summary) in crate::first_party::DISCOVER.iter().rev() {
-            if name.contains(&q) || summary.to_lowercase().contains(&q) {
+            if crate::first_party::discover_matches(name, summary, &q) {
                 if let Some(dup) = items.iter().position(|i| i.name == *name) {
                     items.remove(dup);
                     total = total.saturating_sub(1);
