@@ -177,7 +177,7 @@
   $: missingRepo = missing.filter((a) => !a.aur && !a.appimage);
 </script>
 
-<Page title="For you" desc="Apps your ewe.conf recorded on your other machines">
+<Page title="For you" desc="Apps from your other computers, ready to install here">
   <svelte:fragment slot="actions">
     <button class="ewe-btn ewe-btn--ghost" disabled={busyPkg !== ""} on:click={readManifest} title="Read [apps.installed] from ewe.conf again">
       <Icon name="refresh" />Read again
