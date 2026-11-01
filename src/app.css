@@ -805,9 +805,13 @@ code {
     color: var(--text-primary);
   }
 
-  /* ── cards used as small forms (AUR review, local file, New plugin) ──── */
+  /* ── cards used as small forms (AUR review, local file) ──────────────── */
+  /* the titles start level with the icon's top: at least as tall as the
+     icon, a short title centred within that, a long one from the top —
+     never centred in a stretched head (the 0.20 plugin cards' uneven titles) */
   .ewe-card__head > .ewe-card__icon + .ewe-card__titles {
-    align-self: center;
+    min-height: var(--control-lg);
+    justify-content: center;
   }
   .form-row {
     display: flex;
