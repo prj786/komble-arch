@@ -11,4 +11,4 @@ Keywords=package;install;software;store;pacman;aur;appimage;
 # Double-clicking an .AppImage (or a built pacman package) opens the install
 # flow — the argv is handled in lib.rs (openable_path).
 MimeType=application/vnd.appimage;application/x-iso9660-appimage;application/x-appimage;
-StartupWMClass=Komble
+StartupWMClass=komble
