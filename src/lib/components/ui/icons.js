@@ -51,7 +51,8 @@ export const ICONS = {
   package: 0xE129,
   puzzle: 0xE29C,
   sliders: 0xE29A, // sliders-horizontal
-  settings: 0xE154
+  settings: 0xE154,
+  more: 0xE0B6 // ellipsis: the ⋯ of a row or a header
 };
 
 /**

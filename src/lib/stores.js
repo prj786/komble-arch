@@ -85,7 +85,7 @@ export const restartNeed = writable(null);
 export const conflictPrompt = writable(null);
 // a search the app was opened INTO (`komble --search=pdf`); Discover consumes it
 export const pendingSearch = writable("");
-// `komble --options=<id>`: the plugin whose Options dialog Plugins opens once
+// `komble --options=<id>`: the plugin whose sheet Plugins opens once
 // its list is read (ewe-settings' "Dock options", the shell)
 export const pendingOptions = writable("");
 

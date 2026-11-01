@@ -13,6 +13,7 @@
   import Seg from "./ui/Seg.svelte";
   import SearchField from "./ui/SearchField.svelte";
   import Icon from "./ui/Icon.svelte";
+  import { displayName } from "../names.js";
 
   // "" is a real value here (= no filter), but bits-ui reads "" as "nothing
   // selected" — so it travels under a sentinel, same as ui/SelectRow.svelte.
@@ -116,7 +117,8 @@
       kind: "pkg",
       id: `pkg:${p.name}`,
       pkg: p.name,
-      name: p.name,
+      // the desktop's own apps by the name a person knows (ewe Settings)
+      name: p.section === "ewe" ? displayName(p.name) : p.name,
       description: p.summary,
       plainDesc: p.summary,
       section: p.section,
@@ -318,9 +320,25 @@
         <div class="ewe-empty__title">Search the AUR</div>
         <div class="ewe-empty__desc">Type at least two characters.</div>
       {:else}
+        <!-- the next step is the filter that hid the app: drop it -->
         <span class="ewe-empty__icon"><Icon name="search" /></span>
         <div class="ewe-empty__title">No apps match “{query}”</div>
-        <div class="ewe-empty__desc">Check the spelling, or search the AUR.</div>
+        {#if category || pkgRepo}
+          <div class="ewe-empty__desc">Nothing in {category || pkgRepo}. The app may sit in another one.</div>
+          <div class="ewe-empty__actions">
+            <button class="ewe-btn ewe-btn--secondary" on:click={() => ((category = ""), (pkgRepo = ""))}>Search every {category ? "category" : "repository"}</button>
+          </div>
+        {:else if source !== "all"}
+          <div class="ewe-empty__desc">Only {sources.find(([v]) => v === source)?.[1] || source} were searched.</div>
+          <div class="ewe-empty__actions">
+            <button class="ewe-btn ewe-btn--secondary" on:click={() => (source = "all")}>Search everything</button>
+          </div>
+        {:else}
+          <div class="ewe-empty__desc">Nothing among AppImages, the repositories or the AUR. Check the spelling, or try fewer words.</div>
+          <div class="ewe-empty__actions">
+            <button class="ewe-btn ewe-btn--secondary" on:click={() => (query = "")}>Clear the search</button>
+          </div>
+        {/if}
       {/if}
     </div>
   {:else}

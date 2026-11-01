@@ -8,14 +8,17 @@
   import Group from "./ui/Group.svelte";
   import Alert from "./ui/Alert.svelte";
   import Icon from "./ui/Icon.svelte";
+  import { displayName, renamed } from "../names.js";
 
   let checking = false;
   let working = false;
   let updatingAll = false;
   let fixingContrib = false;
 
-  // ── the ewe desktop: the DE itself + Komble + ewe-settings + ewe-sync,
-  // here so nobody ever hand-downloads a .tar.zst or .pkg.tar.zst again
+  // ── the ewe desktop: the DE itself + Komble + ewe Settings + ewe Sync …,
+  // here so nobody ever hand-downloads a .tar.zst or .pkg.tar.zst again.
+  // Rows name the desktop's own packages the way a person knows them
+  // (names.js: ewe Settings, not ewe-settings), the package as the caption.
   let ewe = null; // ewe_status() result
   let fp = []; // first_party_status() rows — whatever DISCOVER lists
   let eweWorking = false;
@@ -39,7 +42,7 @@
       ? [
           {
             id: "ewe",
-            name: "ewe desktop",
+            name: displayName("ewe"),
             current: ewe.version,
             latest: ewe.git
               ? ewe.updateAvailable
@@ -54,7 +57,7 @@
       : []),
     ...fp.map((f) => ({
       id: f.pkg,
-      name: f.pkg,
+      name: displayName(f.pkg),
       current: f.installed || "not installed",
       latest: f.latest || "?",
       update: !!f.updateAvailable,
@@ -241,9 +244,9 @@
     let viaRepo = false;
     try {
       for (const f of fp.filter((x) => x.updateAvailable && x.managed !== "repo")) {
-        toast(`Updating **${f.pkg}** to ${f.latest}…`, "info");
+        toast(`Updating **${displayName(f.pkg)}** to ${f.latest}…`, "info");
         await api.installFirstParty(f.pkg, $settings.githubToken);
-        toast(`Updated **${f.pkg}** to ${f.latest}`, "success");
+        toast(`Updated **${displayName(f.pkg)}** to ${f.latest}`, "success");
       }
       if (ewe && ewe.updateAvailable && !ewe.packaged) {
         toast("Updating the ewe desktop…", "info");
@@ -321,7 +324,7 @@
           <div class="ewe-row__text">
             <div class="ewe-row__title">{r.name}</div>
             <div class="ewe-row__desc ver">
-              {#if r.update}{r.current}<span class="row-arrow">→</span>{r.latest}{:else}{r.current}{/if}{#if r.note}<span class="text-warning"> · {r.note}</span>{/if}
+              {#if renamed(r.id)}{`${r.id} · `}{/if}{#if r.update}{r.current}<span class="row-arrow">→</span>{r.latest}{:else}{r.current}{/if}{#if r.note}<span class="text-warning"> · {r.note}</span>{/if}
             </div>
           </div>
           <div class="ewe-row__trail">
@@ -420,8 +423,8 @@
       {#each systemPkgs as p (p.name)}
         <div class="ewe-row ewe-row--dense">
           <div class="ewe-row__text">
-            <div class="ewe-row__title">{p.name}</div>
-            <div class="ewe-row__desc ver">{p.current}<span class="row-arrow">→</span>{p.latest}</div>
+            <div class="ewe-row__title">{displayName(p.name)}</div>
+            <div class="ewe-row__desc ver">{#if renamed(p.name)}{`${p.name} · `}{/if}{p.current}<span class="row-arrow">→</span>{p.latest}</div>
           </div>
           <div class="ewe-row__trail">
             {#if $progress[p.name]}

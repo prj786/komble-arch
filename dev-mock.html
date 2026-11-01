@@ -15,8 +15,12 @@
        loading                          Discover still loading its catalog
        oldewe                           plugin_list without the From ewe catalog
                                         (an ewe before 0.25: the group hides)
-       options=<id>                     open that plugin's Options dialog
-                                        (e.g. acme.clock, ewe.dock, ewe.sysmon)
+       options=<id>                     open that plugin's sheet (click its row:
+                                        e.g. ewe.sysmon, acme.clock, ewe.dock)
+       sheet=add|new                    open the Add plugin / New plugin sheet
+       empty                            nothing installed (Installed's empty state)
+       noplugins                        no plugin from a git address or another
+                                        machine (Plugins' "Other plugins" empty state)
        still                            no transitions or animations (headless
                                         screenshots freeze them mid-way)
      The theme replies are real `ewe-theme show` output, generated into
@@ -27,6 +31,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Komble (mock)</title>
+    <!-- Geist outside the desktop: copy ewe/dotfiles/quickshell/fonts/geist/*.woff2
+         into .dev-mock/fonts/ (without them the fallback face stands) -->
+    <style>
+      @font-face { font-family: "Geist"; src: url("/.dev-mock/fonts/Geist-Variable.woff2") format("woff2"); font-weight: 100 900; font-display: block; }
+      @font-face { font-family: "Geist Mono"; src: url("/.dev-mock/fonts/GeistMono-Variable.woff2") format("woff2"); font-weight: 100 900; font-display: block; }
+    </style>
     <script>
       const q = new URLSearchParams(location.search);
       const scheme = q.get("scheme") || "ewe-dark";
@@ -50,15 +60,24 @@
       const upgradable = [
         { name: "linux", current: "7.2.5.arch1-1", latest: "7.2.6.arch1-1", source: "repo" },
         { name: "mesa", current: "1:26.1.2-1", latest: "1:26.1.3-1", source: "repo" },
-        { name: "paru-bin", current: "2.1.0-1", latest: "2.1.1-1", source: "aur" }
+        { name: "paru-bin", current: "2.1.0-1", latest: "2.1.1-1", source: "aur" },
+        // the [ewe] repo: the desktop's own packages ride the system upgrade
+        { name: "ewe", current: "0.38.0beta-1", latest: "0.39.0beta-1", source: "repo" },
+        { name: "komble-arch", current: "0.20.3beta-1", latest: "0.21.0beta-1", source: "repo" },
+        { name: "ewe-settings", current: "0.20.0beta-1", latest: "0.21.0beta-1", source: "repo" },
+        { name: "ewe-safe", current: "0.3.0beta-1", latest: "0.4.0beta-1", source: "repo" },
+        { name: "ewe-companion", current: "0.2.1beta-1", latest: "0.3.0beta-1", source: "repo" }
       ];
       const plugins = {
         safeMode: false, suspects: [],
         plugins: [
           { id: "ewe.clipboard", name: "Clipboard", version: "1.2.0", kinds: ["bar-widget", "service"], bundled: true, git: false, valid: true, enabled: true, installed: true, description: "Clipboard history in the bar", problems: [], bar: { shown: true, toggle: true }, settingsSchema: [{ key: "max", label: "Items to keep", type: "int", min: 10, max: 500 }, { key: "images", label: "Keep images", type: "bool" }], settings: { max: 100, images: true } },
           { id: "ewe.dock", name: "Dock", version: "1.1.0", icon: "icApps", kinds: ["panel"], bundled: true, git: false, valid: true, enabled: true, installed: true, description: "Pinned apps and running windows at the bottom of every screen", problems: [], bar: null, settingsSchema: [{ key: "autohide", label: "Intelligent auto-hide", description: "Slides away when a window needs the space; comes back when you point at the bottom edge.", type: "bool", default: false }, { key: "icon_size", label: "Icon size", description: "How big the dock buttons and workspace groups are: 40, 48 or 64 px.", type: "choice", choices: ["small", "normal", "large"], default: "normal" }], settings: { autohide: true, icon_size: "small" } },
-          { id: "ewe.sysmon", name: "System monitor", version: "1.1.0", icon: "icCpu", kinds: ["quick-tile", "bar-widget"], bundled: true, git: false, valid: true, enabled: true, installed: true, description: "CPU and memory meters in Quick settings, optionally in the bar", problems: [], bar: { shown: false, toggle: true }, settingsSchema: [], settings: {} },
-          { id: "acme.clock", name: "Big clock", version: "0.3.1", kinds: ["desktop-widget"], bundled: false, git: true, valid: true, enabled: true, installed: true, description: "A large clock on the desktop", problems: [], widget: { layer: "desktop", visible: true, x: 64, y: 96, output: "DP-1", pinned: false, pin_level: "top", locked: false }, settingsSchema: [{ key: "face", label: "Face", type: "choice", choices: ["digital", "analog"] }, { key: "tint", label: "Tint", type: "color" }, { key: "label", label: "Label", type: "string" }], settings: { face: "digital", tint: "#eeb407", label: "Tbilisi" } },
+          // System monitor 2.0.0 as the revamp mockup has it (its manifest is not on ewe main yet):
+          // a bar readout + a desktop widget, two choices of its own
+          { id: "ewe.sysmon", name: "System monitor", version: "2.0.0", icon: "icCpu", category: "System", kinds: ["bar-widget", "desktop-widget"], bundled: true, git: false, valid: true, enabled: true, installed: true, source: "bundled", homepage: "https://github.com/prj786/ewe-plugin-sysmon", description: "CPU, memory and internet speed in the bar and on the desktop", problems: [], requires: { packages: [], commands: ["sh"] }, bar: { shown: true, toggle: true }, widget: { layer: "desktop", visible: false, x: 48, y: 64, output: "", pinned: false, pin_level: "top", locked: false }, settingsSchema: [{ key: "bar_shows", label: "In the bar", type: "choice", choices: ["All three", "CPU + memory", "Speed"], default: "All three" }, { key: "speed_unit", label: "Speed in", description: "MB/s like downloads, or Mbit/s like speed tests", type: "choice", choices: ["MB/s", "Mbit/s"], default: "MB/s" }], settings: { bar_shows: "All three", speed_unit: "MB/s" } },
+          { id: "ewe.media", name: "Music", version: "1.0.0", icon: "icMusic", category: "Media", kinds: ["panel", "dock-item", "bar-widget"], bundled: true, git: false, valid: true, enabled: true, installed: true, source: "bundled", homepage: "https://github.com/prj786/ewe-plugin-media", description: "What is playing, with controls in the bar and the dock", problems: [], requires: { packages: ["playerctl"], commands: ["playerctl"] }, bar: { shown: true, toggle: false }, settingsSchema: [], settings: {} },
+          { id: "acme.clock", name: "Big clock", version: "0.3.1", kinds: ["desktop-widget"], bundled: false, git: true, source: "https://github.com/acme/ewe-big-clock.git", homepage: "https://github.com/acme/ewe-big-clock", valid: true, enabled: true, installed: true, description: "A large clock on the desktop", problems: [], widget: { layer: "desktop", visible: true, x: 64, y: 96, output: "DP-1", pinned: false, pin_level: "top", locked: false }, settingsSchema: [{ key: "face", label: "Face", type: "choice", choices: ["digital", "analog"] }, { key: "tint", label: "Tint", type: "color" }, { key: "label", label: "Label", type: "string" }], settings: { face: "digital", tint: "#eeb407", label: "Tbilisi" } },
           { id: "me.weather", name: "Weather", version: "", kinds: ["bar-widget"], bundled: false, git: false, valid: false, enabled: false, installed: true, description: "", problems: ["manifest.json: missing “entry”"], settingsSchema: [], settings: {} },
           { id: "ewe.passwords", name: "Passwords", version: "1.1.0", kinds: ["panel", "service"], bundled: true, git: false, valid: true, enabled: false, installed: true, description: "Fill a password from your manager with Super+P", problems: [], settingsSchema: [{ key: "provider", label: "Provider", type: "choice", choices: ["1password", "bitwarden", "pass"] }, { key: "enter", label: "Press Enter after filling", type: "bool" }], settings: { provider: "1password", enter: false } },
           { id: "acme.notes", installed: false, enabled: true, source: "https://github.com/acme/ewe-notes.git" }
@@ -67,18 +86,19 @@
         // the From ewe catalog (ewe 0.25+): every first-party plugin in the payload, installed or not;
         // `removed` are bundled ids the person took out (they stay installable)
         available: [
-          { id: "ewe.insomnia", name: "Insomnia", description: "Keep the screen awake for a while, from Quick settings", icon: "icEye", category: "Power", version: "1.0.0", kinds: ["service", "quick-tile", "bar-status"], installed: false, enabled: false, requires: { packages: [], commands: [] }, missing: { packages: [], commands: [] } },
-          { id: "ewe.sysmon", name: "System monitor", description: "CPU and memory meters in Quick settings, optionally in the bar", icon: "icCpu", category: "System", version: "1.1.0", kinds: ["quick-tile", "bar-widget"], installed: true, enabled: true, requires: { packages: [], commands: [] }, missing: { packages: [], commands: [] } },
+          { id: "ewe.insomnia", name: "Insomnia", description: "Keep the screen awake for a while", icon: "icEye", category: "System", version: "1.0.0", kinds: ["service", "quick-tile", "bar-status"], installed: false, enabled: false, requires: { packages: [], commands: [] }, missing: { packages: [], commands: [] } },
+          { id: "ewe.sysmon", name: "System monitor", description: "CPU, memory and internet speed in the bar and on the desktop", icon: "icCpu", category: "System", version: "2.0.0", kinds: ["bar-widget", "desktop-widget"], installed: true, enabled: true, requires: { packages: [], commands: ["sh"] }, missing: { packages: [], commands: [] } },
           { id: "ewe.ssh", name: "SSH", description: "Your SSH hosts and tunnels, one tap away", icon: "icSsh", category: "Network", version: "1.0.0", kinds: ["quick-tile", "quick-page", "bar-status"], installed: false, enabled: false, requires: { packages: ["openssh"], commands: ["ssh"] }, missing: { packages: [], commands: [] } },
           { id: "ewe.vpn", name: "VPN", description: "Connect and disconnect your VPNs from Quick settings", icon: "icVpn", category: "Network", version: "1.0.0", kinds: ["quick-tile", "quick-page", "bar-status"], installed: false, enabled: false, requires: { packages: ["networkmanager-l2tp", "strongswan"], commands: ["nmcli"] }, missing: { packages: ["networkmanager-l2tp"], commands: [] } },
-          { id: "ewe.media", name: "Music", description: "What is playing, with controls, in the bar and the dock", icon: "icMusic", category: "Media", version: "1.0.0", kinds: ["panel", "dock-item", "bar-widget"], installed: true, enabled: true, requires: { packages: ["playerctl"], commands: ["playerctl"] }, missing: { packages: [], commands: [] } },
+          { id: "ewe.media", name: "Music", description: "What is playing, with controls in the bar and the dock", icon: "icMusic", category: "Media", version: "1.0.0", kinds: ["panel", "dock-item", "bar-widget"], installed: true, enabled: true, requires: { packages: ["playerctl"], commands: ["playerctl"] }, missing: { packages: [], commands: [] } },
           { id: "ewe.places", name: "Places", description: "Your folders, drives and recent files in a panel", icon: "icFolder", category: "Files", version: "1.0.0", kinds: ["panel", "dock-item", "bar-widget"], installed: false, enabled: false, requires: { packages: [], commands: [] }, missing: { packages: [], commands: [] } },
-          { id: "ewe.phone", name: "Phone", description: "Your phone through KDE Connect: notifications, SMS, files", icon: "icPhone", category: "Devices", version: "1.0.0", kinds: ["service", "quick-page", "bar-status"], installed: false, enabled: false, requires: { packages: ["kdeconnect"], commands: ["kdeconnect-cli"] }, missing: { packages: ["kdeconnect"], commands: ["kdeconnect-cli"] } },
+          { id: "ewe.phone", name: "Phone", description: "Notifications, texts and files from your phone", icon: "icPhone", category: "Devices", version: "1.0.0", kinds: ["service", "quick-page", "bar-status"], installed: false, enabled: false, requires: { packages: ["kdeconnect"], commands: ["kdeconnect-cli"] }, missing: { packages: ["kdeconnect"], commands: ["kdeconnect-cli"] } },
           { id: "ewe.mail", name: "Mail", description: "Unread mail from Gmail and IMAP accounts in Quick settings", icon: "icMail", category: "Accounts", version: "1.0.0", kinds: ["service", "quick-page", "bar-status"], installed: false, enabled: false, requires: { packages: [], commands: [] }, missing: { packages: [], commands: [] } },
-          { id: "ewe.cast", name: "Cast to TV", description: "Send a window or the screen to a Chromecast or a Miracast TV", icon: "icCast", category: "Media", version: "1.0.0", kinds: ["service", "quick-tile", "quick-page", "bar-status"], installed: false, enabled: false, requires: { packages: ["ewe-cast"], commands: ["ewe-cast"] }, missing: { packages: [], commands: [] } },
+          { id: "ewe.cast", name: "Cast to TV", description: "Send a window or the screen to a Miracast or Chromecast TV", icon: "icCast", category: "Devices", version: "1.0.0", kinds: ["service", "quick-tile", "quick-page", "bar-status"], installed: false, enabled: false, requires: { packages: ["ewe-cast"], commands: ["ewe-cast"] }, missing: { packages: [], commands: [] } },
           { id: "ewe.dock", name: "Dock", description: "Pinned apps and running windows at the bottom of every screen", icon: "icApps", category: "Desktop", version: "1.1.0", kinds: ["panel"], installed: true, enabled: true, requires: { packages: [], commands: [] }, missing: { packages: [], commands: [] } },
           { id: "ewe.clipboard", name: "Clipboard", description: "Clipboard history in the bar", icon: "icClipboard", category: "Productivity", version: "1.2.0", kinds: ["bar-widget", "service"], installed: true, enabled: true, requires: { packages: ["cliphist", "wl-clipboard"], commands: ["cliphist", "wl-paste"] }, missing: { packages: [], commands: [] } },
           { id: "ewe.screenshot", name: "Screenshots", description: "Print to capture a region, a window or the screen, with a preview", icon: "icCamera", category: "Productivity", version: "1.1.0", kinds: ["bar-widget", "overlay"], installed: false, enabled: false, requires: { packages: ["grim", "slurp"], commands: ["grim", "slurp"] }, missing: { packages: [], commands: [] } },
+          { id: "ewe.companion", name: "Shaun", description: "A notch under the top bar with what your AI agents are doing", icon: "icMessage", category: "System", version: "0.5.0", kinds: ["service", "overlay", "bar-status"], installed: false, enabled: false, requires: { packages: ["ewe-companion"], commands: ["ewe-companion"] }, missing: { packages: ["ewe-companion"], commands: ["ewe-companion"] } },
           { id: "ewe.passwords", name: "Passwords", description: "Fill a password from your manager with Super+P", icon: "icKey", category: "Productivity", version: "1.1.0", kinds: ["panel", "service"], installed: true, enabled: false, requires: { packages: ["wtype"], commands: ["wtype"] }, missing: { packages: [], commands: [] } }
         ],
         removed: ["ewe.screenshot"]
@@ -91,7 +111,7 @@
         if (!a) return Promise.reject(`${id} is not a plugin this ewe ships`);
         a.installed = true; a.enabled = true; a.missing = { packages: [], commands: [] };
         plugins.removed = plugins.removed.filter((x) => x !== id);
-        if (!liveOf(id)) plugins.plugins.push({ id, name: a.name, version: a.version, kinds: a.kinds, bundled: true, git: false, valid: true, enabled: true, installed: true, description: a.description, problems: [], settingsSchema: [], settings: {} });
+        if (!liveOf(id)) plugins.plugins.push({ id, name: a.name, version: a.version, kinds: a.kinds, icon: a.icon, category: a.category, bundled: true, git: false, valid: true, enabled: true, installed: true, source: "bundled", description: a.description, requires: a.requires, problems: [], settingsSchema: [], settings: {} });
         return Promise.resolve({ ok: true, id, source: "bundled", enabled: true });
       };
       const pluginRemove = (id) => {
@@ -137,15 +157,17 @@
             case "fetch_catalog": return q.has("loading") ? waitForever() : Promise.resolve(catalog);
             case "theme_tokens": return mockTheme();
             case "de_prefs": return Promise.resolve({ accent: "", look: { scheme } });
-            case "plugin:app|version": return Promise.resolve("0.16.1-beta");
+            case "plugin:app|version": return Promise.resolve("0.21.0-beta");
             case "system_check":
               return Promise.resolve({ fuse2: true, pkexec: true, pacman: true, helperInstalled: false, gnome: false, appindicatorOk: true, checkupdates: true });
             case "list_appimages":
+              if (q.has("empty")) return Promise.resolve([]);
               return Promise.resolve([
                 { id: "obsidian", name: "Obsidian", version: "1.9.12", path: "~/.local/share/appimages/Obsidian.AppImage", installedAt: 1757900000, iconUrl: "" },
                 { id: "freetube", name: "FreeTube", version: "0.23.4", path: "~/.local/share/appimages/FreeTube.AppImage", installedAt: 1756900000, iconUrl: "" }
               ]);
             case "list_tracked_packages":
+              if (q.has("empty")) return Promise.resolve([]);
               return Promise.resolve([
                 { package: "gimp", version: "3.0.4-2", description: "GNU Image Manipulation Program", source: "repo", installedAt: 1757000000 },
                 { package: "zen-browser-bin", version: "1.15b-1", description: "Performance-oriented Firefox-based browser", source: "aur", installedAt: 1757500000 }
@@ -154,15 +176,32 @@
             case "check_appimage_updates":
               return Promise.resolve({ updates: [{ id: "obsidian", name: "Obsidian", current: "1.9.12", latest: "1.9.14" }], errors: [] });
             case "ewe_status":
-              return Promise.resolve({ installed: true, version: "0.21.2-beta", latest: "0.22.0-beta", updateAvailable: true, packaged: true, git: false });
+              return Promise.resolve({ installed: true, version: "0.38.0-beta", latest: "0.39.0-beta", updateAvailable: true, packaged: true, git: false });
             case "first_party_status":
               return Promise.resolve([
-                { pkg: "komble-arch", installed: "0.16.1-beta", latest: "0.16.1-beta", updateAvailable: false, managed: "repo" },
-                { pkg: "ewe-settings", installed: "0.15.2-beta", latest: "0.16.0-beta", updateAvailable: true, managed: "repo" }
+                { pkg: "komble-arch", installed: "0.20.3-beta", latest: "0.21.0-beta", updateAvailable: true, managed: "repo" },
+                { pkg: "ewe-settings", installed: "0.20.0-beta", latest: "0.21.0-beta", updateAvailable: true, managed: "repo" },
+                { pkg: "ewe-sync", installed: "0.15.1-beta", latest: "0.15.1-beta", updateAvailable: false, managed: "repo" },
+                { pkg: "ewe-cast", installed: "0.12.3-beta", latest: "0.12.3-beta", updateAvailable: false, managed: "repo" },
+                { pkg: "ewe-browser", installed: "0.7.0-beta", latest: "0.7.0-beta", updateAvailable: false, managed: "repo" }
+              ]);
+            case "first_party_installed":
+              if (q.has("empty")) return Promise.resolve([]);
+              return Promise.resolve([
+                { pkg: "komble-arch", summary: "The ewe desktop's software manager (this app)", version: "0.20.3-beta" },
+                { pkg: "ewe-settings", summary: "Settings for the ewe desktop — displays, input, theme, animations", version: "0.20.0-beta" },
+                { pkg: "ewe-sync", summary: "Your ewe account — the one file, your machines, your folders", version: "0.15.1-beta" },
+                { pkg: "ewe-browser", summary: "The web, your files and your music in one window", version: "0.7.0-beta" }
               ]);
             case "restart_state": return Promise.resolve(q.get("dialog") === "restart" ? { level: "reboot", reasons: ["linux 7.2.6 is installed; 7.2.5 is running", "nvidia-open was rebuilt for it"], packages: ["linux"] } : { level: "none" });
             case "package_repos": return Promise.resolve([["core", 270], ["extra", 14602], ["multilib", 290], ["ewe", 9]]);
             case "browse_packages":
+              // the desktop's own apps, the way browse_packages injects them (section "ewe")
+              if (/ewe|settings|sync|browser|cast|komble/.test(args.query || "")) return Promise.resolve({ total: 3, items: [
+                { name: "ewe-settings", summary: "Settings for the ewe desktop — displays, input, theme, animations", section: "ewe", version: "0.20.0-beta", installed: true },
+                { name: "ewe-sync", summary: "Your ewe account — the one file, your machines, your folders", section: "ewe", version: "0.15.1-beta", installed: true },
+                { name: "ewe-browser", summary: "The web, your files and your music in one window", section: "ewe", version: "", installed: false }
+              ] });
               return Promise.resolve({ total: 3, items: [
                 { name: "gimp", summary: "GNU Image Manipulation Program", section: "extra", version: "3.0.4-2", installed: true },
                 { name: "gimp-help-en", summary: "GIMP help files in English", section: "extra", version: "2.10.34-1", installed: false },
@@ -190,7 +229,10 @@
             // ?oldewe: an ewe before 0.25 — no catalog keys, the From ewe group stays hidden
             case "plugin_list": {
               const { available, removed, ...old } = plugins;
-              return Promise.resolve(q.has("oldewe") ? old : JSON.parse(JSON.stringify(plugins)));
+              const all = JSON.parse(JSON.stringify(plugins));
+              // ?noplugins: only what ewe ships — nothing from a git address or another machine
+              if (q.has("noplugins")) { all.plugins = all.plugins.filter((p) => p.bundled); all.missing = []; }
+              return Promise.resolve(q.has("oldewe") ? old : all);
             }
             case "plugin_install": return pluginInstall(args.id);
             case "plugin_remove": return pluginRemove(args.id);
@@ -233,14 +275,16 @@
             if (dialog === "conflict") [...document.querySelectorAll("button")].find((b) => /Update system/.test(b.textContent))?.click();
             setTimeout(() => {
               if (q.get("click")) document.querySelector(q.get("click"))?.click();
-              // ?options=<id>: the Options… button of that plugin's card or row
+              // ?options=<id>: that plugin's row opens its sheet
               const opt = q.get("options");
               if (opt) {
-                const name = liveOf(opt)?.name || opt;
-                const host = document.querySelector(`[role="listitem"][aria-label="${CSS.escape(name)}"]`)
-                  || [...document.querySelectorAll(".ewe-row")].find((r) => r.textContent.includes(name));
-                [...(host || document).querySelectorAll("button")].find((b) => /Options/.test(b.textContent))?.click();
+                const name = liveOf(opt)?.name || addon(opt)?.name || opt;
+                [...document.querySelectorAll(".plugin-row__open")].find((b) => b.querySelector(".ewe-row__title")?.textContent === name)?.click();
               }
+              // ?sheet=add|new: the header's Add plugin… / ⋯ → New plugin…
+              const sheet = q.get("sheet");
+              if (sheet === "add") [...document.querySelectorAll(".ewe-headerbar__actions button")].find((b) => /Add plugin/.test(b.textContent))?.click();
+              if (sheet === "new") [...document.querySelectorAll(".ewe-empty__actions button")].find((b) => /New plugin/.test(b.textContent))?.click();
             }, typed ? 700 : 0);
             setTimeout(() => {
               const focus = q.get("focus");

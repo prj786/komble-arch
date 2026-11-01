@@ -177,7 +177,7 @@
   $: missingRepo = missing.filter((a) => !a.aur && !a.appimage);
 </script>
 
-<Page title="For you" desc="Apps your ewe.conf recorded on your other machines">
+<Page title="For you" desc="Apps from your other computers, ready to install here">
   <svelte:fragment slot="actions">
     <button class="ewe-btn ewe-btn--ghost" disabled={busyPkg !== ""} on:click={readManifest} title="Read [apps.installed] from ewe.conf again">
       <Icon name="refresh" />Read again
@@ -270,7 +270,7 @@
           <span class="ewe-badge"><span class="ewe-badge__label">{a.name}</span></span>
         {/each}
         {#if skipped}
-          <span class="ewe-badge ewe-badge--accent" title="Komble, ewe-settings and ewe-sync come with the desktop">
+          <span class="ewe-badge ewe-badge--accent" title="Komble, ewe Settings and ewe Sync come with the desktop">
             <span class="ewe-badge__label">+{skipped} part of ewe</span>
           </span>
         {/if}
@@ -286,12 +286,18 @@
       <span class="ewe-empty__icon"><Icon name="alert" /></span>
       <div class="ewe-empty__title">No app list to read</div>
       <div class="ewe-empty__desc">ewe-conf isn’t installed here. For you needs the ewe desktop, 0.9 or newer.</div>
+      <div class="ewe-empty__actions">
+        <button class="ewe-btn ewe-btn--secondary" on:click={() => route.set("updates")}>Check for updates</button>
+      </div>
     </div>
   {:else if manifest && manifest.apps.length === 0}
     <div class="ewe-empty">
       <span class="ewe-empty__icon"><Icon name="package" /></span>
       <div class="ewe-empty__title">No apps recorded yet</div>
       <div class="ewe-empty__desc">Every app you install with Komble from now on is recorded in your ewe.conf.</div>
+      <div class="ewe-empty__actions">
+        <button class="ewe-btn ewe-btn--primary" on:click={() => route.set("discover")}><Icon name="compass" />Discover apps</button>
+      </div>
     </div>
   {:else}
     <!-- no [apps.installed] at all: a fresh file, or an old backup that never
@@ -300,7 +306,10 @@
       <span class="ewe-empty__icon"><Icon name="history" /></span>
       <div class="ewe-empty__title">Your ewe.conf has no app list yet</div>
       <div class="ewe-empty__desc">
-        Every app you install here is recorded from now on. To bring the apps from another ewe machine, restore its file in Settings › Account. The list then appears here by itself.
+        Every app you install here is recorded from now on. To bring the apps from another ewe machine, use Bring everything back in ewe Sync. The list then appears here by itself.
+      </div>
+      <div class="ewe-empty__actions">
+        <button class="ewe-btn ewe-btn--secondary" on:click={() => route.set("discover")}><Icon name="compass" />Discover apps</button>
       </div>
     </div>
   {/if}
