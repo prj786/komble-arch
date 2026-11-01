@@ -211,8 +211,10 @@ code {
     height: 100%;
     fill: currentColor;
   }
-  .ewe-sidenav__group {
-    flex: 1 1 auto;
+  /* the groups' headings read as words (sentence case, no tracking); the
+     foot's margin-top: auto keeps Settings at the bottom */
+  .ewe-sidenav__heading {
+    letter-spacing: var(--tracking-normal);
   }
   .ewe-navitem {
     position: relative;
@@ -239,6 +241,7 @@ code {
       padding-inline: var(--space-xs);
     }
     .ewe-sidenav__name,
+    .ewe-sidenav__heading,
     .ewe-navitem__label,
     .ewe-navitem > .ewe-badge:not(.ewe-navitem__dot),
     .ewe-sidenav__version {
@@ -1026,21 +1029,6 @@ code {
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
-  }
-}
-
-@layer components {
-  .ewe-sidenav__tagline {
-    margin: 0;
-    padding: 0 var(--space-s);
-    font-size: var(--font-size-xs);
-    line-height: var(--line-height-xs);
-    color: var(--text-muted);
-  }
-  @media (max-width: 720px) {
-    .ewe-sidenav__tagline {
-      display: none;
-    }
   }
 }
 
