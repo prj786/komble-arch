@@ -24,6 +24,12 @@ been run against a live pacman. Treat it as a working skeleton.
   only the final `pacman -U` is privileged.
 - **AppImages** — the AppImageHub catalog (~1600 apps), per-user installs into
   `~/.local/share/appimages` with menu integration, no root at any point.
+  Since 0.22 each one is also unpacked once into `.komble-run/<id>/` beside
+  it and the menu entry starts that copy: no FUSE mount and no decompression
+  on every launch (Google Chrome's first window: 1.2 s → 0.5 s). It costs
+  about twice the AppImage's size on disk; an AppImage that refuses to
+  unpack keeps running from its file. Older installs are unpacked in the
+  background the first time Komble starts.
 - **Updates** — repo, AUR and AppImage updates in one view, plus a tray
   indicator and a background check.
 - **The one file** — every install and removal is recorded in
@@ -114,7 +120,7 @@ Runtime optional dependencies, all degraded gracefully:
 | `pacman-contrib` | no update checking (`checkupdates` is the only safe way to ask) |
 | `expac` | package list still works, but with no descriptions |
 | `base-devel`, `git` | AUR builds unavailable |
-| `fuse2` | AppImages integrate but will not launch |
+| `fuse2` | only AppImages that refuse to unpack fail to launch (the rest run from their unpacked copy) |
 
 ## Layout
 
