@@ -174,6 +174,9 @@ async fn background_update_loop(app: AppHandle) {
     // RFC-002: publish the installed-apps manifest into ewe.conf at startup
     // too — a machine that never installs anything still describes itself.
     registry::mirror_manifest(&app);
+    // Installs from before extracted run dirs existed get one now, in the
+    // background; a no-op once every entry is up to date.
+    appimage::ensure_run_dirs(app.clone());
     // First check a few minutes after launch, then every 6 hours.
     tokio::time::sleep(std::time::Duration::from_secs(300)).await;
     let mut last: i64 = -1;
