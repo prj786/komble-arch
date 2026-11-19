@@ -8,18 +8,28 @@ mod registry;
 mod system;
 mod util;
 
-use tauri::{AppHandle, Emitter, Manager, WindowEvent};
+use tauri::{
+    AppHandle, Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, Window, WindowEvent,
+};
 use tauri_plugin_store::StoreExt;
 
 /// A file the user opened Komble WITH (double-click / "Open with" — the .desktop
-/// entry passes it as an argv). Stashed at startup because the webview isn't
-/// listening yet; the frontend collects it via `take_pending_open` once mounted.
+/// entry passes it as an argv). Stashed because the page may not be listening
+/// yet — at process start, and again whenever the window is built on demand
+/// (a second launch while a transaction keeps a windowless Komble alive); the
+/// frontend collects it via `take_pending_open` once mounted, and an open page
+/// is told to come and get it (the `open-file` event carries no payload).
 static PENDING_OPEN: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
 
 /// A route the app was launched INTO (`komble --updates`, used by the DE bar's
-/// update indicator). Same stash-then-collect pattern as PENDING_OPEN: the
-/// webview isn't listening for events yet at process start.
+/// update indicator). Same stash-then-collect pattern as PENDING_OPEN.
 static PENDING_ROUTE: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+fn stash(slot: &std::sync::Mutex<Option<String>>, v: String) {
+    if let Ok(mut g) = slot.lock() {
+        *g = Some(v);
+    }
+}
 
 fn route_arg(arg: &str) -> Option<String> {
     match arg {
@@ -125,11 +135,63 @@ fn take_pending_open() -> Option<String> {
     PENDING_OPEN.lock().ok().and_then(|mut g| g.take())
 }
 
+const MAIN: &str = "main";
+
+/// Show the window, building it when there is none. It is not declared in
+/// tauri.conf.json any more: a window that exists only while it is on screen
+/// means a WebKit page (and its ~130 MB of WebKitWebProcess) exists only
+/// then. Closing it destroys it; lib.rs decides whether the process stays.
 fn show_main(app: &AppHandle) {
-    if let Some(w) = app.get_webview_window("main") {
+    if let Some(w) = app.get_webview_window(MAIN) {
         let _ = w.show();
         let _ = w.unminimize();
         let _ = w.set_focus();
+        return;
+    }
+    // the same window tauri.conf.json declared until 0.22.1
+    let built = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::default())
+        .title("Komble")
+        .inner_size(1180.0, 760.0)
+        .min_inner_size(420.0, 480.0)
+        .center()
+        .decorations(false)
+        .build();
+    if let Err(e) = built {
+        eprintln!("komble: could not open the window: {e}");
+    }
+}
+
+/// Close = destroy, and the WebKit web process with it. WebKit keeps a
+/// page-less web process in its process cache for up to 30 minutes (~90 MB),
+/// and a reopened window gets a fresh one anyway — so while a transaction
+/// keeps a windowless Komble alive, the process it holds is the Rust side
+/// alone. `terminate_web_process` runs synchronously on the main thread from
+/// inside the close request, before the window is torn down; afterwards the
+/// heap glibc kept from the page's lifetime is handed back to the kernel.
+fn on_window_event(window: &Window, event: &WindowEvent) {
+    if window.label() != MAIN {
+        return;
+    }
+    match event {
+        WindowEvent::CloseRequested { .. } => {
+            if let Some(wv) = window.webviews().into_iter().next() {
+                let _ = wv.with_webview(|pw| {
+                    use webkit2gtk::WebViewExt;
+                    pw.inner().terminate_web_process();
+                });
+            }
+        }
+        WindowEvent::Destroyed => {
+            std::thread::spawn(|| {
+                std::thread::sleep(std::time::Duration::from_secs(3));
+                extern "C" {
+                    fn malloc_trim(pad: usize) -> i32;
+                }
+                // glibc: give freed arenas back; Arch only, so glibc always
+                unsafe { malloc_trim(0) };
+            });
+        }
+        _ => {}
     }
 }
 
@@ -208,30 +270,31 @@ async fn background_update_loop(app: AppHandle) {
 
 pub fn run() {
     if let Some(p) = std::env::args().skip(1).find_map(|a| openable_path(&a)) {
-        if let Ok(mut g) = PENDING_OPEN.lock() {
-            *g = Some(p);
-        }
+        stash(&PENDING_OPEN, p);
     }
     if let Some(r) = route_from_args(std::env::args().skip(1)) {
-        if let Ok(mut g) = PENDING_ROUTE.lock() {
-            *g = Some(r);
-        }
+        stash(&PENDING_ROUTE, r);
     }
 
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
-            // Second launch with a file (double-click while Komble runs in the
-            // tray): forward it to the live instance.
-            show_main(app);
+            // A second launch while Komble is alive (a transaction in flight,
+            // or its window simply open): a file to open, a route to go to.
+            // Stashed first, then the page is told — it may not exist yet
+            // (show_main builds it and it mounts a moment later), in which
+            // case it collects the stash on mount instead.
             if let Some(p) = args.iter().skip(1).find_map(|a| openable_path(a)) {
-                let _ = app.emit("open-file", p);
+                stash(&PENDING_OPEN, p);
+                let _ = app.emit("open-file", ());
             }
             // `komble --updates` from the bar indicator, or `--search=…` from
             // the desktop's store stand-in, while already running
             if let Some(r) = route_from_args(args.iter().skip(1).cloned()) {
-                let _ = app.emit("navigate", r);
+                stash(&PENDING_ROUTE, r);
+                let _ = app.emit("navigate", ());
             }
+            show_main(app);
         }))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -251,27 +314,16 @@ pub fn run() {
         builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     }
 
-    builder
+    let app = builder
         .setup(|app| {
             // No tray icon — the DE bar's always-on indicator IS the tray
             // (font-icon states + update count, live even before first launch).
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(background_update_loop(handle));
+            show_main(app.handle());
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                // hide, don't quit: a running upgrade must survive the window
-                // closing, and the bar indicator / single-instance relaunch
-                // brings the window back
-                if window.label() == "main"
-                    && setting_bool(window.app_handle(), "minimizeToTray", true)
-                {
-                    let _ = window.hide();
-                    api.prevent_close();
-                }
-            }
-        })
+        .on_window_event(on_window_event)
         .invoke_handler(tauri::generate_handler![
             catalog::fetch_catalog,
             catalog::resolve_release,
@@ -341,8 +393,33 @@ pub fn run() {
             take_pending_route,
             check_self_update
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Komble");
+        .build(tauri::generate_context!())
+        .expect("error while building Komble");
+
+    app.run(|app, event| {
+        // Closing the window ends Komble: nothing of it needs to stay
+        // resident (the bar's update indicator is the shell's own, fed by
+        // updates-check.sh), and until 0.22.1 "minimize to tray" kept a
+        // windowless process with a live WebKit page — ~250 MB — around
+        // after `komble --updates`. The one exception is a transaction in
+        // flight (util::Working — a pacman run under pkexec, a makepkg
+        // build, an AppImage download): the window goes, the process stays
+        // until the work is done, then leaves unless a window came back.
+        if let RunEvent::ExitRequested { api, code: None, .. } = &event {
+            if util::working() {
+                api.prevent_exit();
+                let app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    while util::working() {
+                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    }
+                    if app.get_webview_window(MAIN).is_none() {
+                        app.exit(0);
+                    }
+                });
+            }
+        }
+    });
 }
 
 #[cfg(test)]

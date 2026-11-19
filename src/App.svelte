@@ -117,7 +117,6 @@
           route.set(r);
         }
       };
-      unlisteners.push(await listen("navigate", (e) => goRoute(e.payload)));
 
       // Files opened WITH Komble (double-click / "Open with" in the file
       // manager) — same destinations as drag & drop.
@@ -129,12 +128,17 @@
           route.set("aur");
         }
       };
-      // already running: the second instance forwards its argv as an event
-      unlisteners.push(await listen("open-file", (e) => openPath(e.payload)));
-      // cold start: the path was stashed before the webview existed
-      api.takePendingOpen().then((p) => p && openPath(p)).catch(() => {});
-      // `komble --updates` from the DE bar's indicator (cold start)
-      api.takePendingRoute().then((r) => r && goRoute(r)).catch(() => {});
+      // Rust stashes the path / the route and says so; the page takes it —
+      // on mount (the window was just built for it: a cold start, or a
+      // second launch while a transaction kept a windowless Komble alive)
+      // or on the event (it was already open), never both.
+      const takeOpen = () => api.takePendingOpen().then((p) => p && openPath(p)).catch(() => {});
+      const takeRoute = () => api.takePendingRoute().then((r) => r && goRoute(r)).catch(() => {});
+      unlisteners.push(await listen("open-file", takeOpen));
+      unlisteners.push(await listen("navigate", takeRoute));
+      takeOpen();
+      // `komble --updates` from the DE bar's indicator
+      takeRoute();
 
       // Global drag & drop: .AppImage opens the install wizard,
       // a built/downloaded package file jumps to the install view.

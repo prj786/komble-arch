@@ -308,7 +308,9 @@ pub async fn install_first_party(
     pkg: String,
     token: Option<String>,
 ) -> Result<String, String> {
+    let working = crate::util::Working::begin();
     let r = install_first_party_inner(app.clone(), pkg.clone(), token).await;
+    drop(working);
     // always clear the progress entry (stage events have no terminal marker)
     let _ = app.emit("install-progress", json!({ "id": pkg, "phase": "done" }));
     r
@@ -475,6 +477,7 @@ pub async fn ewe_status(
 /// the "needs-terminal" error the frontend falls back on.
 #[tauri::command]
 pub async fn ewe_update(app: AppHandle) -> Result<String, String> {
+    let _working = crate::util::Working::begin();
     let dir = ewe_dir();
     if !dir.join(".git").is_dir() && crate::pacman::installed_version("ewe").await.is_some() {
         return Err(

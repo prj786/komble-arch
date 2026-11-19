@@ -643,6 +643,7 @@ fn id_of(entry: &Value) -> &str {
 // ---------- install / remove / list ----------
 
 pub async fn install_inner(app: &AppHandle, req: InstallRequest) -> Result<Value, String> {
+    let _working = crate::util::Working::begin();
     let id = slug(&req.id);
     let version = req.version.clone().unwrap_or_else(|| "latest".into());
     let dir = install_dir(app, req.dir.clone())?;
@@ -781,6 +782,7 @@ async fn ensure_run_dirs_inner(app: &AppHandle) {
     let Ok(entries) = registry::appimages(app) else {
         return;
     };
+    let _working = crate::util::Working::begin();
     for entry in entries {
         let id = id_of(&entry).to_string();
         let Some(path) = entry.get("path").and_then(|v| v.as_str()) else {
@@ -929,6 +931,7 @@ pub async fn install_local_appimage(
     if name.is_empty() {
         return Err("A name is required.".into());
     }
+    let _working = crate::util::Working::begin();
     let id = slug(&name);
     let version = version
         .filter(|v| !v.trim().is_empty())
@@ -1028,6 +1031,7 @@ pub async fn update_appimage(
 ) -> Result<Value, String> {
     let entry = registry::get_appimage(&app, &id)?
         .ok_or_else(|| "Not found in the Komble registry.".to_string())?;
+    let _working = crate::util::Working::begin();
     let repo = entry
         .get("repo")
         .and_then(|v| v.as_str())
