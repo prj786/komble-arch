@@ -405,7 +405,10 @@ pub fn run() {
         // flight (util::Working — a pacman run under pkexec, a makepkg
         // build, an AppImage download): the window goes, the process stays
         // until the work is done, then leaves unless a window came back.
-        if let RunEvent::ExitRequested { api, code: None, .. } = &event {
+        if let RunEvent::ExitRequested {
+            api, code: None, ..
+        } = &event
+        {
             if util::working() {
                 api.prevent_exit();
                 let app = app.clone();
