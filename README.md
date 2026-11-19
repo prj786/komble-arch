@@ -29,7 +29,10 @@ been run against a live pacman. Treat it as a working skeleton.
   on every launch (Google Chrome's first window: 1.2 s → 0.5 s). It costs
   about twice the AppImage's size on disk; an AppImage that refuses to
   unpack keeps running from its file. Older installs are unpacked in the
-  background the first time Komble starts.
+  background the first time Komble starts. Since 0.22.1 the menu entry
+  keeps the AppImage's own `StartupWMClass`, so the desktop matches its
+  window to the app (the right icon, and a click focuses it instead of
+  starting a second copy).
 - **Updates** — repo, AUR and AppImage updates in one view, plus a tray
   indicator and a background check.
 - **The one file** — every install and removal is recorded in

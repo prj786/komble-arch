@@ -303,8 +303,16 @@ pub(crate) fn build_desktop_entry(spec: &DesktopSpec) -> String {
         .try_exec()
         .map(|t| format!("TryExec={t}\n"))
         .unwrap_or_default();
+    // StartupWMClass is how a desktop matches a window to its entry (the
+    // window's class is "google-chrome", the entry is komble-google-chrome):
+    // without it the dock, Overview and switcher show a generic icon and a
+    // click in the launcher starts a second copy. Copied verbatim when the
+    // AppImage's own .desktop declares one.
+    let wm_class = extract_field(orig, "StartupWMClass")
+        .map(|c| format!("StartupWMClass={c}\n"))
+        .unwrap_or_default();
     format!(
-        "[Desktop Entry]\nType=Application\nName={display_name}\nComment={comment}\n{try_exec}Exec={exec}\nIcon={icon_value}\nTerminal=false\nCategories={categories}\n{mime}X-Komble-Id={id}\nX-AppImage-Version={version}\n",
+        "[Desktop Entry]\nType=Application\nName={display_name}\nComment={comment}\n{try_exec}Exec={exec}\nIcon={icon_value}\n{wm_class}Terminal=false\nCategories={categories}\n{mime}X-Komble-Id={id}\nX-AppImage-Version={version}\n",
         exec = spec.target.exec_line(),
         version = spec.version,
     )
@@ -1162,6 +1170,30 @@ ln -s fake.png squashfs-root/.DirIcon
         assert!(d2.contains("Name=Fallback\n"));
         assert!(d2.contains("Icon=komble-a\n"));
         assert!(d2.contains("Categories=Utility;\n"));
+    }
+
+    #[test]
+    fn desktop_entry_keeps_the_startup_wm_class() {
+        let t = ExecTarget::AppImage(PathBuf::from("/x/a.AppImage"));
+        let with = build_desktop_entry(&DesktopSpec {
+            id: "google-chrome",
+            version: "1.0",
+            original: "[Desktop Entry]\nName=Google Chrome\nStartupWMClass=google-chrome\n[Other]\nStartupWMClass=Nope\n",
+            fallback_name: "Fallback",
+            has_icon_file: true,
+            target: &t,
+        });
+        assert!(with
+            .contains("Icon=komble-google-chrome\nStartupWMClass=google-chrome\nTerminal=false\n"));
+        let without = build_desktop_entry(&DesktopSpec {
+            id: "a",
+            version: "1.0",
+            original: "[Desktop Entry]\nName=A\n",
+            fallback_name: "Fallback",
+            has_icon_file: false,
+            target: &t,
+        });
+        assert!(!without.contains("StartupWMClass"));
     }
 
     #[test]
