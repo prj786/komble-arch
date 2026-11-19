@@ -18,7 +18,9 @@ export const installedPkgNames = writable(new Set());
 
 export const DEFAULT_SETTINGS = {
   theme: "system",
-  minimizeToTray: true,
+  // minimizeToTray: removed with the "Minimize to tray on close" toggle —
+  // Komble quits when its window closes (src-tauri/src/lib.rs). Kept out of
+  // the defaults so it stops being written back.
   // autostart: removed with the "Start at login" toggle. Kept out of the
   // defaults so it stops being written back; App.svelte clears any entry a
   // previous version created.

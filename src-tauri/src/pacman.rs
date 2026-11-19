@@ -161,6 +161,7 @@ fn validate_pkg_file(path: &str) -> Result<PathBuf, String> {
 
 // ── privileged execution ────────────────────────────────────────────────────
 async fn run_privileged(direct: Vec<&str>, helper: Vec<&str>) -> Result<String, String> {
+    let _working = crate::util::Working::begin();
     let mut cmd = Command::new("pkexec");
     if helper_available() {
         cmd.arg(HELPER).args(&helper);
@@ -855,6 +856,7 @@ pub async fn system_upgrade_accept_removals() -> Result<UpgradeOutcome, String> 
 
 async fn run_system_upgrade(accept_removals: bool) -> Result<UpgradeOutcome, String> {
     let _guard = UpgradeGuard::acquire()?;
+    let _working = crate::util::Working::begin();
     crate::de::poke_working_now(true).await;
     let r = if accept_removals {
         run_privileged(
@@ -1193,6 +1195,14 @@ mod restart_tests {
     use super::*;
 
     #[test]
+    fn build_tools_are_installed_only_when_missing() {
+        assert!(missing_build_tools(true, true).is_empty());
+        assert_eq!(missing_build_tools(false, true), vec!["base-devel"]);
+        assert_eq!(missing_build_tools(false, false), vec!["base-devel", "git"]);
+        assert_eq!(missing_build_tools(true, false), vec!["git"]);
+    }
+
+    #[test]
     fn conflicts_from_pacman_error_listing() {
         let log = "resolving dependencies...\nlooking for conflicting packages...\n:: jack2-1.9.22-1 and pipewire-jack-1:1.4.7-1 are in conflict (jack). Remove pipewire-jack? [y/N] \nerror: unresolvable package conflicts detected\nerror: failed to prepare transaction (conflicting dependencies)\n:: jack2-1.9.22-1 and pipewire-jack-1:1.4.7-1 are in conflict (jack)\n";
         let c = parse_conflicts(log);
@@ -1254,6 +1264,7 @@ mod restart_tests {
 #[tauri::command]
 pub async fn aur_upgrade(app: AppHandle) -> Result<String, String> {
     let _guard = UpgradeGuard::acquire()?;
+    let _working = crate::util::Working::begin();
     let pending = aur_updates().await.unwrap_or_default();
     if pending.is_empty() {
         return Ok(String::new());
@@ -1549,12 +1560,14 @@ pub async fn aur_install(
     package: String,
     skip_pgp_check: Option<bool>,
 ) -> Result<String, String> {
+    let working = crate::util::Working::begin();
     let r = aur_install_inner(
         app.clone(),
         package.clone(),
         skip_pgp_check.unwrap_or(false),
     )
     .await;
+    drop(working);
     // ALWAYS clear the progress entry — stage events ("clone"/"build") have no
     // terminal marker of their own, and a lingering entry pins "…" on cards
     let _ = app.emit(
@@ -1575,6 +1588,40 @@ fn tail(s: &str) -> String {
         .collect()
 }
 
+/// What an AUR build needs that a plain ewe install no longer carries. Since
+/// ewe 0.44 `base-devel` (gcc, make, fakeroot… ~410 MB) is not a dependency of
+/// the desktop: everything ewe ships from the AUR is served prebuilt from the
+/// [ewe] repo, so only someone building their own AUR package needs it — and
+/// gets it here, in one prompt, right before the first build. `makepkg` itself
+/// ships in `pacman`, so it is the PACKAGE that has to be checked, not the
+/// command (the old "makepkg not found" test could never fire).
+pub(crate) fn missing_build_tools(base_devel: bool, git: bool) -> Vec<String> {
+    let mut missing = Vec::new();
+    if !base_devel {
+        missing.push("base-devel".to_string());
+    }
+    if !git {
+        missing.push("git".to_string());
+    }
+    missing
+}
+
+async fn ensure_build_tools() -> Result<(), String> {
+    let missing = missing_build_tools(
+        installed_version("base-devel").await.is_some(),
+        which("git"),
+    );
+    if missing.is_empty() {
+        return Ok(());
+    }
+    install_packages_named(&missing).await.map(|_| ()).map_err(|e| {
+        format!(
+            "AUR packages are built on this computer, and the build tools ({}) couldn't be installed: {e}",
+            missing.join(", ")
+        )
+    })
+}
+
 async fn aur_install_inner(
     app: AppHandle,
     package: String,
@@ -1583,12 +1630,7 @@ async fn aur_install_inner(
     if !valid_pkg_name(&package) {
         return Err("invalid package name".into());
     }
-    if !which("makepkg") {
-        return Err("makepkg not found — install base-devel".into());
-    }
-    if !which("git") {
-        return Err("git not found — install git".into());
-    }
+    ensure_build_tools().await?;
 
     let base = app
         .path()

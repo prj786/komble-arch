@@ -64,16 +64,13 @@
 <Page title="Settings" desc="How Komble behaves, where it gets apps from, and what it needs from the system">
   <!-- No Appearance group: Komble wears the desktop's scheme, accent, look
        presets and accessibility modes (lib/theme.js), set in ewe's Settings. -->
+  <!-- No "Minimize to tray on close": Komble has no tray and quits when its
+       window closes (a transaction in flight finishes first). The bar's
+       update indicator is the desktop's own and needs no Komble running. -->
   <Group title="Behavior">
     <ToggleRow
-      title="Minimize to tray on close"
-      sub="Closing the window keeps Komble running in the tray"
-      on={!!s.minimizeToTray}
-      toggled={() => (s.minimizeToTray = !s.minimizeToTray)}
-    />
-    <ToggleRow
       title="Notify about updates"
-      sub="Checks in the background every 6 hours"
+      sub="Checks every 6 hours while Komble is open"
       on={!!s.notifyUpdates}
       toggled={() => (s.notifyUpdates = !s.notifyUpdates)}
     />

@@ -33,8 +33,12 @@ been run against a live pacman. Treat it as a working skeleton.
   keeps the AppImage's own `StartupWMClass`, so the desktop matches its
   window to the app (the right icon, and a click focuses it instead of
   starting a second copy).
-- **Updates** — repo, AUR and AppImage updates in one view, plus a tray
-  indicator and a background check.
+- **Updates** — repo, AUR and AppImage updates in one view. The bar's
+  update indicator is the desktop's own (it counts with `checkupdates`
+  whether or not Komble runs); Komble pokes it after every transaction.
+  Komble quits when its window closes — a transaction in flight (a pacman
+  run, a makepkg build, an AppImage download) finishes first, windowless,
+  and a second launch meanwhile brings the window back.
 - **The one file** — every install and removal is recorded in
   `~/.config/ewe/ewe.conf` under `[apps.installed]` (through `ewe-conf`, as
   you, no root), with its source: `repo`, `aur` or `first-party`. **For you**
@@ -129,7 +133,7 @@ Runtime optional dependencies, all degraded gracefully:
 
 ```
 src/                  Svelte frontend (views in src/lib/components)
-src-tauri/src/        lib.rs (tray, setup), pacman.rs (repos + AUR),
+src-tauri/src/        lib.rs (the window, routes, setup), pacman.rs (repos + AUR),
                       catalog.rs + appimage.rs (shared with the Debian build),
                       system.rs, registry.rs, util.rs
 packaging/            komble-helper, polkit policy, .desktop

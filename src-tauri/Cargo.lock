@@ -2091,7 +2091,7 @@ dependencies = [
 
 [[package]]
 name = "komble-arch"
-version = "0.22.1-beta"
+version = "0.23.0-beta"
 dependencies = [
  "anyhow",
  "reqwest 0.12.28",
@@ -2112,6 +2112,7 @@ dependencies = [
  "tauri-plugin-updater",
  "thiserror 2.0.19",
  "tokio",
+ "webkit2gtk",
 ]
 
 [[package]]
