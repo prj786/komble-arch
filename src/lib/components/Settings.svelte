@@ -49,6 +49,19 @@
     }
   }
 
+  // Tray support is only a question on GNOME, which hides tray icons until
+  // its extension is installed. On ewe the bar shows them, so off GNOME the
+  // row (and its alert below) would only talk about another desktop.
+  $: checks = $systemInfo
+    ? [
+        ["FUSE for AppImages (fuse2)", $systemInfo.fuse2],
+        ["PolicyKit (pkexec)", $systemInfo.pkexec],
+        ["pacman", $systemInfo.pacman],
+        ["Privileged helper", $systemInfo.helperInstalled],
+        ...($systemInfo.gnome ? [["Tray support (GNOME extension)", $systemInfo.appindicatorOk]] : [])
+      ]
+    : [];
+
   async function fixFuse() {
     try {
       toast("Installing **fuse2**. You may be asked for your password…", "info");
@@ -104,13 +117,7 @@
       </button>
     </svelte:fragment>
     {#if $systemInfo}
-      {#each [
-        ["FUSE for AppImages (fuse2)", $systemInfo.fuse2],
-        ["PolicyKit (pkexec)", $systemInfo.pkexec],
-        ["pacman", $systemInfo.pacman],
-        ["Privileged helper", $systemInfo.helperInstalled],
-        ["Tray support" + ($systemInfo.gnome ? " (GNOME extension)" : ""), $systemInfo.appindicatorOk]
-      ] as [label, ok]}
+      {#each checks as [label, ok]}
         <Row title={label}>
           {#if label.startsWith("FUSE") && !ok}
             <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" on:click={fixFuse}>Install fuse2</button>
