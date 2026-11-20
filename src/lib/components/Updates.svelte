@@ -291,7 +291,7 @@
   $: total = $updatesInfo.appimages.length + systemPkgs.length + desktopUpdates;
 </script>
 
-<Page title="Updates" desc={checking ? "Checking…" : total === 0 ? "Everything is up to date" : `${total} update${total === 1 ? "" : "s"} available`}>
+<Page title="Updates" desc={checking ? "Checking…" : total === 0 ? "You’re up to date" : `${total} update${total === 1 ? "" : "s"} available`}>
   <svelte:fragment slot="actions">
     <button class="ewe-btn ewe-btn--ghost" disabled={busyAny} on:click={refreshLists} title="Read the package databases again (checkupdates, never pacman -Sy)">
       Refresh lists
@@ -369,7 +369,7 @@
           <div class="ewe-empty__title">Checking…</div>
         {:else}
           <span class="ewe-empty__icon"><Icon name="success" /></span>
-          <div class="ewe-empty__title">All AppImages are up to date</div>
+          <div class="ewe-empty__title">Your AppImages are up to date</div>
         {/if}
       </div>
     {:else}
@@ -416,7 +416,7 @@
           <div class="ewe-empty__desc">Install pacman-contrib below to see them.</div>
         {:else}
           <span class="ewe-empty__icon"><Icon name="success" /></span>
-          <div class="ewe-empty__title">Everything is up to date</div>
+          <div class="ewe-empty__title">Your system is up to date</div>
         {/if}
       </div>
     {:else}

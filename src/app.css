@@ -690,6 +690,12 @@ code {
     background: transparent;
     border-color: transparent;
   }
+  /* the placeholder tile wears surface-hover, which is the hovered card's
+     own fill: one step further keeps the glyph's tile from melting into the
+     card (light and dark alike) */
+  .ewe-appcard:hover .ewe-appicon:not(.ewe-appicon--img) {
+    background: var(--surface-pressed);
+  }
   .ewe-appcard__summary {
     flex: 1;
   }
@@ -1158,6 +1164,11 @@ code {
   .ewe-row__lead--tile.is-on {
     background: var(--accent-subtle);
     color: var(--accent-text);
+  }
+  /* an off tile wears surface-hover, the hovered row's own fill: one step
+     further keeps it visible (as the App card's placeholder) */
+  .ewe-row--interactive:hover:not(.is-selected) .ewe-row__lead--tile:not(.is-on) {
+    background: var(--surface-pressed);
   }
   .ewe-row.is-dim .ewe-row__lead--tile {
     color: var(--text-disabled);

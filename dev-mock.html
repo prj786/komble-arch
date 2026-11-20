@@ -19,6 +19,7 @@
                                         e.g. ewe.sysmon, acme.clock, ewe.dock)
        sheet=add|new                    open the Add plugin / New plugin sheet
        empty                            nothing installed (Installed's empty state)
+       uptodate                         no updates anywhere (Updates' empty states)
        noplugins                        no plugin from a git address or another
                                         machine (Plugins' "Other plugins" empty state)
        still                            no transitions or animations (headless
@@ -72,7 +73,7 @@
         safeMode: false, suspects: [],
         plugins: [
           { id: "ewe.clipboard", name: "Clipboard", version: "1.2.0", kinds: ["bar-widget", "service"], bundled: true, git: false, valid: true, enabled: true, installed: true, description: "Clipboard history in the bar", problems: [], bar: { shown: true, toggle: true }, settingsSchema: [{ key: "max", label: "Items to keep", type: "int", min: 10, max: 500 }, { key: "images", label: "Keep images", type: "bool" }], settings: { max: 100, images: true } },
-          { id: "ewe.dock", name: "Dock", version: "1.1.0", icon: "icApps", kinds: ["panel"], bundled: true, git: false, valid: true, enabled: true, installed: true, description: "Pinned apps and running windows at the bottom of every screen", problems: [], bar: null, settingsSchema: [{ key: "autohide", label: "Intelligent auto-hide", description: "Slides away when a window needs the space; comes back when you point at the bottom edge.", type: "bool", default: false }, { key: "icon_size", label: "Icon size", description: "How big the dock buttons and workspace groups are: 40, 48 or 64 px.", type: "choice", choices: ["small", "normal", "large"], default: "normal" }], settings: { autohide: true, icon_size: "small" } },
+          { id: "ewe.dock", name: "Dock", version: "1.1.0", icon: "icApps", kinds: ["panel"], bundled: true, git: false, valid: true, enabled: true, installed: true, description: "Pinned apps and running windows at the bottom of every screen", problems: [], bar: null, settingsSchema: [{ key: "autohide", label: "Intelligent auto-hide", description: "Slides away when a window needs the space; comes back when you point at the bottom edge.", type: "bool", default: false }, { key: "icon_size", label: "Icon size", description: "How big the dock buttons and workspace groups are: 40, 48 or 64 px.", type: "choice", choices: ["small", "normal", "large"], default: "normal" }, { key: "display", label: "Show the dock on", description: "The main screen, every screen, or none.", type: "choice", choices: ["primary", "all", "none"], default: "primary" }], settings: { autohide: true, icon_size: "small", display: "primary" } },
           // System monitor 2.0.0 as the revamp mockup has it (its manifest is not on ewe main yet):
           // a bar readout + a desktop widget, two choices of its own
           { id: "ewe.sysmon", name: "System monitor", version: "2.0.0", icon: "icCpu", category: "System", kinds: ["bar-widget", "desktop-widget"], bundled: true, git: false, valid: true, enabled: true, installed: true, source: "bundled", homepage: "https://github.com/prj786/ewe-plugin-sysmon", description: "CPU, memory and internet speed in the bar and on the desktop", problems: [], requires: { packages: [], commands: ["sh"] }, bar: { shown: true, toggle: true }, widget: { layer: "desktop", visible: false, x: 48, y: 64, output: "", pinned: false, pin_level: "top", locked: false }, settingsSchema: [{ key: "bar_shows", label: "In the bar", type: "choice", choices: ["All three", "CPU + memory", "Speed"], default: "All three" }, { key: "speed_unit", label: "Speed in", description: "MB/s like downloads, or Mbit/s like speed tests", type: "choice", choices: ["MB/s", "Mbit/s"], default: "MB/s" }], settings: { bar_shows: "All three", speed_unit: "MB/s" } },
@@ -172,12 +173,18 @@
                 { package: "gimp", version: "3.0.4-2", description: "GNU Image Manipulation Program", source: "repo", installedAt: 1757000000 },
                 { package: "zen-browser-bin", version: "1.15b-1", description: "Performance-oriented Firefox-based browser", source: "aur", installedAt: 1757500000 }
               ]);
-            case "list_upgradable": return Promise.resolve(upgradable);
+            case "list_upgradable": return Promise.resolve(q.has("uptodate") ? [] : upgradable);
             case "check_appimage_updates":
-              return Promise.resolve({ updates: [{ id: "obsidian", name: "Obsidian", current: "1.9.12", latest: "1.9.14" }], errors: [] });
+              return Promise.resolve({ updates: q.has("uptodate") ? [] : [{ id: "obsidian", name: "Obsidian", current: "1.9.12", latest: "1.9.14" }], errors: [] });
             case "ewe_status":
+              if (q.has("uptodate")) return Promise.resolve({ installed: true, version: "0.39.0-beta", latest: "0.39.0-beta", updateAvailable: false, packaged: true, git: false });
               return Promise.resolve({ installed: true, version: "0.38.0-beta", latest: "0.39.0-beta", updateAvailable: true, packaged: true, git: false });
             case "first_party_status":
+              if (q.has("uptodate")) return Promise.resolve([
+                { pkg: "komble-arch", installed: "0.21.0-beta", latest: "0.21.0-beta", updateAvailable: false, managed: "repo" },
+                { pkg: "ewe-settings", installed: "0.21.0-beta", latest: "0.21.0-beta", updateAvailable: false, managed: "repo" },
+                { pkg: "ewe-sync", installed: "0.15.1-beta", latest: "0.15.1-beta", updateAvailable: false, managed: "repo" }
+              ]);
               return Promise.resolve([
                 { pkg: "komble-arch", installed: "0.20.3-beta", latest: "0.21.0-beta", updateAvailable: true, managed: "repo" },
                 { pkg: "ewe-settings", installed: "0.20.0-beta", latest: "0.21.0-beta", updateAvailable: true, managed: "repo" },
