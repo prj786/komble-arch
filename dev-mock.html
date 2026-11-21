@@ -22,6 +22,8 @@
        uptodate                         no updates anywhere (Updates' empty states)
        noplugins                        no plugin from a git address or another
                                         machine (Plugins' "Other plugins" empty state)
+       needs                            Stremio Enhanced installed without its streaming
+                                        server (the app page's "needs" card)
        still                            no transitions or animations (headless
                                         screenshots freeze them mid-way)
      The theme replies are real `ewe-theme show` output, generated into
@@ -164,6 +166,7 @@
             case "list_appimages":
               if (q.has("empty")) return Promise.resolve([]);
               return Promise.resolve([
+                ...(q.has("needs") ? [{ id: "stremio-enhanced", name: "Stremio Enhanced", version: "1.2.1", path: "~/.local/share/appimages/stremio-enhanced-1-2-1.AppImage", installedAt: 1763700000, iconUrl: "" }] : []),
                 { id: "obsidian", name: "Obsidian", version: "1.9.12", path: "~/.local/share/appimages/Obsidian.AppImage", installedAt: 1757900000, iconUrl: "" },
                 { id: "freetube", name: "FreeTube", version: "0.23.4", path: "~/.local/share/appimages/FreeTube.AppImage", installedAt: 1756900000, iconUrl: "" }
               ]);
@@ -250,6 +253,10 @@
             case "appimage_file_info": return Promise.resolve({ path: "/home/nino/Downloads/Cursor-1.6.27-x86_64.AppImage", suggestedName: "Cursor", suggestedVersion: "1.6.27", size: 214958080 });
             case "take_pending_open": return Promise.resolve(q.get("dialog") === "wizard" ? "/home/nino/Downloads/Cursor-1.6.27-x86_64.AppImage" : null);
             case "take_pending_route": return Promise.resolve(null);
+            // ?needs: Stremio Enhanced is installed and misses its streaming server (needs.rs)
+            case "app_needs":
+              return Promise.resolve({ needs: q.has("needs") && String(args.id).startsWith("stremio-enhanced") ? [{ id: "stremio-server", title: "Needs Stremio’s streaming server to play", detail: "Stremio Enhanced looks for it as a Flatpak, which ewe doesn’t use. Komble can put Stremio’s own server (about 7 MB from strem.io) where the app finds it. Restart Stremio Enhanced afterwards.", action: "Get the streaming server", ok: false }] : [] });
+            case "fix_app_need": return new Promise((r) => setTimeout(() => r({ ok: true }), 800));
             case "resolve_am_app": return Promise.resolve({ github: "https://github.com/zed-industries/zed", release: { version: "0.203.4", assets: [{ size: 98566144 }] } });
             case "package_info": return Promise.resolve({ version: "3.0.4-2", installedVersion: "3.0.4-2", section: "extra", installedSizeKb: 112640, description: "GNU Image Manipulation Program", homepage: "https://www.gimp.org/" });
             case "system_upgrade":

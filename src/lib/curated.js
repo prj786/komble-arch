@@ -26,8 +26,8 @@
 // the rest of the desktop. `desc` is one short, plain line (no marketing);
 // `note` is an optional second, even shorter line for the card.
 //
-// Apps ewe already ships by default (nemo, kitty, zed, mpv, imv, zathura,
-// mise) may appear but never dominate a category. ewe's own browser (ewe
+// Apps ewe already ships by default (kitty, zed, mpv, mise — ewe's own Files,
+// Player and Viewer are first-party) may appear but never dominate a category. ewe's own browser (ewe
 // browser) is a first-party app, listed by first_party.rs, not here.
 
 // Same icon URL pattern as the backend's catalog.rs (`AM_ICON_URL`): a missing
@@ -67,7 +67,7 @@ export const curatedCategories = [
       { name: "Emacs", pkg: "emacs", source: "repo", icon: "emacs", desc: "The extensible, self-documenting editor." },
       { name: "Helix", pkg: "helix", source: "repo", icon: "helix", desc: "A modal editor with built-in language support." },
       { name: "Sublime Text", pkg: "sublime-text-4", source: "aur", desc: "A fast editor with a large plugin ecosystem." },
-      { name: "IntelliJ IDEA Community", pkg: "intellij-idea-community-edition", source: "repo", desc: "JetBrains' Java IDE, community edition." },
+      { name: "IntelliJ IDEA", pkg: "intellij-idea-oss", source: "repo", desc: "JetBrains' Java IDE, the open-source build." },
       { name: "PyCharm Community", pkg: "pycharm-community-edition", icon: "pycharm", source: "repo", desc: "The JetBrains IDE for Python." },
       { name: "JetBrains Toolbox", pkg: "jetbrains-toolbox", source: "aur", desc: "Installs and updates every JetBrains IDE." },
       { name: "Android Studio", pkg: "android-studio", icon: "android-studio", source: "aur", desc: "Google's IDE for Android apps." }
@@ -173,6 +173,7 @@ export const curatedCategories = [
       { name: "Kodi", pkg: "kodi", source: "repo", desc: "A media centre for the living room." },
       { name: "Strawberry", pkg: "strawberry", source: "repo", icon: "strawberry", desc: "A music player and collection organiser." },
       { name: "Spotify", pkg: "spotify", source: "aur", icon: "spotify", desc: "Music streaming." },
+      { name: "Stremio", pkg: "stremio-linux-shell", source: "aur", desc: "Films and series from your add-ons.", note: "Its streaming server comes with it." },
       { name: "Kdenlive", pkg: "kdenlive", source: "repo", icon: "kdenlive", desc: "A full-featured video editor." },
       { name: "OBS Studio", pkg: "obs-studio", source: "repo", icon: "obs-studio", desc: "Record and stream your screen." },
       { name: "Shotcut", pkg: "shotcut", source: "repo", icon: "shotcut", desc: "A straightforward video editor." },
