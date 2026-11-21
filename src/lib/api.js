@@ -18,6 +18,10 @@ export const checkAppimageUpdates = (token) =>
 export const updateAppimage = (id, token) =>
   invoke("update_appimage", { id, token: token || null });
 export const appimageFileInfo = (path) => invoke("appimage_file_info", { path });
+
+// what an installed app still needs (needs.rs) — { needs: [{id, title, detail, action, ok}] }
+export const appNeeds = (id) => invoke("app_needs", { id });
+export const fixAppNeed = (need) => invoke("fix_app_need", { need });
 export const installLocalAppimage = (path, name, version, dir) =>
   invoke("install_local_appimage", {
     path,

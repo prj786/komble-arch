@@ -2,6 +2,7 @@ mod appimage;
 mod catalog;
 mod de;
 mod first_party;
+mod needs;
 mod pacman;
 mod plugins;
 mod registry;
@@ -328,6 +329,8 @@ pub fn run() {
             catalog::fetch_catalog,
             catalog::resolve_release,
             catalog::resolve_am_app,
+            needs::app_needs,
+            needs::fix_app_need,
             appimage::install_appimage,
             appimage::remove_appimage,
             appimage::list_appimages,

@@ -18,6 +18,7 @@
   import { Dialog } from "bits-ui";
   import Icon from "./ui/Icon.svelte";
   import AppIcon from "./AppIcon.svelte";
+  import AppNeeds from "./AppNeeds.svelte";
 
   let release = null;
   let pkgInfo = null;
@@ -41,6 +42,7 @@
     : false;
   $: pct = prog && prog.total > 0 ? Math.min(100, Math.round((prog.downloaded / prog.total) * 100)) : null;
   $: if (item && item.id !== lastId) loadDetails(item);
+
 
   async function loadDetails(it) {
     lastId = it.id;
@@ -221,6 +223,7 @@
         </div>
 
         <div class="detail__body">
+          <AppNeeds id={isInstalled ? (isPkg ? item.pkg : item.id) : null} name={item.name} />
           {#if !isPkg && item.screenshots?.length}
             <div class="shots">
               {#each item.screenshots as shot}

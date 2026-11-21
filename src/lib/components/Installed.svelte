@@ -8,6 +8,7 @@
   import Group from "./ui/Group.svelte";
   import Icon from "./ui/Icon.svelte";
   import AppIcon from "./AppIcon.svelte";
+  import AppNeeds from "./AppNeeds.svelte";
 
   // One row anatomy (List row), the same as Plugins: icon, name, one line,
   // the source as a tag, the action last. Remove is ghost with the trash
@@ -115,6 +116,7 @@
               {/if}
             </div>
           </div>
+          <AppNeeds id={entry.id} name={entry.name} />
         {/each}
       {/if}
     </Group>
@@ -152,6 +154,7 @@
               </button>
             </div>
           </div>
+          <AppNeeds id={d.package} name={d.package} />
         {/each}
       {/if}
     </Group>
