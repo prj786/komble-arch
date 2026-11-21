@@ -1,7 +1,7 @@
 <script>
   import { onMount } from "svelte";
   import { getVersion } from "@tauri-apps/api/app";
-  import { route, updatesCount } from "../stores";
+  import { route, updatesCount, installPicks } from "../stores";
   import sheep from "../../assets/ewe-mark.svg?raw";
   import Icon from "./ui/Icon.svelte";
 
@@ -73,13 +73,13 @@
 <svelte:window on:keydown={globalKey} />
 
 {#snippet navItem(it)}
-  {@const n = it.id === "updates" ? $updatesCount : 0}
+  {@const n = it.id === "updates" ? $updatesCount : it.id === "foryou" ? $installPicks.length : 0}
   <button
     bind:this={navItems[it.id]}
     class="ewe-navitem"
     class:is-selected={$route === it.id}
     aria-current={$route === it.id ? "page" : undefined}
-    aria-label={n ? `${it.label}, ${n} available` : undefined}
+    aria-label={n ? `${it.label}, ${n} ${it.id === "foryou" ? "waiting" : "available"}` : undefined}
     title={it.label}
     on:click={() => route.set(it.id)}
     on:keydown={(e) => navKey(e, it.id)}
@@ -88,7 +88,7 @@
     <span class="ewe-navitem__label">{it.label}</span>
     {#if n}
       <!-- a count for updates is the solid accent Badge (Badge card) -->
-      <span class="ewe-badge ewe-badge--accent ewe-badge--solid"><span class="ewe-badge__label">{count}</span></span>
+      <span class="ewe-badge ewe-badge--accent ewe-badge--solid"><span class="ewe-badge__label">{it.id === "updates" ? count : n > 99 ? "99+" : n}</span></span>
       <span class="ewe-badge ewe-badge--accent ewe-badge--solid ewe-badge--dot ewe-badge--ring ewe-navitem__dot" aria-hidden="true"></span>
     {/if}
   </button>

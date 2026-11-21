@@ -144,6 +144,11 @@ export async function installFromItem(item, settings) {
 // syncs it — the shell and Settings do); manifestDump is what Komble would
 // write, for support
 export const appManifest = () => invoke("app_manifest");
+// apps picked in the ewe installer that wait here (AUR, AppImages, a repo app
+// that did not make it): ~/.local/state/ewe/install-picks.json — src-tauri/src/picks.rs
+export const installPicks = () => invoke("install_picks");
+// "Not now" on one pick; null = all of them
+export const dismissPick = (pkg) => invoke("install_picks_dismiss", { pkg: pkg ?? null });
 
 // shell plugins — through ewe-plugin (ewe 0.14+); the CLI is the implementation
 export const pluginList = () => invoke("plugin_list");

@@ -26,6 +26,10 @@
                                         server (the app page's "needs" card)
        still                            no transitions or animations (headless
                                         screenshots freeze them mid-way)
+       picks                            apps picked in the ewe installer wait
+                                        (Spotify, Stremio from the AUR, LM Studio,
+                                        VLC that did not install): For you opens on them
+       nomanifest                       with picks: ewe.conf has no app list yet
      The theme replies are real `ewe-theme show` output, generated into
      .dev-mock/ (git-ignored) from an isolated XDG_CONFIG_HOME; without them
      the compiled tokens.css (Ewe Dark) stands. -->
@@ -49,6 +53,12 @@
         icon: "", version: "1.0", homepage: "", plainDesc: description,
         authors: author ? [{ name: author }] : []
       });
+      let picks = [
+        { pkg: "spotify", source: "aur" },
+        { pkg: "stremio-linux-shell", source: "aur" },
+        { pkg: "lmstudio", source: "appimage" },
+        { pkg: "vlc", source: "repo" }
+      ];
       const catalog = [
         app("zed", "Zed", "A high-performance, multiplayer code editor from the creators of Atom.", ["Development"], "Zed Industries"),
         app("obsidian", "Obsidian", "A private and flexible note-taking app that adapts to the way you think.", ["Office"], "Obsidian"),
@@ -225,7 +235,15 @@
             case "aur_pkgbuild":
               return Promise.resolve("# Maintainer: someone <someone@example.org>\npkgname=visual-studio-code-bin\npkgver=1.104.0\npkgrel=1\npkgdesc=\"Visual Studio Code (vscode)\"\narch=('x86_64')\nurl=\"https://code.visualstudio.com/\"\nlicense=('custom: commercial')\ndepends=('libxkbfile' 'gnupg' 'gtk3' 'libsecret' 'nss' 'gcc-libs' 'libnotify' 'libxss' 'glibc' 'lsof' 'shared-mime-info' 'xdg-utils' 'alsa-lib')\nsource_x86_64=(code_x64_${pkgver}.tar.gz::https://update.code.visualstudio.com/${pkgver}/linux-x64/stable)\nsha256sums_x86_64=('SKIP')\n\npackage() {\n  install -d \"${pkgdir}/opt/${pkgname}\"\n  cp -r \"${srcdir}/VSCode-linux-x64\"/* \"${pkgdir}/opt/${pkgname}\"\n}\n");
             case "aur_srcinfo": return Promise.resolve({ validpgpkeys: ["BC528686B50D79E339D3721CEB3E94ADBE1229CF"] });
+            case "install_picks":
+              return Promise.resolve(q.has("picks") ? { available: picks.length > 0, at: "2026-11-21T12:00:00Z", picked: picks.slice() } : { available: false });
+            case "install_picks_dismiss": {
+              const pkg = args && args.pkg;
+              picks = pkg ? picks.filter((p) => p.pkg !== pkg) : [];
+              return Promise.resolve({ ok: true, left: picks.length });
+            }
             case "app_manifest":
+              if (q.has("nomanifest")) return Promise.resolve({ available: false, reason: "no-key" });
               return Promise.resolve({ available: true, skipped: 3, packages: [
                 { package: "gimp", installed: true, source: "repo" },
                 { package: "inkscape", installed: false, source: "repo" },

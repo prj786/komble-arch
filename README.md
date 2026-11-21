@@ -46,6 +46,31 @@ been run against a live pacman. Treat it as a working skeleton.
   is missing here. Komble never syncs, fetches or restores the file itself —
   the account and the restore live in the desktop's Settings (RFC-005); a
   restore done there shows up in For you on the next look.
+- **Apps picked while installing ewe** — the ewe installer (ewe-os 0.17) has
+  an Apps screen built from this app's curated list (`src/lib/curated.js`,
+  copied verbatim into `ewe-os/installer/src/lib/`). It installs the repo apps
+  with the system but never builds from the AUR or fetches an AppImage: those
+  picks — and any repo app that did not install — wait in the new user's
+  `~/.local/state/ewe/install-picks.json` (`$XDG_STATE_HOME`). Komble shows
+  them first on **For you**, "Apps you picked while installing ewe", with an
+  Install button (repo, AppImage) or **Review…** (AUR: the PKGBUILD review
+  gate as everywhere; the other AUR picks queue behind it) and Dismiss; the
+  rail counts them and Komble opens on For you while any wait (unless it was
+  started for something else). An installed pick leaves the file on the next
+  read, a dismissed one at once, the last one takes the file with it. The
+  format, tiny on purpose (`src-tauri/src/picks.rs`):
+
+  ```json
+  {"version": 1, "at": "2026-11-21T12:00:00Z",
+   "picked": [{"pkg": "spotify", "source": "aur"},
+              {"pkg": "lmstudio", "source": "appimage"},
+              {"pkg": "vlc", "source": "repo"}]}
+  ```
+
+  `source` is `aur`, `appimage` (the AM slug the curated list uses) or `repo`;
+  names, lines and icons come from the curated list (a name it no longer has
+  shows as itself). Komble only removes entries; the installer's helper (verb
+  `apps`) writes the file. Mock: `dev-mock.html?picks` (`&nomanifest`).
 
 ## Four things Arch forced, which are not stylistic choices
 
@@ -135,7 +160,8 @@ Runtime optional dependencies, all degraded gracefully:
 src/                  Svelte frontend (views in src/lib/components)
 src-tauri/src/        lib.rs (the window, routes, setup), pacman.rs (repos + AUR),
                       catalog.rs + appimage.rs (shared with the Debian build),
-                      system.rs, registry.rs, util.rs
+                      system.rs, registry.rs, util.rs, picks.rs (apps picked
+                      in the ewe installer)
 packaging/            komble-helper, polkit policy, .desktop
 PKGBUILD              how this is actually installed
 ```
