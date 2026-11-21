@@ -4,6 +4,7 @@ mod de;
 mod first_party;
 mod needs;
 mod pacman;
+mod picks;
 mod plugins;
 mod registry;
 mod system;
@@ -364,6 +365,9 @@ pub fn run() {
             first_party::first_party_installed,
             de::app_manifest,
             de::manifest_dump,
+            // apps picked in the ewe installer (ewe-os 0.17)
+            picks::install_picks,
+            picks::install_picks_dismiss,
             first_party::install_first_party,
             first_party::ewe_status,
             first_party::ewe_update,

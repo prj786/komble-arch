@@ -1,12 +1,17 @@
 <script>
-  // "For you" — the one file's app list. ewe.conf carries [apps.installed],
+  // "For you" — first the apps picked while installing ewe (ewe-os 0.17: the
+  // installer's Apps screen leaves AUR and AppImage picks, and a repo app that
+  // did not install, in ~/.local/state/ewe/install-picks.json — picks.rs);
+  // each waits here until it is installed or dismissed, and an AUR one still
+  // goes through the PKGBUILD review. Then the one file's app list. ewe.conf carries [apps.installed],
   // everything Komble recorded on whichever machine wrote it; this view reads
   // it THROUGH ewe-conf and offers what is missing here. Komble never syncs,
   // fetches or restores that file (RFC-005): the account, push/pull and
   // restore live in the shell and Settings — a restore done there simply
   // shows up here on the next re-read (window focus, or every minute).
   import { onMount, onDestroy } from "svelte";
-  import { route, aurReview, aurQueue, toast, settings } from "../stores";
+  import { route, aurReview, aurQueue, toast, settings, installPicks } from "../stores";
+  import { curatedCategories, toItem } from "../curated";
   import { installPackage, installPackages, installFromItem } from "../api";
   import { get } from "svelte/store";
   import { refreshPkgs } from "../actions";
@@ -27,6 +32,68 @@
   let installNote = ""; // what the restore is doing right now (updates first, then apps)
   let current = false; // this session already made sure the system is current
   let timer;
+
+  // ── apps picked while installing ewe ──────────────────────────────────────
+  const curatedApps = curatedCategories.flatMap((c) => c.apps);
+  async function readPicks() {
+    try {
+      const r = await api.installPicks();
+      installPicks.set(r.available ? r.picked || [] : []);
+    } catch {
+      installPicks.set([]);
+    }
+  }
+  // the curated entry gives the name, the line and the icon; a name the list
+  // no longer has still shows (as itself)
+  $: picks = $installPicks.map((p) => {
+    const app = curatedApps.find((a) => a.pkg === p.pkg) || null;
+    return { ...p, app, name: app?.name || p.pkg, desc: app?.desc || "", item: app ? toItem(app) : null };
+  });
+
+  async function installPick(p) {
+    installError = "";
+    if (p.source === "aur") {
+      // the review gate, as everywhere; the other AUR picks queue behind it
+      aurQueue.set(picks.filter((x) => x.source === "aur" && x.pkg !== p.pkg).map((x) => x.pkg));
+      aurReview.set(p.pkg);
+      route.set("aur");
+      return;
+    }
+    busyPkg = p.pkg;
+    try {
+      if (p.source === "appimage") {
+        if (!p.item) {
+          route.set("discover");
+          toast(`Search for “${p.name}” in Discover to install it.`, "info", 5000);
+          busyPkg = "";
+          return;
+        }
+        installNote = `Installing ${p.name}…`;
+        await installFromItem(p.item, get(settings));
+      } else {
+        await ensureCurrent();
+        installNote = `Installing ${p.name}. You may be asked for your password…`;
+        await installPackage(p.pkg);
+        refreshPkgs();
+      }
+      toast(`Installed **${p.name}**`, "success");
+    } catch (e) {
+      installError = `${p.name}: ${e}`;
+      toast(e, "error");
+    }
+    installNote = "";
+    busyPkg = "";
+    await readPicks(); // an installed pick leaves the list (and the file)
+  }
+
+  async function dismissPick(p) {
+    try {
+      await api.dismissPick(p ? p.pkg : null);
+    } catch (e) {
+      toast(e, "error");
+    }
+    await readPicks();
+  }
 
   async function readManifest() {
     try {
@@ -58,9 +125,9 @@
 
   // re-read when the window comes back (a restore in Settings, an install
   // elsewhere) and once a minute regardless; never while an install runs
-  const onFocus = () => { if (!busyPkg) readManifest(); };
+  const onFocus = () => { if (!busyPkg) { readManifest(); readPicks(); } };
   onMount(async () => {
-    await readManifest();
+    await Promise.all([readManifest(), readPicks()]);
     window.addEventListener("focus", onFocus);
     timer = setInterval(onFocus, 60_000);
   });
@@ -177,12 +244,58 @@
   $: missingRepo = missing.filter((a) => !a.aur && !a.appimage);
 </script>
 
-<Page title="For you" desc="Apps from your other computers, ready to install here">
+<Page title="For you" desc={picks.length ? "The apps you picked, and the ones from your other computers" : "Apps from your other computers, ready to install here"}>
   <svelte:fragment slot="actions">
-    <button class="ewe-btn ewe-btn--ghost" disabled={busyPkg !== ""} on:click={readManifest} title="Read [apps.installed] from ewe.conf again">
+    <button class="ewe-btn ewe-btn--ghost" disabled={busyPkg !== ""} on:click={() => { readManifest(); readPicks(); }} title="Read [apps.installed] from ewe.conf again">
       <Icon name="refresh" />Read again
     </button>
   </svelte:fragment>
+
+  {#if picks.length}
+    <Group title="Apps you picked while installing ewe · {picks.length}">
+      <svelte:fragment slot="action">
+        <button class="ewe-btn ewe-btn--ghost ewe-btn--sm" disabled={busyPkg !== ""} on:click={() => dismissPick(null)}
+                title="Take them all off this list (nothing is removed)">Dismiss all</button>
+      </svelte:fragment>
+      {#each picks as p (p.pkg)}
+        <div class="ewe-row">
+          <span class="ewe-row__lead">
+            {#if p.item}<AppIcon item={p.item} size="sm" />{:else}<AppIcon name={p.name} pkg={p.source !== "appimage"} size="sm" />{/if}
+          </span>
+          <div class="ewe-row__text">
+            <div class="row-title">
+              <span class="ewe-row__title">{p.name}</span>
+              {#if p.source === "aur"}
+                <span class="ewe-badge ewe-badge--warning"><span class="ewe-badge__label">AUR</span></span>
+              {:else if p.source === "appimage"}
+                <span class="ewe-badge ewe-badge--info"><span class="ewe-badge__label">AppImage</span></span>
+              {/if}
+            </div>
+            {#if p.desc}<div class="ewe-row__desc">{p.desc}</div>{/if}
+          </div>
+          <div class="ewe-row__trail">
+            {#if busyPkg === p.pkg}
+              <span class="busy"><span class="ewe-spinner ewe-spinner--sm" aria-hidden="true"></span>Installing…</span>
+            {:else}
+              <button class="ewe-btn ewe-btn--sm ewe-btn--ghost" disabled={busyPkg !== ""} aria-label="Dismiss {p.name}"
+                      title="Take it off this list (nothing is installed)" on:click={() => dismissPick(p)}>Dismiss</button>
+              <button class="ewe-btn ewe-btn--sm {p.source === 'aur' ? 'ewe-btn--secondary' : 'ewe-btn--primary'}"
+                      disabled={busyPkg !== ""} aria-label="{p.source === 'aur' ? 'Review' : 'Install'} {p.name}"
+                      on:click={() => installPick(p)}>
+                {p.source === "aur" ? "Review…" : "Install"}
+              </button>
+            {/if}
+          </div>
+        </div>
+      {/each}
+    </Group>
+    {#if !manifest?.apps?.length && (installNote || installError)}
+      {#if installNote}<Alert tone="info">{installNote}</Alert>{/if}
+      {#if installError}
+        <Alert tone="danger" title="Couldn’t install" dismiss={() => (installError = "")}><pre class="log">{installError}</pre></Alert>
+      {/if}
+    {/if}
+  {/if}
 
   {#if manifest?.apps?.length}
     {#if missing.length}
@@ -290,7 +403,7 @@
         <button class="ewe-btn ewe-btn--secondary" on:click={() => route.set("updates")}>Check for updates</button>
       </div>
     </div>
-  {:else if manifest && manifest.apps.length === 0}
+  {:else if manifest && manifest.apps.length === 0 && !picks.length}
     <div class="ewe-empty">
       <span class="ewe-empty__icon"><Icon name="package" /></span>
       <div class="ewe-empty__title">No apps recorded yet</div>
@@ -299,6 +412,12 @@
         <button class="ewe-btn ewe-btn--primary" on:click={() => route.set("discover")}><Icon name="compass" />Discover apps</button>
       </div>
     </div>
+  {:else if picks.length}
+    <!-- a fresh computer with installer picks: the picks are the page; the
+         app list from other computers is only a pointer -->
+    <p class="note">
+      Apps from your other ewe computers appear here too, once you use Bring everything back in ewe Sync.
+    </p>
   {:else}
     <!-- no [apps.installed] at all: a fresh file, or an old backup that never
          carried one. Restoring is not Komble's job — say where it lives. -->

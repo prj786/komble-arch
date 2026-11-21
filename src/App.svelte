@@ -16,6 +16,7 @@
     dragHover,
     wizardFile,
     droppedPkg,
+    installPicks,
     toast
   } from "./lib/stores";
   import { initSettings, saveSettings } from "./lib/persist";
@@ -133,12 +134,22 @@
       // second launch while a transaction kept a windowless Komble alive)
       // or on the event (it was already open), never both.
       const takeOpen = () => api.takePendingOpen().then((p) => p && openPath(p)).catch(() => {});
-      const takeRoute = () => api.takePendingRoute().then((r) => r && goRoute(r)).catch(() => {});
+      const takeRoute = () => api.takePendingRoute().then((r) => { if (r) goRoute(r); return !!r; }).catch(() => false);
       unlisteners.push(await listen("open-file", takeOpen));
       unlisteners.push(await listen("navigate", takeRoute));
       takeOpen();
-      // `komble --updates` from the DE bar's indicator
-      takeRoute();
+      // `komble --updates` from the DE bar's indicator; with no route asked
+      // for, apps picked while installing ewe open For you (they wait there
+      // until installed or dismissed — the rail counts them)
+      takeRoute().then(async (routed) => {
+        try {
+          const r = await api.installPicks();
+          installPicks.set(r.available ? r.picked || [] : []);
+          if (r.available && !routed && get(route) === "discover") route.set("foryou");
+        } catch {
+          // an older backend or no file: nothing waits
+        }
+      });
 
       // Global drag & drop: .AppImage opens the install wizard,
       // a built/downloaded package file jumps to the install view.

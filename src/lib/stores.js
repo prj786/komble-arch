@@ -65,6 +65,9 @@ export const aurReview = writable("");
 // view opens the next one ("Review next") so the user walks the list instead
 // of hunting each name. Names only; each still gets its own PKGBUILD gate.
 export const aurQueue = writable([]);
+// Apps picked while installing ewe that still wait ([{pkg, source}]; For you
+// shows them, the rail counts them) — refreshed by App.svelte and For you
+export const installPicks = writable([]);
 
 export const updatesInfo = writable({ appimages: [], packages: [], errors: [], self: null, desktop: 0, checkedAt: 0 });
 export const updatesCount = derived(
