@@ -1,4 +1,5 @@
 <script>
+  import { onMount } from "svelte";
   import { settings, systemInfo, toast } from "../stores";
   import { saveSettings } from "../persist";
   import * as api from "../api";
@@ -42,12 +43,26 @@
     }
   }
   async function recheck1() {
+    readEep();
     try {
       systemInfo.set(await api.systemCheck());
     } catch (e) {
       toast(e, "error");
     }
   }
+
+  // eep, only where it is on PATH: `eep doctor` boiled down to what would
+  // stop an install (eep.rs) — { ready, problems }
+  let eep = null;
+  async function readEep() {
+    try {
+      const r = await api.eepDoctor();
+      eep = r.available ? r : null;
+    } catch {
+      eep = null;
+    }
+  }
+  onMount(readEep);
 
   // Tray support is only a question on GNOME, which hides tray icons until
   // its extension is installed. On ewe the bar shows them, so off GNOME the
@@ -127,6 +142,13 @@
           </span>
         </Row>
       {/each}
+      {#if eep}
+        <Row title="eep apps" sub={eep.problems.join(" ")}>
+          <span class="ewe-badge {eep.ready ? 'ewe-badge--success' : 'ewe-badge--warning'}">
+            <Icon name={eep.ready ? "check" : "warning"} size="xs" /><span class="ewe-badge__label">{eep.ready ? "Ready" : "Not ready"}</span>
+          </span>
+        </Row>
+      {/if}
     {:else}
       <Row title="Checking the system…">
         <span class="ewe-spinner ewe-spinner--sm" aria-hidden="true"></span>

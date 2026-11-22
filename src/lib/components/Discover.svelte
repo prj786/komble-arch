@@ -1,8 +1,8 @@
 <script>
-  import { catalog, catalogLoading, catalogError, pendingSearch } from "../stores";
+  import { catalog, catalogLoading, catalogError, pendingSearch, eepOn, eepApps, eepError } from "../stores";
   import { searchCatalog } from "../fuzzy";
   import { onMount } from "svelte";
-  import { loadCatalog, refreshPkgs } from "../actions";
+  import { loadCatalog, refreshPkgs, refreshEep } from "../actions";
   import * as api from "../api";
   import VirtualGrid from "./VirtualGrid.svelte";
   import AppCard from "./AppCard.svelte";
@@ -28,7 +28,7 @@
     pendingSearch.set("");
   }
   let category = "";
-  let source = "all"; // all | appimage | pkg | aur
+  let source = "all"; // all | eep | appimage | pkg | aur
   let pkgRepo = "";
   let sections = []; // [name, count]
   let sectionsLoaded = false;
@@ -44,12 +44,17 @@
   // what pacman already has, for the curated cards' "Installed"
   onMount(refreshPkgs);
 
-  const sources = [
+  // eep only where `eep` is on PATH (eep.rs)
+  $: sources = [
     ["all", "All"],
+    ...($eepOn ? [["eep", "eep"]] : []),
     ["appimage", "AppImages"],
     ["pkg", "Repositories"],
     ["aur", "AUR"]
   ];
+  $: if (source === "eep" && !$eepOn) source = "all";
+  // the AppImage catalog's loading and error states belong to these two
+  $: usesCatalog = source === "all" || source === "appimage";
 
   $: cats = [...new Set($catalog.flatMap((i) => i.categories || []))].sort();
   $: repoOpts = [
@@ -60,15 +65,20 @@
   $: repoLabel = (repoOpts.find(([v]) => v === pkgRepo) || repoOpts[0])[1];
   $: catLabel = category || "All categories";
   $: aiResults =
-    source === "pkg" || source === "aur" ? [] : searchCatalog($catalog, query, category);
+    source === "pkg" || source === "aur" || source === "eep" ? [] : searchCatalog($catalog, query, category);
+  // eep apps have no categories: a category filter leaves them out
+  $: eepResults =
+    source === "eep" || (source === "all" && !category) ? searchCatalog($eepApps, query, "") : [];
   $: if (source === "pkg" && !sectionsLoaded) loadSections();
   $: schedulePkgQuery(query, source, category, pkgRepo);
   $: merged =
-    source === "appimage" || (source === "all" && category)
-      ? aiResults
-      : source === "pkg" || source === "aur"
-        ? pkgResults
-        : [...aiResults, ...pkgResults];
+    source === "eep"
+      ? eepResults
+      : source === "appimage" || (source === "all" && category)
+        ? aiResults
+        : source === "pkg" || source === "aur"
+          ? pkgResults
+          : [...eepResults, ...aiResults, ...pkgResults];
 
   $: q2 = query.trim();
   $: subtitle =
@@ -84,11 +94,17 @@
           : q2.length >= 2
             ? `${pkgTotal.toLocaleString()} AUR package${pkgTotal === 1 ? "" : "s"}`
             : "User-submitted packages, built from source after you review them"
+        : source === "eep"
+          ? $eepError
+            ? "Couldn’t read the eep app list"
+            : q2
+              ? `${merged.length.toLocaleString()} result${merged.length === 1 ? "" : "s"}`
+              : `${$eepApps.length.toLocaleString()} apps from eep, ready-built: no build, no password`
         : $catalogLoading
           ? "Loading the catalog…"
           : q2
             ? `${merged.length.toLocaleString()} result${merged.length === 1 ? "" : "s"}${pkgSearching ? " · searching the repositories…" : ""}`
-            : `${$catalog.length.toLocaleString()} AppImages from the AM catalog, plus the Arch repositories and the AUR`;
+            : `${$eepApps.length ? `${$eepApps.length.toLocaleString()} eep apps, ` : ""}${$catalog.length.toLocaleString()} AppImages from the AM catalog, plus the Arch repositories and the AUR`;
 
   // Curated "Popular" shows only in the default view with no query typed.
   $: showPopular = source === "all" && !query.trim();
@@ -158,7 +174,7 @@
     }
 
     const browsing = src === "pkg";
-    if (src === "appimage" || (!browsing && (cat || trimmed.length < 2))) {
+    if (src === "appimage" || src === "eep" || (!browsing && (cat || trimmed.length < 2))) {
       pkgResults = [];
       pkgTotal = 0;
       pkgSearching = false;
@@ -196,7 +212,7 @@
       class="ewe-btn ewe-btn--secondary"
       disabled={$catalogLoading}
       aria-busy={$catalogLoading}
-      on:click={() => loadCatalog(true)}
+      on:click={() => (loadCatalog(true), refreshEep(true))}
     >
       {#if $catalogLoading}
         <span class="ewe-spinner ewe-spinner--sm ewe-spinner--neutral" aria-hidden="true"></span>Refreshing…
@@ -213,7 +229,11 @@
         ? "Search the Arch repositories"
         : source === "aur"
           ? "Search the AUR"
-          : "Search AppImages and Arch packages"}
+          : source === "eep"
+            ? "Search eep apps"
+            : $eepOn
+              ? "Search eep apps, AppImages and Arch packages"
+              : "Search AppImages and Arch packages"}
     />
     {#if source === "pkg"}
       <Select.Root type="single" value={enc(pkgRepo)} onValueChange={(raw) => (pkgRepo = dec(raw))}>
@@ -224,7 +244,7 @@
           {/each}
         </Select.Content>
       </Select.Root>
-    {:else if source !== "aur"}
+    {:else if source !== "aur" && source !== "eep"}
       <Select.Root type="single" value={enc(category)} onValueChange={(raw) => (category = dec(raw))}>
         <Select.Trigger class="select-trigger" aria-label="Category">{catLabel}</Select.Trigger>
         <Select.Content>
@@ -278,7 +298,7 @@
       {/each}
     </div>
   {:else}
-  {#if source !== "pkg" && source !== "aur" && $catalogLoading}
+  {#if usesCatalog && $catalogLoading}
     <!-- Skeleton: the grid's own shape, nine App cards -->
     <div class="grid-static" aria-busy="true" aria-label="Loading the catalog">
       {#each Array(9) as _}
@@ -298,7 +318,16 @@
         </div>
       {/each}
     </div>
-  {:else if source !== "pkg" && source !== "aur" && $catalogError}
+  {:else if source === "eep" && $eepError}
+    <div class="ewe-empty" role="alert">
+      <span class="ewe-empty__icon"><Icon name="alert" /></span>
+      <div class="ewe-empty__title">Couldn’t read the eep app list</div>
+      <div class="ewe-empty__desc">{$eepError}</div>
+      <div class="ewe-empty__actions">
+        <button class="ewe-btn ewe-btn--secondary" on:click={() => refreshEep(true)}>Try again</button>
+      </div>
+    </div>
+  {:else if usesCatalog && $catalogError}
     <div class="ewe-empty" role="alert">
       <span class="ewe-empty__icon"><Icon name="alert" /></span>
       <div class="ewe-empty__title">Couldn’t load the catalog</div>
@@ -329,12 +358,12 @@
             <button class="ewe-btn ewe-btn--secondary" on:click={() => ((category = ""), (pkgRepo = ""))}>Search every {category ? "category" : "repository"}</button>
           </div>
         {:else if source !== "all"}
-          <div class="ewe-empty__desc">Only {sources.find(([v]) => v === source)?.[1] || source} were searched.</div>
+          <div class="ewe-empty__desc">Only {source === "eep" ? "eep apps" : sources.find(([v]) => v === source)?.[1] || source} were searched.</div>
           <div class="ewe-empty__actions">
             <button class="ewe-btn ewe-btn--secondary" on:click={() => (source = "all")}>Search everything</button>
           </div>
         {:else}
-          <div class="ewe-empty__desc">Nothing among AppImages, the repositories or the AUR. Check the spelling, or try fewer words.</div>
+          <div class="ewe-empty__desc">Nothing among {$eepOn ? "eep apps, " : ""}AppImages, the repositories or the AUR. Check the spelling, or try fewer words.</div>
           <div class="ewe-empty__actions">
             <button class="ewe-btn ewe-btn--secondary" on:click={() => (query = "")}>Clear the search</button>
           </div>

@@ -30,9 +30,18 @@
                                         (Spotify, Stremio from the AUR, LM Studio,
                                         VLC that did not install): For you opens on them
        nomanifest                       with picks: ewe.conf has no app list yet
+       noeep                            eep is not on PATH: no eep source, group or count
+       eepfail=install|update|remove    that eep command fails halfway ({"ok":false,…})
+       eepdown                          eep can't read its app list (Discover › eep)
+       eepnotready                      eep doctor says not ready (Settings › System)
      The theme replies are real `ewe-theme show` output, generated into
      .dev-mock/ (git-ignored) from an isolated XDG_CONFIG_HOME; without them
-     the compiled tokens.css (Ewe Dark) stands. -->
+     the compiled tokens.css (Ewe Dark) stands. The eep replies are
+     `eep available` / `eep updates` for the eep/dist release
+     nixos-26.11pre1125864.2786a2a72088 (its catalog.json and icons/), in
+     .dev-mock/eep/ with Firefox and LibreOffice one update behind; without
+     them eep counts as not installed. The real app against the same data:
+     PATH="$PWD/.dev-mock/eep/bin:$PATH" npm run tauri dev (a stand-in eep). -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -160,6 +169,67 @@
         p.bar.shown = on;
         return Promise.resolve(JSON.stringify({ ok: true, id, bar: p.bar }));
       };
+      // eep (src-tauri/src/eep.rs): eep's own replies, kept here and changed
+      // by the verbs; the shapes the UI gets are what eep.rs makes of them
+      let eepState = null;
+      let eepUps = [];
+      const eepLoad = () =>
+        eepState
+          ? Promise.resolve()
+          : Promise.all([json("/.dev-mock/eep/available.json"), json("/.dev-mock/eep/updates.json")]).then(([a, u]) => {
+              eepState = a;
+              eepUps = u.updates;
+              for (const app of a.apps) {
+                if (q.has("empty")) app.installed = null;
+                if (q.has("empty") || q.has("uptodate")) app.update = false;
+              }
+            });
+      // icon: eep.rs reads icon_file into a data: URL; here the same file
+      // is served from .dev-mock/eep/icons/ (an http icon_url never shows)
+      const eepIcon = (a) => (a.icon_file ? `/.dev-mock/eep/icons/${a.icon_file.split("/").pop()}` : /^https:/.test(a.icon_url || "") ? a.icon_url : "");
+      const eepApp = (a) => ({ id: a.id, name: a.name || a.id, kind: a.kind || "", version: a.version || "", description: (a.description || "").replace(/\s+/g, " ").trim(), icon: eepIcon(a), homepage: /^https?:\/\//.test(a.homepage || "") ? a.homepage : "", download: a.download || 0, disk: a.disk || 0, unavailable: a.unavailable || "", installed: a.installed ?? null, update: !!a.update });
+      const eepPending = () => eepState.apps.filter((a) => a.installed != null && a.update);
+      const eepUpdateRows = () =>
+        eepPending().map((a) => {
+          const u = eepUps.find((x) => x.id === a.id) || { from: a.installed, to: a.version, rebuild_only: false, download: (a.download / 10) | 0, download_full: a.download };
+          return { id: a.id, name: a.name, from: u.from, to: u.to, rebuildOnly: u.rebuild_only, download: u.download, downloadFull: u.download_full };
+        });
+      // the events the app listens to (install-progress): the mock's
+      // transformCallback hands over the callback itself
+      const listeners = {};
+      window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
+      const emit = (event, payload) => (listeners[event] || []).forEach((h) => h({ event, id: 0, payload }));
+      // install / update / remove: six pieces a second-ish per app, as the
+      // backend reports Nix's fetch; ?eepfail=<verb> stops halfway with eep's error
+      const eepVerb = (verb, ids) =>
+        eepLoad().then(
+          () =>
+            new Promise((resolve, reject) => {
+              const missing = ids.find((id) => !eepState.apps.some((a) => a.id === id));
+              if (missing) return reject(`no app "${missing}" in the index`);
+              const apps = ids.length ? ids.map((id) => eepState.apps.find((a) => a.id === id)) : eepPending();
+              const fails = q.get("eepfail") === verb;
+              const total = verb === "remove" ? 0 : 6 * apps.length;
+              let done = 0;
+              const report = (phase) => apps.forEach((a) => emit("install-progress", { id: `eep:${a.id}`, phase, downloaded: done, total }));
+              const timer = setInterval(() => {
+                if (done < total && !(fails && done >= total / 2)) {
+                  done++;
+                  return report("downloading");
+                }
+                clearInterval(timer);
+                report("done");
+                if (fails) return reject(verb === "remove" ? "taking eep's lock: Permission denied (os error 13)" : `nix-store --realise of ${total} paths failed (exit status: 1)`);
+                const download = verb === "remove" ? 0 : apps.reduce((n, a) => n + (verb === "update" ? (eepUps.find((u) => u.id === a.id)?.download ?? (a.download / 10) | 0) : a.download), 0);
+                for (const a of apps) {
+                  a.installed = verb === "remove" ? null : a.version;
+                  a.update = false;
+                }
+                // what eep.rs makes of every reply shape (one app, apps, updated)
+                resolve({ download, downloadFull: download, seconds: 2.4, apps: apps.map((a) => ({ id: a.id, version: a.installed || "" })) });
+              }, 250);
+            })
+        );
       const mockTheme = () => json(`/.dev-mock/theme-${scheme}.json`);
       const waitForever = () => new Promise(() => {});
       window.__TAURI_INTERNALS__ = {
@@ -277,6 +347,36 @@
             case "fix_app_need": return new Promise((r) => setTimeout(() => r({ ok: true }), 800));
             case "resolve_am_app": return Promise.resolve({ github: "https://github.com/zed-industries/zed", release: { version: "0.203.4", assets: [{ size: 98566144 }] } });
             case "package_info": return Promise.resolve({ version: "3.0.4-2", installedVersion: "3.0.4-2", section: "extra", installedSizeKb: 112640, description: "GNU Image Manipulation Program", homepage: "https://www.gimp.org/" });
+            case "eep_available":
+              if (q.has("noeep")) return Promise.resolve({ available: false });
+              return eepLoad().then(
+                () =>
+                  q.has("eepdown")
+                    ? { available: true, apps: [], error: "http://10.0.2.2:8000/channels/nixos-unstable.json not found (is the eep server right? see `eep doctor`)" }
+                    : { available: true, release: eepState.release, apps: eepState.apps.map(eepApp), warning: null },
+                () => ({ available: false })
+              );
+            case "eep_list":
+              if (q.has("noeep")) return Promise.resolve([]);
+              return eepLoad().then(
+                () => eepState.apps.filter((a) => a.installed != null).map((a) => ({ id: a.id, name: a.name, kind: a.kind, version: a.installed })),
+                () => []
+              );
+            case "eep_updates":
+              if (q.has("noeep")) return Promise.resolve({ available: false, count: 0, updates: [] });
+              return eepLoad().then(
+                () => {
+                  const rows = eepUpdateRows();
+                  const sum = (k) => rows.reduce((n, r) => n + r[k], 0);
+                  return { available: true, count: rows.length, download: sum("download"), downloadFull: sum("downloadFull"), updates: args.count ? [] : rows, warning: null };
+                },
+                () => ({ available: false, count: 0, updates: [] })
+              );
+            case "eep_install": return eepVerb("install", args.ids);
+            case "eep_update": return eepVerb("update", args.ids);
+            case "eep_remove": return eepVerb("remove", args.ids);
+            case "eep_doctor":
+              return eepLoad().then(() => (q.has("noeep") ? { available: false } : { available: true, ready: !q.has("eepnotready"), problems: q.has("eepnotready") ? ["No graphics driver for eep apps yet (eep driver install)."] : [] }), () => ({ available: false }));
             case "system_upgrade":
               if (q.get("dialog") === "conflict") return Promise.resolve({ ok: false, conflicts: [{ remove: "jack2", keep: "pipewire-jack", reason: "in conflict" }, { remove: "iptables", keep: "iptables-nft", reason: "replaced" }] });
               return Promise.resolve({ ok: true });
@@ -284,6 +384,10 @@
               if (cmd === "plugin:store|load") return Promise.resolve(1);
               if (cmd === "plugin:store|get") return Promise.resolve([null, false]);
               if (String(cmd).startsWith("plugin:store")) return Promise.resolve(null);
+              if (cmd === "plugin:event|listen") {
+                (listeners[args.event] ||= []).push(args.handler);
+                return Promise.resolve(0);
+              }
               if (String(cmd).startsWith("plugin:event")) return Promise.resolve(0);
               return Promise.resolve("");
           }

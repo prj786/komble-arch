@@ -12,6 +12,16 @@ export const installed = writable([]);
 export const trackedPkgs = writable([]);
 /** First-party ewe apps pacman has — [{pkg, repo, summary, version}]. */
 export const firstPartyPkgs = writable([]);
+/** eep apps (eep.rs): `eepOn` once `eep` answered from PATH (the source
+ *  shows only then); `eepApps` is Discover's items for `eep available`,
+ *  `eepInstalled` the cards `eep list` reads, `eepError` why the list failed. */
+export const eepOn = writable(false);
+export const eepApps = writable([]);
+export const eepInstalled = writable([]);
+export const eepError = writable("");
+/** eep apps eep is working on, "eep:<id>" → install | update | remove —
+ *  shared like busyPkgs, so a card, the app page and a row agree */
+export const eepBusy = writable({});
 // names of EVERY installed package (pacman -Qq), not only the ones Komble
 // installed — a Set, refreshed with refreshPkgs()
 export const installedPkgNames = writable(new Set());
@@ -69,10 +79,12 @@ export const aurQueue = writable([]);
 // shows them, the rail counts them) — refreshed by App.svelte and For you
 export const installPicks = writable([]);
 
-export const updatesInfo = writable({ appimages: [], packages: [], errors: [], self: null, desktop: 0, checkedAt: 0 });
+// eep: the pending eep updates (Updates' check) and their count — known
+// before the list from `eep updates --count` at start
+export const updatesInfo = writable({ appimages: [], packages: [], eep: [], eepCount: 0, errors: [], self: null, desktop: 0, checkedAt: 0 });
 export const updatesCount = derived(
   updatesInfo,
-  (i) => i.appimages.length + i.packages.length + (i.desktop || 0) + (i.self ? 1 : 0)
+  (i) => i.appimages.length + i.packages.length + (i.eepCount || 0) + (i.desktop || 0) + (i.self ? 1 : 0)
 );
 
 export const systemInfo = writable(null);

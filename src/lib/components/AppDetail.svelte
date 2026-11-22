@@ -10,9 +10,11 @@
     aurReview,
     busyPkgs,
     setPkgBusy,
+    eepApps,
+    eepBusy,
     toast
   } from "../stores";
-  import { refreshInstalled, refreshPkgs } from "../actions";
+  import { refreshInstalled, refreshPkgs, eepRun } from "../actions";
   import * as api from "../api";
   import { stripHtml, formatBytes } from "../utils";
   import { Dialog } from "bits-ui";
@@ -32,13 +34,19 @@
   $: isPkg = item?.kind === "pkg";
   $: isAur = isPkg && item.section === "aur";
   $: isEwe = isPkg && item.section === "ewe"; // first-party (GitHub release)
+  $: isEep = item?.kind === "eep";
+  // an eep app's state moves under us (install, update): read the live entry
+  $: live = isEep ? $eepApps.find((a) => a.id === item.id) || item : item;
+  $: eepVerb = isEep && $eepBusy[item.id];
   $: prog = item && !isPkg && $progress[item.id];
-  // busy state is SHARED (stores.busyPkgs) so we agree with the card behind us
-  $: pkgBusy = isPkg && $busyPkgs.has(item.pkg);
+  // busy state is SHARED (stores.busyPkgs / eepBusy) so we agree with the card behind us
+  $: pkgBusy = isPkg ? $busyPkgs.has(item.pkg) : !!eepVerb;
   $: isInstalled = item
     ? isPkg
       ? item.installed || $trackedPkgs.some((d) => d.package === item.pkg)
-      : $installedIds.has(item.id)
+      : isEep
+        ? live.installed != null
+        : $installedIds.has(item.id)
     : false;
   $: pct = prog && prog.total > 0 ? Math.min(100, Math.round((prog.downloaded / prog.total) * 100)) : null;
   $: if (item && item.id !== lastId) loadDetails(item);
@@ -53,7 +61,10 @@
     confirming = false;
     loading = true;
     try {
-      if (it.kind === "pkg") {
+      if (it.kind === "eep") {
+        // the list entry IS the detail; eep says why an app can't come
+        if (it.unavailable) relError = `This release can’t install it: ${it.unavailable}`;
+      } else if (it.kind === "pkg") {
         // pacman only knows an AUR or first-party package once it is
         // installed (-Qi); before that, the search result IS the detail.
         if ((it.section !== "aur" && it.section !== "ewe") || it.installed) {
@@ -80,6 +91,10 @@
 
   async function install() {
     if (prog || isInstalled || pkgBusy) return;
+    if (isEep) {
+      if (!live.unavailable) eepRun("install", [live]);
+      return;
+    }
     // AUR: hand over to the review gate — never a one-click build.
     if (isAur) {
       aurReview.set(item.pkg);
@@ -117,6 +132,10 @@
       return;
     }
     confirming = false;
+    if (isEep) {
+      eepRun("remove", [live]);
+      return;
+    }
     try {
       if (isPkg) {
         setPkgBusy(item.pkg, true);
@@ -162,6 +181,11 @@
                 {:else if item.version}
                   <span class="ver">{item.version}</span>
                 {/if}
+              {:else if isEep}
+                <span class="ewe-badge ewe-badge--accent"><span class="ewe-badge__label">eep</span></span>
+                {#if live.installed}<span class="ver">{live.installed}</span>{:else if live.version}<span class="ver">{live.version}</span>{/if}
+                {#if !live.installed && live.downloadSize}<span>{formatBytes(live.downloadSize)} download</span>{/if}
+                {#if live.disk}<span>{formatBytes(live.disk)} on disk</span>{/if}
               {:else}
                 <span class="ewe-badge ewe-badge--info"><span class="ewe-badge__label">AppImage</span></span>
                 {#if item.authors?.[0]?.name}<span>by {item.authors[0].name}</span>{/if}
@@ -177,9 +201,18 @@
             <div class="detail__actions">
               {#if isInstalled}
                 <span class="ewe-badge ewe-badge--success"><Icon name="check" size="xs" /><span class="ewe-badge__label">Installed</span></span>
+                {#if isEep && (live.update || eepVerb === "update")}
+                  <button class="ewe-btn ewe-btn--sm ewe-btn--primary" disabled={pkgBusy} aria-busy={eepVerb === "update"} on:click={() => eepRun("update", [live])}>
+                    {#if eepVerb === "update"}
+                      <span class="ewe-spinner ewe-spinner--sm ewe-spinner--on-accent" aria-hidden="true"></span>{pct !== null ? `Updating… ${pct}%` : "Updating…"}
+                    {:else}
+                      <Icon name="download" />Update to {live.version}
+                    {/if}
+                  </button>
+                {/if}
                 <!-- two steps: the first press arms it (4 s), the second removes -->
                 <button class="ewe-btn ewe-btn--sm {confirming ? 'ewe-btn--danger' : 'ewe-btn--secondary'}" disabled={pkgBusy} on:click={remove}>
-                  <Icon name="trash" />{confirming ? `Remove ${item.name}` : "Remove"}
+                  <Icon name="trash" />{eepVerb === "remove" ? "Removing…" : confirming ? `Remove ${item.name}` : "Remove"}
                 </button>
               {:else if pkgBusy || prog}
                 <div
@@ -199,9 +232,12 @@
                   <div class="ewe-progress__track"><div class="ewe-progress__fill" style="--value: {pct ?? 0}%"></div></div>
                 </div>
               {:else}
-                <button class="ewe-btn ewe-btn--primary" on:click={install}>
+                <button class="ewe-btn ewe-btn--primary" disabled={isEep && !!live.unavailable} on:click={install}>
                   {#if isAur}<Icon name="fileCode" />Review PKGBUILD…{:else}<Icon name="download" />Install{/if}
                 </button>
+              {/if}
+              {#if isEep && live.homepage}
+                <button class="ewe-btn ewe-btn--sm ewe-btn--ghost" on:click={() => openUrl(live.homepage)}>Homepage<Icon name="external" /></button>
               {/if}
               {#if isPkg && pkgInfo?.homepage}
                 <button class="ewe-btn ewe-btn--sm ewe-btn--ghost" on:click={() => openUrl(pkgInfo.homepage)}>Homepage<Icon name="external" /></button>
@@ -223,7 +259,7 @@
         </div>
 
         <div class="detail__body">
-          <AppNeeds id={isInstalled ? (isPkg ? item.pkg : item.id) : null} name={item.name} />
+          <AppNeeds id={isInstalled && !isEep ? (isPkg ? item.pkg : item.id) : null} name={item.name} />
           {#if !isPkg && item.screenshots?.length}
             <div class="shots">
               {#each item.screenshots as shot}
@@ -234,6 +270,8 @@
           <p class="detail__desc">
             {#if isPkg}
               {pkgInfo?.description || item.plainDesc || "No description."}
+            {:else if isEep}
+              {item.plainDesc || "No description."}
             {:else}
               {stripHtml(item.description, true) || "No description."}
             {/if}
@@ -244,6 +282,12 @@
                 <span class="ewe-badge"><span class="ewe-badge__label">{cat}</span></span>
               {/each}
             </div>
+          {/if}
+          {#if isEep && live.installed && live.update}
+            <dl class="ewe-kv">
+              <dt>Installed</dt><dd class="ewe-kv__mono">{live.installed}</dd>
+              <dt>Available</dt><dd class="ewe-kv__mono">{live.version}</dd>
+            </dl>
           {/if}
           {#if isPkg && pkgInfo?.installedVersion && pkgInfo.installedVersion !== pkgInfo.version}
             <dl class="ewe-kv">

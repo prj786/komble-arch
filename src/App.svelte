@@ -20,7 +20,7 @@
     toast
   } from "./lib/stores";
   import { initSettings, saveSettings } from "./lib/persist";
-  import { loadCatalog, refreshInstalled, refreshPkgs } from "./lib/actions";
+  import { loadCatalog, refreshInstalled, refreshPkgs, refreshEep } from "./lib/actions";
   import * as api from "./lib/api";
   import { watchTheme } from "./lib/theme.js";
   import Sidebar from "./lib/components/Sidebar.svelte";
@@ -60,6 +60,7 @@
       loadCatalog();
       refreshInstalled();
       refreshPkgs();
+      refreshEep();
 
       api
         .systemCheck()
@@ -87,6 +88,11 @@
       api
         .listUpgradable()
         .then((packages) => updatesInfo.update((u) => ({ ...u, packages })))
+        .catch(() => {});
+      // eep's cheap count (no Nix call); nothing is spawned without eep
+      api
+        .eepUpdates(true)
+        .then((r) => updatesInfo.update((u) => ({ ...u, eepCount: r.count || 0 })))
         .catch(() => {});
 
       unlisteners.push(

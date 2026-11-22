@@ -1,8 +1,9 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import { listen } from "@tauri-apps/api/event";
-  import { updatesInfo, settings, progress, systemInfo, toast, conflictPrompt, restartNeed } from "../stores";
-  import { refreshInstalled } from "../actions";
+  import { updatesInfo, settings, progress, systemInfo, toast, conflictPrompt, restartNeed, eepOn, eepBusy } from "../stores";
+  import { refreshInstalled, eepRun } from "../actions";
+  import { formatBytes } from "../utils";
   import * as api from "../api";
   import Page from "./ui/Page.svelte";
   import Group from "./ui/Group.svelte";
@@ -14,6 +15,7 @@
   let working = false;
   let updatingAll = false;
   let fixingContrib = false;
+  let eepWorking = false; // the eep group's "Update all"
 
   // ── the ewe desktop: the DE itself + Komble + ewe Settings + ewe Sync …,
   // here so nobody ever hand-downloads a .tar.zst or .pkg.tar.zst again.
@@ -30,7 +32,7 @@
   // used to be clickable during each other's quiet moments, which launched two
   // makepkg pipelines side by side (the backend now also refuses a second
   // concurrent upgrade outright).
-  $: busyAny = working || eweWorking || updatingAll || checking;
+  $: busyAny = working || eweWorking || updatingAll || checking || eepWorking;
 
   // viaRepo: the [ewe] pacman repo delivers this one, so its update IS the
   // system upgrade (Arch never upgrades a single package) — the row still
@@ -127,7 +129,10 @@
 
   async function check() {
     checking = true;
-    const res = { appimages: [], packages: [], errors: [], self: null, desktop: 0, checkedAt: Date.now() };
+    const res = { appimages: [], packages: [], eep: [], eepCount: 0, errors: [], self: null, desktop: 0, checkedAt: Date.now() };
+    // eep apps, alongside the rest: a newer app list from eep's server
+    // first (a failure there is a warning; the list eep has still counts)
+    const eepCheck = api.eepUpdates(false, true).catch((e) => ({ error: String(e) }));
     try {
       const r = await api.checkAppimageUpdates($settings.githubToken);
       res.appimages = r.updates;
@@ -157,6 +162,10 @@
     res.desktop =
       (st && st.updateAvailable && !st.packaged ? 1 : 0) +
       rows.filter((r) => r.updateAvailable && r.managed !== "repo").length;
+    const eu = await eepCheck;
+    res.eep = eu.updates || [];
+    res.eepCount = res.eep.length;
+    for (const why of [eu.warning, eu.error]) if (why) res.errors.push(`eep: ${why}`);
     updatesInfo.set(res);
     checking = false;
     // nudge the bar to re-probe now, so its count moves with this one
@@ -172,6 +181,27 @@
       updatesInfo.update((i) => ({ ...i, appimages: i.appimages.filter((x) => x.id !== u.id) }));
     } catch (e) {
       toast(e, "error");
+    }
+  }
+
+  // eep apps update one by one or together — each is its own closure in the
+  // Nix store, so there is no partial-upgrade question as with pacman.
+  // Afterwards the list is read again (no server check): what is left.
+  async function updateEep(list) {
+    await eepRun("update", list.map((u) => ({ eep: u.id, name: u.name })));
+    try {
+      const r = await api.eepUpdates(false, false);
+      updatesInfo.update((i) => ({ ...i, eep: r.updates || [], eepCount: (r.updates || []).length }));
+    } catch {
+      // the next check says
+    }
+  }
+  async function updateEepAll() {
+    eepWorking = true;
+    try {
+      await updateEep($updatesInfo.eep);
+    } finally {
+      eepWorking = false;
     }
   }
 
@@ -224,6 +254,7 @@
     updatingAll = true;
     try {
       for (const u of [...$updatesInfo.appimages]) await updateOne(u);
+      if ($updatesInfo.eep.length) await updateEepAll();
       // updateDesktop re-checks when done, so a system upgrade it ran for a
       // repo-delivered row is not run a second time here
       if (desktopUpdates > 0) await updateDesktop();
@@ -288,7 +319,7 @@
     working = false;
   }
 
-  $: total = $updatesInfo.appimages.length + systemPkgs.length + desktopUpdates;
+  $: total = $updatesInfo.appimages.length + $updatesInfo.eep.length + systemPkgs.length + desktopUpdates;
 </script>
 
 <Page title="Updates" desc={checking ? "Checking…" : total === 0 ? "You’re up to date" : `${total} update${total === 1 ? "" : "s"} available`}>
@@ -396,6 +427,56 @@
       {/each}
     {/if}
   </Group>
+
+  {#if $eepOn || $updatesInfo.eep.length}
+    <Group title="eep apps · {$updatesInfo.eep.length}">
+      <svelte:fragment slot="action">
+        {#if $updatesInfo.eep.length > 1}
+          <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" disabled={busyAny} on:click={updateEepAll}>
+            {eepWorking ? "Updating…" : "Update all"}
+          </button>
+        {/if}
+      </svelte:fragment>
+      {#if $updatesInfo.eep.length === 0}
+        <div class="ewe-empty ewe-empty--compact">
+          {#if checking}
+            <span class="ewe-empty__icon"><span class="ewe-spinner" aria-hidden="true"></span></span>
+            <div class="ewe-empty__title">Checking…</div>
+          {:else}
+            <span class="ewe-empty__icon"><Icon name="success" /></span>
+            <div class="ewe-empty__title">Your eep apps are up to date</div>
+          {/if}
+        </div>
+      {:else}
+        {#each $updatesInfo.eep as u (u.id)}
+          {@const key = `eep:${u.id}`}
+          {@const p = $progress[key]}
+          <div class="ewe-row">
+            <div class="ewe-row__text">
+              <div class="ewe-row__title">{u.name}</div>
+              <!-- a rebuild keeps its version (newer libraries underneath);
+                   eep's patches make the download smaller than the pieces -->
+              <div class="ewe-row__desc">
+                {#if u.rebuildOnly}<span class="ver">{u.to}</span>, rebuilt{:else}<span class="ver">{u.from}<span class="row-arrow">→</span>{u.to}</span>{/if}{#if u.download}{` · ${formatBytes(u.download)}`}{#if u.downloadFull > u.download}{` instead of ${formatBytes(u.downloadFull)}`}{/if}{/if}
+              </div>
+            </div>
+            <div class="ewe-row__trail">
+              {#if $eepBusy[key]}
+                <span class="busy">
+                  <span class="ewe-spinner ewe-spinner--sm" aria-hidden="true"></span>
+                  {p && p.total > 0 ? `Updating… ${Math.round((p.downloaded / p.total) * 100)}%` : "Updating…"}
+                </span>
+              {:else}
+                <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" aria-label="Update {u.name}" disabled={eepWorking} on:click={() => updateEep([u])}>
+                  <Icon name="download" />Update
+                </button>
+              {/if}
+            </div>
+          </div>
+        {/each}
+      {/if}
+    </Group>
+  {/if}
 
   <Group title="System packages · {systemPkgs.length}">
     <svelte:fragment slot="action">

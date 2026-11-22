@@ -9,10 +9,12 @@
     aurReview,
     busyPkgs,
     setPkgBusy,
+    eepBusy,
     toast
   } from "../stores";
   import { installFromItem, installPackage, installFirstParty } from "../api";
-  import { refreshPkgs } from "../actions";
+  import { refreshPkgs, eepRun } from "../actions";
+  import { formatBytes } from "../utils";
   import AppIcon from "./AppIcon.svelte";
 
   export let item;
@@ -20,25 +22,47 @@
   $: isPkg = item.kind === "pkg";
   $: isAur = isPkg && item.section === "aur";
   $: isEwe = isPkg && item.section === "ewe"; // first-party (GitHub release)
+  $: isEep = item.kind === "eep"; // eep.rs: id "eep:<id>", installed = its version
   $: prog = !isPkg && $progress[item.id];
   // busy state is SHARED (stores.busyPkgs) so the detail modal agrees with us
-  $: pkgBusy = isPkg && $busyPkgs.has(item.pkg);
+  $: eepVerb = isEep && $eepBusy[item.id];
+  $: pkgBusy = isPkg ? $busyPkgs.has(item.pkg) : !!eepVerb;
   $: isInstalled = isPkg
     ? item.installed || $trackedPkgs.some((d) => d.package === item.pkg)
-    : $installedIds.has(item.id);
+    : isEep
+      ? item.installed != null
+      : $installedIds.has(item.id);
+  $: doing = eepVerb === "remove" ? "Removing" : eepVerb === "update" ? "Updating" : "Installing";
   $: pct = prog && prog.total > 0 ? Math.min(100, Math.round((prog.downloaded / prog.total) * 100)) : null;
   // App card, "Sources": repository names are a neutral Badge, the AUR is
-  // warning (built from source), AppImages are info
+  // warning (built from source), AppImages are info, eep (ewe's own) accent
   $: source = isAur
     ? { tone: "warning", label: "AUR" }
     : isPkg
       ? { tone: isEwe ? "accent" : "", label: item.section || "pacman" }
-      : { tone: "info", label: "AppImage" };
-  $: meta = isPkg ? item.version || "" : (item.categories || []).slice(0, 2).join(" · ");
-  $: dev = isPkg ? (isAur ? "Arch User Repository" : isEwe ? "ewe" : "Arch package") : item.authors?.[0]?.name || "";
+      : isEep
+        ? { tone: "accent", label: "eep" }
+        : { tone: "info", label: "AppImage" };
+  $: meta = isPkg
+    ? item.version || ""
+    : isEep
+      ? [item.version, formatBytes(item.downloadSize)].filter(Boolean).join(" · ")
+      : (item.categories || []).slice(0, 2).join(" · ");
+  $: dev = isPkg
+    ? isAur ? "Arch User Repository" : isEwe ? "ewe" : "Arch package"
+    : isEep
+      ? item.appKind === "cli" ? "Command-line tool" : item.appKind === "tool" ? "Tool" : ""
+      : item.authors?.[0]?.name || "";
 
   async function install(e) {
     e.stopPropagation();
+    // eep: an update is the one action an installed card still offers
+    if (isEep) {
+      if (!prog && !pkgBusy && !item.unavailable && (!isInstalled || item.update)) {
+        eepRun(isInstalled ? "update" : "install", [item]);
+      }
+      return;
+    }
     if (prog || isInstalled || pkgBusy) return;
     // AUR packages build from a user-reviewed PKGBUILD, never one-click —
     // hand over to the AUR view with the review already open.
@@ -97,14 +121,14 @@
       <div
         class="ewe-progress {pct === null ? 'ewe-progress--indeterminate' : ''}"
         role="progressbar"
-        aria-label="Installing {item.name}"
+        aria-label="{doing} {item.name}"
         aria-valuemin="0"
         aria-valuemax="100"
         aria-valuenow={pct ?? undefined}
       >
         <div class="ewe-progress__head">
           <span class="ewe-progress__label">
-            {prog && prog.phase === "integrating" ? "Adding to the app menu…" : pct !== null ? `Installing… ${pct}%` : "Installing…"}
+            {prog && prog.phase === "integrating" ? "Adding to the app menu…" : pct !== null ? `${doing}… ${pct}%` : `${doing}…`}
           </span>
         </div>
         <div class="ewe-progress__track"><div class="ewe-progress__fill" style="--value: {pct ?? 0}%"></div></div>
@@ -114,8 +138,17 @@
         <span class="ewe-badge {source.tone ? `ewe-badge--${source.tone}` : ''}"><span class="ewe-badge__label">{source.label}</span></span>
         {#if meta}<span>{meta}</span>{/if}
       </span>
-      {#if isInstalled}
+      {#if isEep && isInstalled && item.update}
+        <button
+          class="ewe-btn ewe-btn--sm ewe-btn--secondary"
+          aria-label="Update {item.name}"
+          on:click={install}
+          on:keydown|stopPropagation>Update</button
+        >
+      {:else if isInstalled}
         <span class="ewe-badge ewe-badge--success"><span class="ewe-badge__label">Installed</span></span>
+      {:else if isEep && item.unavailable}
+        <span class="ewe-badge" title={item.unavailable}><span class="ewe-badge__label">Unavailable</span></span>
       {:else}
         <button
           class="ewe-btn ewe-btn--sm ewe-btn--primary"

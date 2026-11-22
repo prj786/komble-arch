@@ -33,7 +33,16 @@ been run against a live pacman. Treat it as a working skeleton.
   keeps the AppImage's own `StartupWMClass`, so the desktop matches its
   window to the app (the right icon, and a click focuses it instead of
   starting a second copy).
-- **Updates** — repo, AUR and AppImage updates in one view. The bar's
+- **eep apps** — where ewe's `eep` is on PATH: apps prebuilt from the Nix
+  binary cache, one card per app in `~/Applications`. They show in Discover
+  (source "eep"), Installed and Updates; install, update and remove run
+  `eep` as you, with no password (`src-tauri/src/eep.rs`). Every eep command
+  prints one JSON object and exits 0, so Komble reads the reply
+  (`{"ok":false,"error":…}` is the failure, never the exit status); the
+  progress bar is Nix's own fetch lines on eep's stderr, and the update count
+  is `eep updates --count`. Without eep none of it shows and nothing is
+  spawned. Mock: `dev-mock.html` (`?noeep`, `?eepdown`, `?eepfail=install`).
+- **Updates** — repo, AUR, AppImage and eep updates in one view. The bar's
   update indicator is the desktop's own (it counts with `checkupdates`
   whether or not Komble runs); Komble pokes it after every transaction.
   Komble quits when its window closes — a transaction in flight (a pacman
@@ -161,7 +170,7 @@ src/                  Svelte frontend (views in src/lib/components)
 src-tauri/src/        lib.rs (the window, routes, setup), pacman.rs (repos + AUR),
                       catalog.rs + appimage.rs (shared with the Debian build),
                       system.rs, registry.rs, util.rs, picks.rs (apps picked
-                      in the ewe installer)
+                      in the ewe installer), eep.rs (eep apps, through eep)
 packaging/            komble-helper, polkit policy, .desktop
 PKGBUILD              how this is actually installed
 ```
