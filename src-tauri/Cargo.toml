@@ -1,6 +1,6 @@
 [package]
 name = "komble-arch"
-version = "0.25.0-beta"
+version = "0.25.1-beta"
 description = "A modern app store for Arch Linux — pacman, the AUR and AppImages"
 authors = ["scubba"]
 license = "MIT"
@@ -16,7 +16,9 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-shell = "2"
-tauri-plugin-dialog = "2"
+# Open/Save through the portal, so ewe's file picker draws it (ewe RFC-011);
+# the default "gtk3" feature drew GTK's dialog inside this app instead
+tauri-plugin-dialog = { version = "2", default-features = false, features = ["xdg-portal"] }
 tauri-plugin-fs = "2"
 tauri-plugin-http = "2"
 tauri-plugin-store = "2"
