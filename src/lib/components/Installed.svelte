@@ -1,6 +1,7 @@
 <script>
-  import { installed, trackedPkgs, firstPartyPkgs, progress, route, toast } from "../stores";
-  import { refreshInstalled, refreshPkgs } from "../actions";
+  import { onMount } from "svelte";
+  import { installed, trackedPkgs, firstPartyPkgs, progress, route, toast, eepOn, eepApps, eepInstalled, eepBusy } from "../stores";
+  import { refreshInstalled, refreshPkgs, refreshEep, eepRun } from "../actions";
   import * as api from "../api";
   import { formatDate } from "../utils";
   import { displayName } from "../names.js";
@@ -47,7 +48,18 @@
     }
   }
 
-  $: nothing = !$firstPartyPkgs.length && !$installed.length && !$trackedPkgs.length;
+  // eep apps: a card dropped into ~/Applications (Files, the web) is an
+  // install too — read the cards again whenever the page opens
+  onMount(() => refreshEep());
+
+  function removeEep(a) {
+    if (confirming !== `eep:${a.id}`) return askConfirm(`eep:${a.id}`);
+    confirming = null;
+    eepRun("remove", [{ eep: a.id, name: a.name }]);
+  }
+  const eepVerbs = { install: "Installing…", update: "Updating…", remove: "Removing…" };
+
+  $: nothing = !$firstPartyPkgs.length && !$installed.length && !$trackedPkgs.length && !$eepInstalled.length;
   const line = (...parts) => parts.filter(Boolean).join(" · ");
 </script>
 
@@ -80,6 +92,48 @@
             </div>
           </div>
         {/each}
+      </Group>
+    {/if}
+
+    {#if $eepOn || $eepInstalled.length}
+      <!-- eep apps (eep.rs): one card in ~/Applications each; no password -->
+      <Group title="eep apps · {$eepInstalled.length}">
+        {#if $eepInstalled.length === 0}
+          <div class="ewe-empty ewe-empty--compact">
+            <span class="ewe-empty__icon"><Icon name="app" /></span>
+            <div class="ewe-empty__title">No eep apps yet</div>
+            <div class="ewe-empty__desc">eep apps come ready-built and install without a password.</div>
+            <div class="ewe-empty__actions">
+              <button class="ewe-btn ewe-btn--sm ewe-btn--secondary" on:click={() => route.set("discover")}>Discover apps</button>
+            </div>
+          </div>
+        {:else}
+          {#each $eepInstalled as a (a.id)}
+            {@const key = `eep:${a.id}`}
+            {@const known = $eepApps.find((x) => x.id === key)}
+            <div class="ewe-row ewe-row--tall">
+              <span class="ewe-row__lead"><AppIcon name={a.name} src={known?.icon || ""} size="sm" /></span>
+              <div class="ewe-row__text">
+                <div class="ewe-row__title">{a.name}</div>
+                <div class="ewe-row__desc">{line(a.version, a.kind === "cli" ? "Command-line tool" : "", known?.update ? (known.version === a.version ? "Update available" : `${known.version} available`) : "")}</div>
+              </div>
+              <div class="ewe-row__trail">
+                <span class="ewe-tag">eep</span>
+                {#if $eepBusy[key]}
+                  <span class="busy"><span class="ewe-spinner ewe-spinner--sm" aria-hidden="true"></span>{eepVerbs[$eepBusy[key]]}</span>
+                {:else}
+                  <button
+                    class="ewe-btn ewe-btn--sm {confirming === key ? 'ewe-btn--danger' : 'ewe-btn--ghost is-danger'}"
+                    aria-label={confirming === key ? undefined : `Remove ${a.name}`}
+                    on:click={() => removeEep(a)}
+                  >
+                    <Icon name="trash" />{confirming === key ? `Remove ${a.name}` : "Remove"}
+                  </button>
+                {/if}
+              </div>
+            </div>
+          {/each}
+        {/if}
       </Group>
     {/if}
 

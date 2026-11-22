@@ -19,6 +19,22 @@ export const updateAppimage = (id, token) =>
   invoke("update_appimage", { id, token: token || null });
 export const appimageFileInfo = (path) => invoke("appimage_file_info", { path });
 
+// eep apps (src-tauri/src/eep.rs; the `eep` CLI, when it is on PATH).
+// eepAvailable → { available: false } without eep, else
+// { available: true, release, apps: [{id, name, kind, version, description,
+// icon (a data: URL of eep's local copy, else https, else ""), homepage,
+// download, disk, unavailable, installed, update}], warning?, error? };
+// refresh = ask eep's server for a newer list first
+export const eepAvailable = (refresh = false) => invoke("eep_available", { refresh });
+export const eepList = () => invoke("eep_list");
+export const eepInstall = (ids) => invoke("eep_install", { ids });
+export const eepRemove = (ids) => invoke("eep_remove", { ids });
+// no ids = every app with an update
+export const eepUpdate = (ids = []) => invoke("eep_update", { ids });
+// count: only the number (`eep updates --count`, cheap); refresh as above
+export const eepUpdates = (count = false, refresh = false) => invoke("eep_updates", { count, refresh });
+export const eepDoctor = () => invoke("eep_doctor");
+
 // what an installed app still needs (needs.rs) — { needs: [{id, title, detail, action, ok}] }
 export const appNeeds = (id) => invoke("app_needs", { id });
 export const fixAppNeed = (need) => invoke("fix_app_need", { need });

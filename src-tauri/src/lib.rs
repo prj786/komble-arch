@@ -1,6 +1,7 @@
 mod appimage;
 mod catalog;
 mod de;
+mod eep;
 mod first_party;
 mod needs;
 mod pacman;
@@ -254,6 +255,8 @@ async fn background_update_loop(app: AppHandle) {
             if let Ok(res) = appimage::check_updates_inner(&app, token).await {
                 count += res.updates.len();
             }
+            // eep apps: the cheap count (no Nix call), 0 without eep
+            count += eep::update_count().await;
             if count > 0 && count as i64 != last {
                 use tauri_plugin_notification::NotificationExt;
                 let _ = app
@@ -339,6 +342,14 @@ pub fn run() {
             appimage::update_appimage,
             appimage::appimage_file_info,
             appimage::install_local_appimage,
+            // eep apps (the `eep` CLI, when it is on PATH)
+            eep::eep_available,
+            eep::eep_list,
+            eep::eep_install,
+            eep::eep_remove,
+            eep::eep_update,
+            eep::eep_updates,
+            eep::eep_doctor,
             // repositories
             pacman::browse_packages,
             pacman::package_repos,
