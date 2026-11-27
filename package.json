@@ -1,7 +1,7 @@
 {
   "name": "komble-arch",
   "private": true,
-  "version": "0.26.0-beta",
+  "version": "0.26.1-beta",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,7 +14,6 @@
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-autostart": "^2.5.0",
     "@tauri-apps/plugin-dialog": "^2.4.0",
-    "@tauri-apps/plugin-notification": "^2.3.1",
     "@tauri-apps/plugin-opener": "^2.5.0",
     "@tauri-apps/plugin-os": "^2.3.1",
     "@tauri-apps/plugin-store": "^2.4.0"

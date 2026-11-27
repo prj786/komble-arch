@@ -1,12 +1,15 @@
 mod appimage;
 mod catalog;
+mod crash;
 mod de;
 mod eep;
 mod first_party;
 mod needs;
+mod notify;
 mod pacman;
 mod picks;
 mod plugins;
+mod pointer;
 mod registry;
 mod system;
 mod util;
@@ -151,16 +154,20 @@ fn show_main(app: &AppHandle) {
         let _ = w.set_focus();
         return;
     }
-    // the same window tauri.conf.json declared until 0.22.1
+    // the same window tauri.conf.json declared until 0.22.1. No minimum size:
+    // Hyprland gives a tiled window the size of its tile whatever the window
+    // asks for, and a window that insists on more is drawn squeezed into the
+    // tile (cropped on a scale-1 screen) while the pointer is not, so every
+    // hover and click lands beside what is drawn. The page takes any size.
     let built = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::default())
         .title("Komble")
         .inner_size(1180.0, 760.0)
-        .min_inner_size(420.0, 480.0)
         .center()
         .decorations(false)
         .build();
-    if let Err(e) = built {
-        eprintln!("komble: could not open the window: {e}");
+    match built {
+        Ok(w) => pointer::forget_hover_on_leave(&w),
+        Err(e) => eprintln!("komble: could not open the window: {e}"),
     }
 }
 
@@ -258,13 +265,8 @@ async fn background_update_loop(app: AppHandle) {
             // eep apps: the cheap count (no Nix call), 0 without eep
             count += eep::update_count().await;
             if count > 0 && count as i64 != last {
-                use tauri_plugin_notification::NotificationExt;
-                let _ = app
-                    .notification()
-                    .builder()
-                    .title("Komble — updates available")
-                    .body(format!("{count} update(s) ready to install."))
-                    .show();
+                // a note nobody received is not worth a word (notify.rs)
+                let _ = notify::updates_ready(count).await;
                 let _ = app.emit("updates-count", count);
             }
             last = count as i64;
@@ -274,6 +276,7 @@ async fn background_update_loop(app: AppHandle) {
 }
 
 pub fn run() {
+    crash::log_panics();
     if let Some(p) = std::env::args().skip(1).find_map(|a| openable_path(&a)) {
         stash(&PENDING_OPEN, p);
     }
@@ -306,7 +309,6 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_store::Builder::new().build())
-        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(
