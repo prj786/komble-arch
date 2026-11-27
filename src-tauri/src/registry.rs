@@ -64,29 +64,60 @@ fn write_map(
 /// fire-and-forget thread raced exactly that check).
 pub(crate) fn mirror_manifest(app: &AppHandle) {
     let Some(bin) = manifest_bin() else { return };
-    let manifest = build_manifest(app);
-    write_manifest(&bin, manifest.to_string());
+    // A manifest that could not be read is not an empty one. Writing the
+    // union with "nothing" would drop every app this machine has not
+    // installed again yet, and the next sync would take that to the account.
+    let Some(existing) = read_manifest(&bin) else {
+        eprintln!("komble: apps.installed could not be read; not mirroring this time");
+        return;
+    };
+    write_manifest(&bin, manifest_from(app, &existing).to_string());
 }
 
 /// The manifest as Komble would write it now: local registry entries
 /// (sources normalised to repo | aur | first-party, paths moved to `file`)
 /// unioned with the file's foreign entries. Pure — nothing is written.
 pub(crate) fn build_manifest(app: &AppHandle) -> Value {
-    fn trim(v: &Value, keys: &[&str]) -> Value {
-        let mut m = Map::new();
-        if let Some(o) = v.as_object() {
-            for k in keys {
-                if let Some(x) = o.get(*k) {
-                    m.insert((*k).into(), x.clone());
-                }
+    let existing = manifest_bin()
+        .and_then(|bin| read_manifest(&bin))
+        .unwrap_or_default();
+    manifest_from(app, &existing)
+}
+
+fn trim(v: &Value, keys: &[&str]) -> Value {
+    let mut m = Map::new();
+    if let Some(o) = v.as_object() {
+        for k in keys {
+            if let Some(x) = o.get(*k) {
+                m.insert((*k).into(), x.clone());
             }
         }
-        Value::Object(m)
     }
+    Value::Object(m)
+}
+
+/// An AppImage as the manifest lists it: id, name, version and `github`, the
+/// release page For you installs it from again. The registry calls that
+/// field `repo` (appimage.rs). Until 0.26.1 the manifest copied a `github`
+/// the registry never had, so no AppImage in a backup could be installed
+/// again: For you sent every one of them to Discover.
+fn appimage_entry(v: &Value) -> Value {
+    let mut e = trim(v, &["id", "name", "version"]);
+    let source = ["repo", "github"]
+        .iter()
+        .filter_map(|k| v.get(*k).and_then(|s| s.as_str()))
+        .find(|s| !s.is_empty());
+    if let Some(source) = source {
+        e["github"] = Value::String(source.to_string());
+    }
+    e
+}
+
+fn manifest_from(app: &AppHandle, existing: &Map<String, Value>) -> Value {
     let ai: Vec<Value> = read_map(app, APPIMAGES)
         .unwrap_or_default()
         .values()
-        .map(|v| trim(v, &["id", "name", "github", "version"]))
+        .map(appimage_entry)
         .collect();
     let pk: Vec<Value> = read_map(app, PKGS)
         .unwrap_or_default()
@@ -108,9 +139,6 @@ pub(crate) fn build_manifest(app: &AppHandle) -> Value {
         .collect();
     // union with the existing manifest: local entries win per key, foreign
     // (not-yet-restored) entries survive
-    let existing = manifest_bin()
-        .map(|bin| read_manifest(&bin))
-        .unwrap_or_default();
     let ai = union_by(ai, existing.get("appimages"), "id");
     let pk = union_by(pk, existing.get("packages"), "package");
     serde_json::json!({ "appimages": ai, "packages": pk })
@@ -129,15 +157,29 @@ fn manifest_bin() -> Option<std::path::PathBuf> {
     None
 }
 
-fn read_manifest(bin: &std::path::Path) -> Map<String, Value> {
-    std::process::Command::new(bin)
+/// `apps.installed` as the file has it. None when it could not be read at
+/// all: ewe-conf did not run, or answered something else than the manifest
+/// or "there is none yet".
+fn read_manifest(bin: &std::path::Path) -> Option<Map<String, Value>> {
+    let out = std::process::Command::new(bin)
         .args(["get", "apps.installed"])
         .stdin(std::process::Stdio::null())
         .output()
-        .ok()
-        .and_then(|o| serde_json::from_slice::<Value>(&o.stdout).ok())
-        .and_then(|v| v.as_object().cloned())
-        .unwrap_or_default()
+        .ok()?;
+    parse_manifest(&out.stdout)
+}
+
+/// ewe-conf's answer to `get apps.installed`: the manifest, or
+/// `{"error": "no-manifest"}` on a machine that has none yet (an empty one).
+/// Any other error, or no JSON object, is not a manifest.
+fn parse_manifest(stdout: &[u8]) -> Option<Map<String, Value>> {
+    let v: Value = serde_json::from_slice(stdout).ok()?;
+    let m = v.as_object()?;
+    match m.get("error").and_then(|e| e.as_str()) {
+        None => Some(m.clone()),
+        Some("no-manifest") | Some("no-key") => Some(Map::new()),
+        Some(_) => None,
+    }
 }
 
 /// Run to completion (ewe-conf is a Python start-up, ~100 ms) and LOGGED: a
@@ -182,7 +224,9 @@ fn union_by(local: Vec<Value>, existing: Option<&Value>, key: &str) -> Vec<Value
 /// mirror_manifest's union would otherwise resurrect the entry forever.
 pub(crate) fn manifest_forget(kind: &str, name: &str) {
     let Some(bin) = manifest_bin() else { return };
-    let mut m = read_manifest(&bin);
+    let Some(mut m) = read_manifest(&bin) else {
+        return;
+    };
     let key = if kind == "appimages" { "id" } else { "package" };
     if let Some(arr) = m.get_mut(kind).and_then(|v| v.as_array_mut()) {
         arr.retain(|v| v.get(key).and_then(|k| k.as_str()) != Some(name));
@@ -224,4 +268,55 @@ pub fn remove_package(app: &AppHandle, package: &str) -> Result<(), String> {
     let mut m = read_map(app, PKGS)?;
     m.remove(package);
     write_map(app, PKGS, m)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn an_appimage_takes_its_release_page_from_the_registrys_repo() {
+        let registry = json!({
+            "id": "obsidian", "name": "Obsidian", "version": "1.9.2",
+            "path": "/home/a/.local/share/appimages/obsidian.AppImage",
+            "repo": "https://github.com/obsidianmd/obsidian-releases",
+        });
+        assert_eq!(
+            appimage_entry(&registry),
+            json!({
+                "id": "obsidian", "name": "Obsidian", "version": "1.9.2",
+                "github": "https://github.com/obsidianmd/obsidian-releases",
+            })
+        );
+    }
+
+    #[test]
+    fn an_appimage_from_a_local_file_has_no_release_page() {
+        let registry = json!({ "id": "tool", "name": "Tool", "version": "1", "repo": null });
+        assert_eq!(
+            appimage_entry(&registry),
+            json!({ "id": "tool", "name": "Tool", "version": "1" })
+        );
+    }
+
+    #[test]
+    fn no_manifest_yet_is_an_empty_one() {
+        let none = br#"{"error": "no-manifest", "key": "apps.installed"}"#;
+        assert_eq!(parse_manifest(none), Some(Map::new()));
+    }
+
+    #[test]
+    fn a_manifest_is_read_as_it_is() {
+        let m = parse_manifest(br#"{"appimages": [], "packages": [{"package": "gimp"}]}"#);
+        assert_eq!(m.unwrap()["packages"][0]["package"], "gimp");
+    }
+
+    #[test]
+    fn an_answer_that_is_not_a_manifest_is_not_an_empty_one() {
+        assert_eq!(parse_manifest(b""), None);
+        assert_eq!(parse_manifest(b"Traceback (most recent call last):"), None);
+        assert_eq!(parse_manifest(br#"{"error": "bad-key"}"#), None);
+        assert_eq!(parse_manifest(b"[]"), None);
+    }
 }
