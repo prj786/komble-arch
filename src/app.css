@@ -557,6 +557,13 @@ code {
   .toolbar .select-trigger {
     width: calc(7 * var(--control-md));
   }
+  /* in a pane narrower than its five sources (a small tile) the control
+     scrolls inside the pane instead of running out of it */
+  .toolbar > .ewe-seg {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
   .vgrid {
     /* the App card's width (App card: 208px) is the grid's column minimum */
     --col: calc(6 * var(--control-lg) + var(--space-md));

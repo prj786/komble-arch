@@ -22,7 +22,6 @@ tauri-plugin-dialog = { version = "2", default-features = false, features = ["xd
 tauri-plugin-fs = "2"
 tauri-plugin-http = "2"
 tauri-plugin-store = "2"
-tauri-plugin-notification = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-os = "2"
@@ -31,6 +30,11 @@ tauri-plugin-updater = { version = "2", optional = true }
 # the platform webview at close time (lib.rs: the web process is ended with
 # the page, or WebKit caches it page-less for 30 min); Tauri's own pin
 webkit2gtk = { version = "2.0", features = ["v2_40"] }
+# the web view's leave event (pointer.rs); the gtk that Tauri itself uses
+gtk = "0.18"
+# the "updates are ready" notification (notify.rs). tokio, like the zbus the
+# portal file picker already brings in: one executor, never block_on
+zbus = { version = "5", default-features = false, features = ["tokio"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "gzip", "stream"] }
