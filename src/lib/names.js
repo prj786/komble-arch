@@ -10,6 +10,7 @@ export const FIRST_PARTY_NAMES = {
   "ewe-sync": "ewe Sync",
   "ewe-safe": "ewe Safe",
   "ewe-mobile": "ewe Mobile",
+  "ewe-mail": "ewe Mail",
   "ewe-browser": "ewe Browser",
   "ewe-cast": "ewe Cast",
   "ewe-companion": "Shaun"

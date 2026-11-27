@@ -58,6 +58,11 @@ pub const DISCOVER: &[(&str, &str, &str)] = &[
         "prj786/ewe-browser",
         "The web, your files and your music in one window",
     ),
+    (
+        "ewe-mail",
+        "prj786/ewe-mail",
+        "Your mail — Gmail and any other account, in one inbox",
+    ),
 ];
 
 const EWE_REPO: &str = "prj786/ewe";
@@ -577,6 +582,8 @@ mod tests {
         assert!(m("ewe-settings", "ewe settings"));
         assert!(m("ewe-browser", "browser"));
         assert!(m("ewe-sync", "account"));
+        assert!(m("ewe-mail", "ewe mail"));
+        assert!(m("ewe-mail", "gmail"));
         assert!(m("komble-arch", "software"));
         assert!(!m("ewe-cast", "passwords"));
         assert!(!m("ewe-cast", ""));
